@@ -28,6 +28,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
+import { signOutAction } from "@/app/actions/auth"
 
 export function NavUser({
   user,
@@ -98,9 +99,9 @@ export function NavUser({
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => signOutAction()}>
               <IconLogout />
-              Log out
+              Cerrar sesión
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
