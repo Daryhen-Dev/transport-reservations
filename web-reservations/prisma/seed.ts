@@ -11,7 +11,7 @@ const prisma = new PrismaClient({ adapter });
 const ROLE_NAMES = ["SUPER_ADMIN", "AGENCY_ADMIN", "SUCURSAL_USER"] as const;
 
 async function main() {
-  // Roles
+  // 1. Roles
   for (const name of ROLE_NAMES) {
     await prisma.role.upsert({
       where: { name },
@@ -20,11 +20,10 @@ async function main() {
     });
   }
 
-  // Super admin
-  const superAdminRole = await prisma.role.findUniqueOrThrow({
-    where: { name: "SUPER_ADMIN" },
-  });
+  const superAdminRole = await prisma.role.findUniqueOrThrow({ where: { name: "SUPER_ADMIN" } });
+  const agencyAdminRole = await prisma.role.findUniqueOrThrow({ where: { name: "AGENCY_ADMIN" } });
 
+  // 2. Super admin
   await prisma.user.upsert({
     where: { email: "admin@system.com" },
     update: {},
@@ -36,7 +35,7 @@ async function main() {
     },
   });
 
-  // Agency (única)
+  // 3. Agency (única, ID fijo para idempotencia)
   const agency = await prisma.agency.upsert({
     where: { id: "agency_main" },
     update: {},
@@ -46,7 +45,7 @@ async function main() {
     },
   });
 
-  // Sucursal inicial "main"
+  // 4. Sucursal inicial "main"
   await prisma.branch.upsert({
     where: { slug: "main" },
     update: {},
@@ -57,10 +56,24 @@ async function main() {
     },
   });
 
+  // 5. Agency admin (vinculado a la agencia)
+  await prisma.user.upsert({
+    where: { email: "admin@agencia.com" },
+    update: {},
+    create: {
+      name: "Admin Agencia",
+      email: "admin@agencia.com",
+      password: await bcrypt.hash("Agencia1234!", 12),
+      roleId: agencyAdminRole.id,
+      agencyId: agency.id,
+    },
+  });
+
   console.log("Seed completado:");
-  console.log("  → Super admin: admin@system.com / Admin1234!");
-  console.log("  → Agencia: Mi Agencia");
-  console.log("  → Sucursal inicial: Principal (slug: main)");
+  console.log("  → Super admin:   admin@system.com  / Admin1234!");
+  console.log("  → Agency admin:  admin@agencia.com / Agencia1234!");
+  console.log("  → Agencia:       Mi Agencia");
+  console.log("  → Sucursal:      Principal (slug: main)");
 }
 
 main()
