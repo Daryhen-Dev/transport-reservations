@@ -7,10 +7,33 @@ datasource db {
   provider = "postgresql"
 }
 
-enum Role {
-  SUPER_ADMIN
-  AGENCY_ADMIN
-  AGENCY_USER
+model Role {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  users     User[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Agency {
+  id        String   @id @default(cuid())
+  name      String
+  logoUrl   String?
+  branches  Branch[]
+  users     User[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Branch {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  agencyId  String
+  agency    Agency   @relation(fields: [agencyId], references: [id])
+  users     User[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model User {
@@ -18,7 +41,17 @@ model User {
   name      String
   email     String   @unique
   password  String
-  role      Role     @default(AGENCY_USER)
+  roleId    String
+  role      Role     @relation(fields: [roleId], references: [id])
+
+  // AGENCY_ADMIN → agencyId set, branchId null
+  // SUCURSAL_USER → branchId set, agencyId null
+  // SUPER_ADMIN   → both null
+  agencyId  String?
+  agency    Agency?  @relation(fields: [agencyId], references: [id])
+  branchId  String?
+  branch    Branch?  @relation(fields: [branchId], references: [id])
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
