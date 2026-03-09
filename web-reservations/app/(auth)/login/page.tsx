@@ -1,6 +1,7 @@
 "use client";
 
 import { useForm } from "react-hook-form";
+import { ROUTES } from "@/lib/constants";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { signIn } from "next-auth/react";
@@ -49,7 +50,7 @@ export default function LoginPage() {
 
     toast.success("Sesión iniciada");
     router.refresh();
-    router.push("/super-admin/dashboard");
+    router.push(ROUTES.SUPER_ADMIN_DASHBOARD);
   }
 
   return (
