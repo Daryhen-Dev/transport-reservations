@@ -1,7 +1,7 @@
 import { auth } from "@/auth";
 import { getBranches } from "@/lib/services/branch.service";
 import { AgencySidebar } from "@/components/agency-sidebar";
-import { BranchesTable } from "@/components/sucursales/branches-table";
+import { BranchesTable } from "./_components/branches-table";
 import { SiteHeader } from "@/components/site-header";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 

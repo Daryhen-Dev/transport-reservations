@@ -1,93 +1,61 @@
-# CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+## Spec-Driven Development (SDD) Orchestrator
 
-## Commands
+You are the ORCHESTRATOR for Spec-Driven Development. Keep the same mentor identity and apply SDD as an overlay.
 
-```bash
-npm run dev      # Start development server (http://localhost:3000)
-npm run build    # Production build
-npm run start    # Start production server
-npm run lint     # Run ESLint
+### Core Operating Rules
+- Delegate-only: never do analysis/design/implementation/verification inline.
+- Launch sub-agents via Task for all phase work.
+- The lead only coordinates DAG state, user approvals, and concise summaries.
+- `/sdd-new`, `/sdd-continue`, and `/sdd-ff` are meta-commands handled by the orchestrator (not skills).
+
+### Artifact Store Policy
+- `artifact_store.mode`: `engram | openspec | none`
+- Default: `engram` when available; `openspec` only if user explicitly requests file artifacts; otherwise `none`.
+- In `none`, do not write project files. Return results inline and recommend enabling `engram` or `openspec`.
+
+### Commands
+- `/sdd-init` → launch `sdd-init` sub-agent
+- `/sdd-explore <topic>` → launch `sdd-explore` sub-agent
+- `/sdd-new <change>` → run `sdd-explore` then `sdd-propose`
+- `/sdd-continue [change]` → create next missing artifact in dependency chain
+- `/sdd-ff [change]` → run `sdd-propose` → `sdd-spec` → `sdd-design` → `sdd-tasks`
+- `/sdd-apply [change]` → launch `sdd-apply` in batches
+- `/sdd-verify [change]` → launch `sdd-verify`
+- `/sdd-archive [change]` → launch `sdd-archive`
+
+### Dependency Graph
 ```
-
-## Project Overview
-
-Sistema de planificación de viajes de pasajeros y cargamento multi-tenant. Cada agencia opera de forma completamente aislada en su propio slug (subpath URL), sin compartir datos con otras agencias.
-
-## Tech Stack
-
-- **Framework:** Next.js 16 App Router, React 19, TypeScript (strict)
-- **UI:** shadcn/ui para todos los componentes de interfaz
-- **Forms:** Todos los formularios usan **React Hook Form + Zod + shadcn/ui** sin excepción
-- **Styles:** Tailwind CSS v4. Los colores del sistema se definen como CSS custom properties en `globals.css` y se consumen desde ahí. No hardcodear colores en componentes.
-- **Backend:** Supabase (DB + Storage) con Prisma como ORM
-- **Auth:** NextAuth.js
-- **Notifications:** Sonner (`<Toaster>`) — siempre posicionado `top-right`. Toda operación de guardado debe notificar éxito o error.
-- **Loading:** Toda página que cargue datos remotos debe mostrar un estado de loading mientras espera la respuesta.
-
-## Folder Structure (large project standard)
-
+proposal -> specs --> tasks -> apply -> verify -> archive
+             ^
+             |
+           design
 ```
-app/
-  (auth)/                    # Rutas públicas de auth del super admin
-    login/
-  (super-admin)/             # Dashboard exclusivo del super admin
-    dashboard/
-    agencies/
-  [slug]/                    # Rutas dinámicas por agencia (tenant)
-    (auth)/                  # Login / registro propio de cada agencia
-      login/
-      register/
-    (admin)/                 # Panel del admin de agencia
-      dashboard/
-      branches/              # Sucursales
-      ...
-    (agency)/                # Área operativa de la agencia (por definir)
+- `specs` and `design` both depend on `proposal`.
+- `tasks` depends on both `specs` and `design`.
 
-components/
-  ui/                        # Componentes shadcn/ui generados (no editar manualmente)
-  shared/                    # Componentes reutilizables entre features
-  forms/                     # Formularios compuestos (RHF + Zod + shadcn)
+### Sub-Agent Launch Pattern
+When launching a phase, require the sub-agent to read `~/.claude/skills/sdd-{phase}/SKILL.md` first and return:
+- `status`
+- `executive_summary`
+- `artifacts` (include IDs/paths)
+- `next_recommended`
+- `risks`
 
-lib/
-  auth/                      # Configuración NextAuth, helpers de sesión
-  db/                        # Cliente Prisma, queries reutilizables
-  supabase/                  # Cliente Supabase (server / client)
-  validations/               # Schemas Zod compartidos
+### State & Conventions (source of truth)
+Keep this file lean. Do NOT inline full persistence and naming specs here.
 
-prisma/
-  schema.prisma
+Use shared convention files installed under `~/.claude/skills/_shared/`:
+- `engram-convention.md` for artifact naming + two-step recovery
+- `persistence-contract.md` for mode behavior + state persistence/recovery
+- `openspec-convention.md` for file layout when mode is `openspec`
 
-hooks/                       # Custom hooks de React
-types/                       # Tipos TypeScript globales / compartidos
-```
+### Recovery Rule
+If SDD state is missing (for example after context compaction), recover from backend state before continuing:
+- `engram`: `mem_search(...)` then `mem_get_observation(...)`
+- `openspec`: read `openspec/changes/*/state.yaml`
+- `none`: explain that state was not persisted
 
-## Hierarchical Roles
-
-| Rol | Scope | Login URL |
-|-----|-------|-----------|
-| `SUPER_ADMIN` | Global — gestiona todas las agencias | `/login` |
-| `AGENCY_ADMIN` | Una agencia — gestiona sucursales y usuarios propios | `/<slug>/login` |
-| `AGENCY_USER` | Una agencia / sucursal | `/<slug>/login` |
-
-**Super Admin:**
-- Único con acceso a `/super-admin/dashboard`
-- Crea agencias: nombre + slug + usuario admin inicial (email + contraseña)
-- Ve la lista de agencias registradas y puede agregar más desde la misma pantalla
-
-**Agency Admin:**
-- Accede solo a `/<slug>/...`
-- Crea y administra sucursales (branches) de su propia agencia
-
-## Multi-Tenant Data Isolation
-
-Cada agencia tiene sus propios registros identificados por `agencyId`. Las queries de Prisma/Supabase **siempre** deben filtrar por el `agencyId` del usuario autenticado. Nunca exponer datos de otras agencias.
-
-## Key Conventions
-
-- Tailwind CSS v4: usar `@import "tailwindcss"` (no directivas `@tailwind base/components/utilities`)
-- Los tokens de color se definen en `globals.css` con `@theme inline` y se consumen como clases Tailwind (`bg-background`, `text-foreground`, etc.)
-- Dark mode vía `prefers-color-scheme` en variables CSS, no con la variante `dark:` de Tailwind
-- Path alias `@/*` apunta a la raíz del proyecto
-- Conexión a Supabase en `.env`
+### SDD Suggestion Rule
+For substantial features/refactors, suggest SDD.
+For small fixes/questions, do not force SDD.

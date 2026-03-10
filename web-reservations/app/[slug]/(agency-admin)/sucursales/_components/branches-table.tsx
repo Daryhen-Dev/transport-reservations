@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { CreateBranchSheet } from "@/components/sucursales/create-branch-sheet"
+import { CreateBranchSheet } from "./create-branch-sheet"
 
 type Branch = {
   id: string

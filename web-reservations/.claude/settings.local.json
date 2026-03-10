@@ -5,5 +5,11 @@
       "Bash(node:*)",
       "Bash(ls:*)"
     ]
+  },
+    "mcpServers": {
+    "engram": {
+      "command": "engram",
+      "args": ["mcp"]
+    }
   }
 }

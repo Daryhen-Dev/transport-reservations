@@ -2,7 +2,7 @@ import { auth } from "@/auth";
 import { getUsersByAgency } from "@/lib/services/user.service";
 import { getBranches } from "@/lib/services/branch.service";
 import { AgencySidebar } from "@/components/agency-sidebar";
-import { UsersTable } from "@/components/usuarios/users-table";
+import { UsersTable } from "./_components/users-table";
 import { SiteHeader } from "@/components/site-header";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 

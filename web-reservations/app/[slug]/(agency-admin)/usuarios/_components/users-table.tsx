@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/table";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { CreateUserSheet } from "@/components/usuarios/create-user-sheet";
+import { CreateUserSheet } from "./create-user-sheet";
 
 type UserRow = {
   id: string;
