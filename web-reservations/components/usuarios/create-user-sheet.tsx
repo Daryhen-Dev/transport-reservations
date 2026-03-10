@@ -144,7 +144,7 @@ export function CreateUserSheet({
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="branchId">Sucursal</Label>
             <Select onValueChange={(val) => setValue("branchId", val)}>
-              <SelectTrigger id="branchId">
+              <SelectTrigger id="branchId" className="w-full">
                 <SelectValue placeholder="Seleccionar sucursal" />
               </SelectTrigger>
               <SelectContent>
