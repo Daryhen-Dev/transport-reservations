@@ -4,6 +4,7 @@ import Link from "next/link"
 import {
   IconDashboard,
   IconBuilding,
+  IconUsers,
   IconInnerShadowTop,
 } from "@tabler/icons-react"
 import { NavUser } from "@/components/nav-user"
@@ -30,6 +31,7 @@ export function AgencySidebar({
   const navItems = [
     { title: "Dashboard", url: `/${slug}/dashboard`, icon: IconDashboard },
     { title: "Sucursales", url: `/${slug}/sucursales`, icon: IconBuilding },
+    { title: "Usuarios", url: `/${slug}/usuarios`, icon: IconUsers },
   ]
 
   return (
