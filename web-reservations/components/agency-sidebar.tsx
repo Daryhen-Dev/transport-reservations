@@ -6,6 +6,7 @@ import {
   IconBuilding,
   IconUsers,
   IconInnerShadowTop,
+  IconWorld,
 } from "@tabler/icons-react"
 import { NavUser } from "@/components/nav-user"
 import {
@@ -28,6 +29,7 @@ const generalItems = (slug: string) => [
 const adminItems = (slug: string) => [
   { title: "Sucursales", url: `/${slug}/sucursales`, icon: IconBuilding },
   { title: "Usuarios", url: `/${slug}/usuarios`, icon: IconUsers },
+  { title: "Países", url: `/${slug}/paises`, icon: IconWorld },
 ]
 
 export function AgencySidebar({
