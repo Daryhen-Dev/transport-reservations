@@ -7,6 +7,8 @@ datasource db {
   provider = "postgresql"
 }
 
+// ─── Lookup tables ────────────────────────────────────────────────────────────
+
 model Role {
   id        String   @id @default(cuid())
   name      String   @unique
@@ -14,6 +16,34 @@ model Role {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
+model DocumentType {
+  id         String      @id @default(cuid())
+  name       String      @unique
+  customers  Customer[]
+  passengers Passenger[]
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+}
+
+model ReservationStatus {
+  id                    String                 @id @default(cuid())
+  name                  String                 @unique
+  passengerReservations PassengerReservation[]
+  cargoReservations     CargoReservation[]
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+}
+
+model CustomerType {
+  id        String     @id @default(cuid())
+  name      String     @unique
+  customers Customer[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+// ─── Entidades principales ────────────────────────────────────────────────────
 
 model Agency {
   id        String   @id @default(cuid())
@@ -32,26 +62,137 @@ model Branch {
   agencyId  String
   agency    Agency   @relation(fields: [agencyId], references: [id])
   users     User[]
+  routes    Route[]
+  trips     Trip[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
 model User {
-  id        String   @id @default(cuid())
-  name      String
-  email     String   @unique
-  password  String
-  roleId    String
-  role      Role     @relation(fields: [roleId], references: [id])
+  id       String  @id @default(cuid())
+  name     String
+  email    String  @unique
+  password String
+  roleId   String
+  role     Role    @relation(fields: [roleId], references: [id])
 
   // AGENCY_ADMIN → agencyId set, branchId null
   // SUCURSAL_USER → branchId set, agencyId null
   // SUPER_ADMIN   → both null
-  agencyId  String?
-  agency    Agency?  @relation(fields: [agencyId], references: [id])
-  branchId  String?
-  branch    Branch?  @relation(fields: [branchId], references: [id])
+  agencyId String?
+  agency   Agency? @relation(fields: [agencyId], references: [id])
+  branchId String?
+  branch   Branch? @relation(fields: [branchId], references: [id])
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model Country {
+  id          String      @id @default(cuid())
+  name        String      @unique
+  nationality String
+  code        String?     @unique
+  customers   Customer[]
+  passengers  Passenger[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model Route {
+  id          String   @id @default(cuid())
+  origin      String
+  destination String
+  branchId    String
+  branch      Branch   @relation(fields: [branchId], references: [id])
+  trips       Trip[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Trip {
+  id                    String                 @id @default(cuid())
+  departureAt           DateTime
+  routeId               String
+  route                 Route                  @relation(fields: [routeId], references: [id])
+  branchId              String
+  branch                Branch                 @relation(fields: [branchId], references: [id])
+  passengerReservations PassengerReservation[]
+  cargoReservations     CargoReservation[]
+  createdAt             DateTime               @default(now())
+  updatedAt             DateTime               @updatedAt
+}
+
+model Customer {
+  id             String       @id @default(cuid())
+  customerTypeId String
+  customerType   CustomerType @relation(fields: [customerTypeId], references: [id])
+
+  // PERSONA
+  firstName      String?
+  lastName       String?
+  documentTypeId String?
+  documentType   DocumentType? @relation(fields: [documentTypeId], references: [id])
+  documentNumber String?
+  birthDate      DateTime?
+  countryId      String?
+  country        Country?      @relation(fields: [countryId], references: [id])
+
+  // EMPRESA
+  companyName String?
+  taxId       String?
+  contactName String?
+
+  passengerReservations PassengerReservation[]
+  cargoReservations     CargoReservation[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PassengerReservation {
+  id                  String            @id @default(cuid())
+  tripId              String
+  trip                Trip              @relation(fields: [tripId], references: [id])
+  customerId          String
+  customer            Customer          @relation(fields: [customerId], references: [id])
+  seatCount           Int
+  reservationStatusId String
+  reservationStatus   ReservationStatus @relation(fields: [reservationStatusId], references: [id])
+  passengers          Passenger[]
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+}
+
+model Passenger {
+  id             String               @id @default(cuid())
+  reservationId  String
+  reservation    PassengerReservation @relation(fields: [reservationId], references: [id])
+  firstName      String
+  lastName       String
+  documentTypeId String
+  documentType   DocumentType         @relation(fields: [documentTypeId], references: [id])
+  documentNumber String
+  birthDate      DateTime?
+  countryId      String
+  country        Country              @relation(fields: [countryId], references: [id])
+  createdAt      DateTime             @default(now())
+  updatedAt      DateTime             @updatedAt
+}
+
+model CargoReservation {
+  id                  String            @id @default(cuid())
+  tripId              String
+  trip                Trip              @relation(fields: [tripId], references: [id])
+  customerId          String
+  customer            Customer          @relation(fields: [customerId], references: [id])
+  weightKg            Float
+  diameterCm          Float?
+  widthCm             Float?
+  heightCm            Float?
+  lengthCm            Float?
+  reservationStatusId String
+  reservationStatus   ReservationStatus @relation(fields: [reservationStatusId], references: [id])
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
 }
