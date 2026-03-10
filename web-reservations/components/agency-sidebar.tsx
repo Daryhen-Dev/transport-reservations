@@ -14,11 +14,21 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
 } from "@/components/ui/sidebar"
+
+const generalItems = (slug: string) => [
+  { title: "Dashboard", url: `/${slug}/dashboard`, icon: IconDashboard },
+]
+
+const adminItems = (slug: string) => [
+  { title: "Sucursales", url: `/${slug}/sucursales`, icon: IconBuilding },
+  { title: "Usuarios", url: `/${slug}/usuarios`, icon: IconUsers },
+]
 
 export function AgencySidebar({
   slug,
@@ -28,12 +38,6 @@ export function AgencySidebar({
   slug: string
   user: { name: string; email: string }
 }) {
-  const navItems = [
-    { title: "Dashboard", url: `/${slug}/dashboard`, icon: IconDashboard },
-    { title: "Sucursales", url: `/${slug}/sucursales`, icon: IconBuilding },
-    { title: "Usuarios", url: `/${slug}/usuarios`, icon: IconUsers },
-  ]
-
   return (
     <Sidebar collapsible="offcanvas" {...props}>
       <SidebarHeader>
@@ -55,7 +59,25 @@ export function AgencySidebar({
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {navItems.map((item) => (
+              {generalItems(slug).map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild tooltip={item.title}>
+                    <Link href={item.url}>
+                      <item.icon />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarGroup>
+          <SidebarGroupLabel>Administrador</SidebarGroupLabel>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              {adminItems(slug).map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild tooltip={item.title}>
                     <Link href={item.url}>
