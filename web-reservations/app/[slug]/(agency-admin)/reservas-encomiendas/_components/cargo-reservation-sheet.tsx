@@ -28,7 +28,7 @@ import {
 
 const schema = z.object({
   tripId: z.string().min(1, "Debe seleccionar un viaje"),
-  customerType: z.enum(["PERSONA", "EMPRESA"]),
+  proveedorType: z.enum(["PERSONA", "EMPRESA"]),
   // PERSONA
   firstName: z.string().optional(),
   lastName: z.string().optional(),
@@ -60,7 +60,7 @@ type Trip = {
 type DocumentType = { id: string; name: string }
 type Country = { id: string; name: string }
 type ReservationStatus = { id: string; name: string }
-type CustomerType = { id: string; name: string }
+type ProveedorType = { id: string; name: string }
 
 type Props = {
   currentSlug: string
@@ -68,7 +68,7 @@ type Props = {
   documentTypes: DocumentType[]
   countries: Country[]
   reservationStatuses: ReservationStatus[]
-  customerTypes: CustomerType[]
+  proveedorTypes: ProveedorType[]
 }
 
 export function CargoReservationSheet({
@@ -77,14 +77,14 @@ export function CargoReservationSheet({
   documentTypes,
   countries,
   reservationStatuses,
-  customerTypes,
+  proveedorTypes,
 }: Props) {
   const [open, setOpen] = useState(false)
   const router = useRouter()
 
   const pendienteStatus = reservationStatuses.find((s) => s.name === "PENDIENTE")
-  const personaType = customerTypes.find((t) => t.name === "PERSONA")
-  const empresaType = customerTypes.find((t) => t.name === "EMPRESA")
+  const personaType = proveedorTypes.find((t) => t.name === "PERSONA")
+  const empresaType = proveedorTypes.find((t) => t.name === "EMPRESA")
 
   const {
     register,
@@ -96,34 +96,34 @@ export function CargoReservationSheet({
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
-      customerType: "PERSONA",
+      proveedorType: "PERSONA",
       weightKg: undefined,
     },
   })
 
-  const customerType = watch("customerType")
+  const proveedorType = watch("proveedorType")
 
   useEffect(() => {
     if (!open) {
       reset({
-        customerType: "PERSONA",
+        proveedorType: "PERSONA",
         weightKg: undefined,
       })
     }
   }, [open, reset])
 
   async function onSubmit(data: FormValues) {
-    const customerTypeId = data.customerType === "PERSONA"
+    const proveedorTypeId = data.proveedorType === "PERSONA"
       ? personaType?.id ?? ""
       : empresaType?.id ?? ""
 
-    let customer: Record<string, unknown>
-    if (data.customerType === "PERSONA") {
+    let proveedor: Record<string, unknown>
+    if (data.proveedorType === "PERSONA") {
       if (!data.firstName || !data.lastName || !data.documentTypeId || !data.documentNumber || !data.countryId) {
-        toast.error("Complete todos los campos del cliente")
+        toast.error("Complete todos los campos del proveedor")
         return
       }
-      customer = {
+      proveedor = {
         customerType: "PERSONA",
         firstName: data.firstName,
         lastName: data.lastName,
@@ -137,7 +137,7 @@ export function CargoReservationSheet({
         toast.error("Complete los campos de la empresa")
         return
       }
-      customer = {
+      proveedor = {
         customerType: "EMPRESA",
         companyName: data.companyName,
         taxId: data.taxId,
@@ -152,9 +152,9 @@ export function CargoReservationSheet({
       widthCm: isNaN(data.widthCm as number) ? undefined : data.widthCm,
       heightCm: isNaN(data.heightCm as number) ? undefined : data.heightCm,
       lengthCm: isNaN(data.lengthCm as number) ? undefined : data.lengthCm,
-      customer,
+      proveedor,
       currentSlug,
-      customerTypeId,
+      proveedorTypeId,
       reservationStatusId: pendienteStatus?.id ?? "",
     })
 
@@ -163,7 +163,7 @@ export function CargoReservationSheet({
       return
     }
     toast.success("Encomienda registrada exitosamente")
-    reset({ customerType: "PERSONA", weightKg: undefined })
+    reset({ proveedorType: "PERSONA", weightKg: undefined })
     setOpen(false)
     router.refresh()
   }
@@ -208,30 +208,30 @@ export function CargoReservationSheet({
             )}
           </div>
 
-          {/* Customer type */}
+          {/* Proveedor type */}
           <div className="flex flex-col gap-1.5">
-            <Label>Tipo de cliente</Label>
+            <Label>Tipo de proveedor</Label>
             <div className="flex gap-2">
               <Button
                 type="button"
-                variant={customerType === "PERSONA" ? "default" : "outline"}
+                variant={proveedorType === "PERSONA" ? "default" : "outline"}
                 size="sm"
-                onClick={() => setValue("customerType", "PERSONA")}
+                onClick={() => setValue("proveedorType", "PERSONA")}
               >
                 Persona
               </Button>
               <Button
                 type="button"
-                variant={customerType === "EMPRESA" ? "default" : "outline"}
+                variant={proveedorType === "EMPRESA" ? "default" : "outline"}
                 size="sm"
-                onClick={() => setValue("customerType", "EMPRESA")}
+                onClick={() => setValue("proveedorType", "EMPRESA")}
               >
                 Empresa
               </Button>
             </div>
           </div>
 
-          {customerType === "PERSONA" ? (
+          {proveedorType === "PERSONA" ? (
             <>
               <div className="flex gap-2">
                 <div className="flex flex-col gap-1.5 flex-1">

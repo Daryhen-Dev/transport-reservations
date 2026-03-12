@@ -8,8 +8,11 @@ import {
   IconInnerShadowTop,
   IconWorld,
   IconRoute,
+  IconClock,
   IconCalendar,
+  IconCalendarMonth,
   IconUserCheck,
+  IconUsersGroup,
   IconPackage,
 } from "@tabler/icons-react"
 import { NavUser } from "@/components/nav-user"
@@ -35,10 +38,14 @@ const adminItems = (slug: string) => [
   { title: "Usuarios", url: `/${slug}/usuarios`, icon: IconUsers },
   { title: "Países", url: `/${slug}/paises`, icon: IconWorld },
   { title: "Rutas", url: `/${slug}/rutas`, icon: IconRoute },
+  { title: "Horarios", url: `/${slug}/horarios`, icon: IconClock },
 ]
 
 const operationsItems = (slug: string) => [
+  { title: "Calendario", url: `/${slug}/calendario`, icon: IconCalendarMonth },
   { title: "Viajes", url: `/${slug}/viajes`, icon: IconCalendar },
+  { title: "Proveedores", url: `/${slug}/proveedores`, icon: IconUsers },
+  { title: "Pasajeros", url: `/${slug}/pasajeros`, icon: IconUsersGroup },
   { title: "Reservas de Pasajeros", url: `/${slug}/reservas-pasajeros`, icon: IconUserCheck },
   { title: "Reservas de Encomiendas", url: `/${slug}/reservas-encomiendas`, icon: IconPackage },
 ]

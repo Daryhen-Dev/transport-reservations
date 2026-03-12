@@ -4,7 +4,7 @@ import { z } from "zod"
 import { prisma } from "@/lib/db"
 import { revalidatePath } from "next/cache"
 
-const personaCustomerSchema = z.object({
+const personaProveedorSchema = z.object({
   customerType: z.literal("PERSONA"),
   firstName: z.string().min(1, "El nombre es requerido"),
   lastName: z.string().min(1, "El apellido es requerido"),
@@ -14,16 +14,16 @@ const personaCustomerSchema = z.object({
   birthDate: z.string().optional(),
 })
 
-const empresaCustomerSchema = z.object({
+const empresaProveedorSchema = z.object({
   customerType: z.literal("EMPRESA"),
   companyName: z.string().min(1, "El nombre de la empresa es requerido"),
   taxId: z.string().min(1, "El RIF/NIT es requerido"),
   contactName: z.string().optional(),
 })
 
-const customerSchema = z.discriminatedUnion("customerType", [
-  personaCustomerSchema,
-  empresaCustomerSchema,
+const proveedorSchema = z.discriminatedUnion("customerType", [
+  personaProveedorSchema,
+  empresaProveedorSchema,
 ])
 
 const createCargoReservationSchema = z.object({
@@ -33,9 +33,9 @@ const createCargoReservationSchema = z.object({
   widthCm: z.number().positive().optional(),
   heightCm: z.number().positive().optional(),
   lengthCm: z.number().positive().optional(),
-  customer: customerSchema,
+  proveedor: proveedorSchema,
   currentSlug: z.string(),
-  customerTypeId: z.string().min(1, "El tipo de cliente es requerido"),
+  proveedorTypeId: z.string().min(1, "El tipo de proveedor es requerido"),
   reservationStatusId: z.string().min(1, "El estado es requerido"),
 })
 
@@ -50,38 +50,38 @@ export async function createCargoReservation(data: unknown) {
     widthCm,
     heightCm,
     lengthCm,
-    customer,
+    proveedor,
     currentSlug,
-    customerTypeId,
+    proveedorTypeId,
     reservationStatusId,
   } = parsed.data
 
   try {
     await prisma.$transaction(async (tx) => {
-      const newCustomer = await tx.customer.create({
+      const newProveedor = await tx.proveedor.create({
         data:
-          customer.customerType === "PERSONA"
+          proveedor.customerType === "PERSONA"
             ? {
-                customerTypeId,
-                firstName: customer.firstName,
-                lastName: customer.lastName,
-                documentTypeId: customer.documentTypeId,
-                documentNumber: customer.documentNumber,
-                countryId: customer.countryId,
-                birthDate: customer.birthDate ? new Date(customer.birthDate) : undefined,
+                proveedorTypeId,
+                firstName: proveedor.firstName,
+                lastName: proveedor.lastName,
+                documentTypeId: proveedor.documentTypeId,
+                documentNumber: proveedor.documentNumber,
+                countryId: proveedor.countryId,
+                birthDate: proveedor.birthDate ? new Date(proveedor.birthDate) : undefined,
               }
             : {
-                customerTypeId,
-                companyName: customer.companyName,
-                taxId: customer.taxId,
-                contactName: customer.contactName ?? undefined,
+                proveedorTypeId,
+                companyName: proveedor.companyName,
+                taxId: proveedor.taxId,
+                contactName: proveedor.contactName ?? undefined,
               },
       })
 
       await tx.cargoReservation.create({
         data: {
           tripId,
-          customerId: newCustomer.id,
+          proveedorId: newProveedor.id,
           weightKg,
           diameterCm,
           widthCm,

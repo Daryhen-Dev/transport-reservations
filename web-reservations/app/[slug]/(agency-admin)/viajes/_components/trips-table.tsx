@@ -53,11 +53,20 @@ type Route = {
   branchId: string
 }
 
+type Schedule = {
+  id: string
+  routeId: string
+  time: string
+  isActive: boolean
+  route: { id: string; origin: string; destination: string; branchId: string }
+}
+
 type Trip = {
   id: string
   departureAt: Date
   routeId: string
   branchId: string
+  scheduleId: string | null
   route: { id: string; origin: string; destination: string }
   branch: { id: string; name: string }
 }
@@ -66,11 +75,13 @@ export function TripsTable({
   data,
   branches,
   routes,
+  schedules,
   currentSlug,
 }: {
   data: Trip[]
   branches: Branch[]
   routes: Route[]
+  schedules: Schedule[]
   currentSlug: string
 }) {
   const router = useRouter()
@@ -181,7 +192,7 @@ export function TripsTable({
               ))}
             </SelectContent>
           </Select>
-          <TripSheet currentSlug={currentSlug} branches={branches} routes={routes} />
+          <TripSheet currentSlug={currentSlug} branches={branches} routes={routes} schedules={schedules} />
         </div>
         <div className="rounded-md border">
           <Table>
@@ -252,6 +263,7 @@ export function TripsTable({
           currentSlug={currentSlug}
           branches={branches}
           routes={routes}
+          schedules={schedules}
           trip={editingTrip}
           open={!!editingTrip}
           onOpenChange={(open) => { if (!open) setEditingTrip(null) }}

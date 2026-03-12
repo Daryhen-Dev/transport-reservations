@@ -18,12 +18,12 @@ model Role {
 }
 
 model DocumentType {
-  id         String      @id @default(cuid())
-  name       String      @unique
-  customers  Customer[]
-  passengers Passenger[]
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
+  id          String      @id @default(cuid())
+  name        String      @unique
+  proveedores Proveedor[]
+  passengers  Passenger[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 }
 
 model ReservationStatus {
@@ -35,12 +35,12 @@ model ReservationStatus {
   updatedAt             DateTime               @updatedAt
 }
 
-model CustomerType {
-  id        String     @id @default(cuid())
-  name      String     @unique
-  customers Customer[]
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+model ProveedorType {
+  id          String      @id @default(cuid())
+  name        String      @unique
+  proveedores Proveedor[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
 }
 
 // ─── Entidades principales ────────────────────────────────────────────────────
@@ -93,21 +93,36 @@ model Country {
   name        String      @unique
   nationality String
   code        String?     @unique
-  customers   Customer[]
+  proveedores Proveedor[]
   passengers  Passenger[]
   createdAt   DateTime    @default(now())
   updatedAt   DateTime    @updatedAt
 }
 
 model Route {
-  id          String   @id @default(cuid())
+  id          String        @id @default(cuid())
   origin      String
   destination String
   branchId    String
-  branch      Branch   @relation(fields: [branchId], references: [id])
+  branch      Branch        @relation(fields: [branchId], references: [id])
   trips       Trip[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  schedules   TripSchedule[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+}
+
+model TripSchedule {
+  id        String   @id @default(cuid())
+  routeId   String
+  route     Route    @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  time      String   // "HH:MM" — naive local time, e.g. "07:00"
+  isActive  Boolean  @default(true)
+  trips     Trip[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([routeId, time])
+  @@map("trip_schedules")
 }
 
 model Trip {
@@ -117,16 +132,18 @@ model Trip {
   route                 Route                  @relation(fields: [routeId], references: [id])
   branchId              String
   branch                Branch                 @relation(fields: [branchId], references: [id])
+  scheduleId            String?
+  schedule              TripSchedule?          @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
   passengerReservations PassengerReservation[]
   cargoReservations     CargoReservation[]
   createdAt             DateTime               @default(now())
   updatedAt             DateTime               @updatedAt
 }
 
-model Customer {
-  id             String       @id @default(cuid())
-  customerTypeId String
-  customerType   CustomerType @relation(fields: [customerTypeId], references: [id])
+model Proveedor {
+  id               String        @id @default(cuid())
+  proveedorTypeId  String
+  proveedorType    ProveedorType @relation(fields: [proveedorTypeId], references: [id])
 
   // PERSONA
   firstName      String?
@@ -142,6 +159,7 @@ model Customer {
   companyName String?
   taxId       String?
   contactName String?
+  phone       String?
 
   passengerReservations PassengerReservation[]
   cargoReservations     CargoReservation[]
@@ -151,41 +169,52 @@ model Customer {
 }
 
 model PassengerReservation {
-  id                  String            @id @default(cuid())
+  id                  String                 @id @default(cuid())
   tripId              String
-  trip                Trip              @relation(fields: [tripId], references: [id])
-  customerId          String
-  customer            Customer          @relation(fields: [customerId], references: [id])
+  trip                Trip                   @relation(fields: [tripId], references: [id])
+  proveedorId         String
+  proveedor           Proveedor              @relation(fields: [proveedorId], references: [id])
   seatCount           Int
   reservationStatusId String
-  reservationStatus   ReservationStatus @relation(fields: [reservationStatusId], references: [id])
-  passengers          Passenger[]
-  createdAt           DateTime          @default(now())
-  updatedAt           DateTime          @updatedAt
+  reservationStatus   ReservationStatus      @relation(fields: [reservationStatusId], references: [id])
+  passengers          ReservationPassenger[]
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
+}
+
+model ReservationPassenger {
+  reservationId String
+  passengerId   String
+  reservation   PassengerReservation @relation(fields: [reservationId], references: [id], onDelete: Cascade)
+  passenger     Passenger            @relation(fields: [passengerId], references: [id], onDelete: Cascade)
+
+  @@id([reservationId, passengerId])
 }
 
 model Passenger {
-  id             String               @id @default(cuid())
-  reservationId  String
-  reservation    PassengerReservation @relation(fields: [reservationId], references: [id])
+  id             String                 @id @default(cuid())
   firstName      String
   lastName       String
   documentTypeId String
-  documentType   DocumentType         @relation(fields: [documentTypeId], references: [id])
+  documentType   DocumentType           @relation(fields: [documentTypeId], references: [id])
   documentNumber String
   birthDate      DateTime?
+  phone          String?
   countryId      String
-  country        Country              @relation(fields: [countryId], references: [id])
-  createdAt      DateTime             @default(now())
-  updatedAt      DateTime             @updatedAt
+  country        Country                @relation(fields: [countryId], references: [id])
+  reservations   ReservationPassenger[]
+  createdAt      DateTime               @default(now())
+  updatedAt      DateTime               @updatedAt
+
+  @@unique([documentTypeId, documentNumber])
 }
 
 model CargoReservation {
   id                  String            @id @default(cuid())
   tripId              String
   trip                Trip              @relation(fields: [tripId], references: [id])
-  customerId          String
-  customer            Customer          @relation(fields: [customerId], references: [id])
+  proveedorId         String
+  proveedor           Proveedor         @relation(fields: [proveedorId], references: [id])
   weightKg            Float
   diameterCm          Float?
   widthCm             Float?

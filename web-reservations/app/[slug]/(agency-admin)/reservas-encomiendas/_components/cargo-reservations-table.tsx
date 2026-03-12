@@ -77,12 +77,12 @@ type CargoReservation = {
     route: { id: string; origin: string; destination: string }
     branch: { id: string; name: string }
   }
-  customer: {
+  proveedor: {
     id: string
     firstName: string | null
     lastName: string | null
     companyName: string | null
-    customerTypeId: string
+    proveedorTypeId: string
   }
   reservationStatus: { id: string; name: string }
 }
@@ -90,7 +90,7 @@ type CargoReservation = {
 type ReservationStatus = { id: string; name: string }
 type DocumentType = { id: string; name: string }
 type Country = { id: string; name: string }
-type CustomerType = { id: string; name: string }
+type ProveedorType = { id: string; name: string }
 
 export function CargoReservationsTable({
   data,
@@ -98,7 +98,7 @@ export function CargoReservationsTable({
   reservationStatuses,
   documentTypes,
   countries,
-  customerTypes,
+  proveedorTypes,
   currentSlug,
 }: {
   data: CargoReservation[]
@@ -106,7 +106,7 @@ export function CargoReservationsTable({
   reservationStatuses: ReservationStatus[]
   documentTypes: DocumentType[]
   countries: Country[]
-  customerTypes: CustomerType[]
+  proveedorTypes: ProveedorType[]
   currentSlug: string
 }) {
   const router = useRouter()
@@ -146,11 +146,11 @@ export function CargoReservationsTable({
       },
     },
     {
-      id: "customer",
-      header: "Cliente",
+      id: "proveedor",
+      header: "Proveedor",
       cell: ({ row }) => {
-        const c = row.original.customer
-        return c.companyName ?? `${c.firstName ?? ""} ${c.lastName ?? ""}`.trim()
+        const p = row.original.proveedor
+        return p.companyName ?? `${p.firstName ?? ""} ${p.lastName ?? ""}`.trim()
       },
     },
     {
@@ -273,7 +273,7 @@ export function CargoReservationsTable({
             documentTypes={documentTypes}
             countries={countries}
             reservationStatuses={reservationStatuses}
-            customerTypes={customerTypes}
+            proveedorTypes={proveedorTypes}
           />
         </div>
         <div className="rounded-md border">

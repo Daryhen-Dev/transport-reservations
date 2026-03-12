@@ -30,7 +30,7 @@ const schema = z.object({
   branchId: z.string().min(1, "Debe seleccionar una sucursal"),
   routeId: z.string().min(1, "Debe seleccionar una ruta"),
   departureDate: z.string().min(1, "Debe ingresar la fecha de salida"),
-  departureTime: z.string().min(1, "Debe ingresar la hora de salida"),
+  scheduleId: z.string().min(1, "Debe seleccionar un horario"),
 })
 
 type FormValues = z.infer<typeof schema>
@@ -44,11 +44,20 @@ type Route = {
   branchId: string
 }
 
+type Schedule = {
+  id: string
+  routeId: string
+  time: string
+  isActive: boolean
+  route: { id: string; origin: string; destination: string; branchId: string }
+}
+
 type Trip = {
   id: string
   departureAt: Date
   routeId: string
   branchId: string
+  scheduleId: string | null
   route: { id: string; origin: string; destination: string }
   branch: { id: string; name: string }
 }
@@ -57,6 +66,7 @@ type Props = {
   currentSlug: string
   branches: Branch[]
   routes: Route[]
+  schedules: Schedule[]
   trip?: Trip
   open?: boolean
   onOpenChange?: (open: boolean) => void
@@ -67,17 +77,14 @@ function formatDate(date: Date): string {
   return date.toISOString().slice(0, 10)
 }
 
-function formatTime(date: Date): string {
-  return date.toISOString().slice(11, 16)
-}
-
-export function TripSheet({ currentSlug, branches, routes, trip, open, onOpenChange, trigger = true }: Props) {
+export function TripSheet({ currentSlug, branches, routes, schedules, trip, open, onOpenChange, trigger = true }: Props) {
   const [internalOpen, setInternalOpen] = useState(false)
   const isControlled = open !== undefined && onOpenChange !== undefined
   const isOpen = isControlled ? open : internalOpen
   const setOpen = isControlled ? onOpenChange : setInternalOpen
 
   const [selectedBranchId, setSelectedBranchId] = useState<string>(trip?.branchId ?? "")
+  const [selectedRouteId, setSelectedRouteId] = useState<string>(trip?.routeId ?? "")
 
   const router = useRouter()
   const {
@@ -92,19 +99,21 @@ export function TripSheet({ currentSlug, branches, routes, trip, open, onOpenCha
       branchId: trip?.branchId ?? "",
       routeId: trip?.routeId ?? "",
       departureDate: trip ? formatDate(trip.departureAt) : "",
-      departureTime: trip ? formatTime(trip.departureAt) : "",
+      scheduleId: trip?.scheduleId ?? "",
     },
   })
 
   useEffect(() => {
     if (isOpen) {
       const defaultBranchId = trip?.branchId ?? ""
+      const defaultRouteId = trip?.routeId ?? ""
       setSelectedBranchId(defaultBranchId)
+      setSelectedRouteId(defaultRouteId)
       reset({
         branchId: defaultBranchId,
-        routeId: trip?.routeId ?? "",
+        routeId: defaultRouteId,
         departureDate: trip ? formatDate(trip.departureAt) : "",
-        departureTime: trip ? formatTime(trip.departureAt) : "",
+        scheduleId: trip?.scheduleId ?? "",
       })
     }
   }, [isOpen, trip, reset])
@@ -113,12 +122,22 @@ export function TripSheet({ currentSlug, branches, routes, trip, open, onOpenCha
     ? routes.filter((r) => r.branchId === selectedBranchId)
     : []
 
+  const filteredSchedules = selectedRouteId
+    ? schedules.filter((s) => s.routeId === selectedRouteId && s.isActive)
+    : []
+
   async function onSubmit(data: FormValues) {
-    const departureAt = `${data.departureDate}T${data.departureTime}:00`
+    const selectedSchedule = schedules.find((s) => s.id === data.scheduleId)
+    if (!selectedSchedule) {
+      toast.error("Horario no encontrado")
+      return
+    }
+    const departureAt = `${data.departureDate}T${selectedSchedule.time}:00`
     const payload = {
       departureAt,
       routeId: data.routeId,
       branchId: data.branchId,
+      scheduleId: data.scheduleId,
       currentSlug,
     }
     const result = trip
@@ -157,7 +176,9 @@ export function TripSheet({ currentSlug, branches, routes, trip, open, onOpenCha
               onValueChange={(val) => {
                 setValue("branchId", val)
                 setValue("routeId", "")
+                setValue("scheduleId", "")
                 setSelectedBranchId(val)
+                setSelectedRouteId("")
               }}
             >
               <SelectTrigger id="branchId" className="w-full">
@@ -181,7 +202,11 @@ export function TripSheet({ currentSlug, branches, routes, trip, open, onOpenCha
             <Select
               key={selectedBranchId}
               defaultValue={trip?.routeId ?? ""}
-              onValueChange={(val) => setValue("routeId", val)}
+              onValueChange={(val) => {
+                setValue("routeId", val)
+                setValue("scheduleId", "")
+                setSelectedRouteId(val)
+              }}
               disabled={!selectedBranchId}
             >
               <SelectTrigger id="routeId" className="w-full">
@@ -201,6 +226,38 @@ export function TripSheet({ currentSlug, branches, routes, trip, open, onOpenCha
           </div>
 
           <div className="flex flex-col gap-1.5">
+            <Label htmlFor="scheduleId">Horario</Label>
+            <Select
+              key={selectedRouteId}
+              defaultValue={trip?.scheduleId ?? ""}
+              onValueChange={(val) => setValue("scheduleId", val)}
+              disabled={!selectedRouteId}
+            >
+              <SelectTrigger id="scheduleId" className="w-full">
+                <SelectValue
+                  placeholder={
+                    selectedRouteId
+                      ? filteredSchedules.length === 0
+                        ? "Sin horarios disponibles"
+                        : "Seleccionar horario..."
+                      : "Seleccione primero una ruta"
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent>
+                {filteredSchedules.map((schedule) => (
+                  <SelectItem key={schedule.id} value={schedule.id}>
+                    {schedule.time}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {errors.scheduleId && (
+              <p className="text-sm text-destructive">{errors.scheduleId.message}</p>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-1.5">
             <Label htmlFor="departureDate">Fecha de salida</Label>
             <Input
               id="departureDate"
@@ -209,18 +266,6 @@ export function TripSheet({ currentSlug, branches, routes, trip, open, onOpenCha
             />
             {errors.departureDate && (
               <p className="text-sm text-destructive">{errors.departureDate.message}</p>
-            )}
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="departureTime">Hora de salida</Label>
-            <Input
-              id="departureTime"
-              type="time"
-              {...register("departureTime")}
-            />
-            {errors.departureTime && (
-              <p className="text-sm text-destructive">{errors.departureTime.message}</p>
             )}
           </div>
 

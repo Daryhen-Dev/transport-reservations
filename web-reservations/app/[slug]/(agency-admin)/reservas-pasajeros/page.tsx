@@ -19,14 +19,14 @@ export default async function ReservasPasajerosPage({
     email: session?.user?.email ?? "",
   };
 
-  const [reservations, trips, reservationStatuses, documentTypes, countries, customerTypes] =
+  const [reservations, trips, reservationStatuses, documentTypes, countries, proveedorTypes] =
     await Promise.all([
       getPassengerReservations(),
       getTrips(),
       prisma.reservationStatus.findMany({ orderBy: { name: "asc" } }),
       prisma.documentType.findMany({ orderBy: { name: "asc" } }),
       prisma.country.findMany({ orderBy: { name: "asc" } }),
-      prisma.customerType.findMany({ orderBy: { name: "asc" } }),
+      prisma.proveedorType.findMany({ orderBy: { name: "asc" } }),
     ]);
 
   return (
@@ -50,7 +50,7 @@ export default async function ReservasPasajerosPage({
                 reservationStatuses={reservationStatuses}
                 documentTypes={documentTypes}
                 countries={countries}
-                customerTypes={customerTypes}
+                proveedorTypes={proveedorTypes}
                 currentSlug={slug}
               />
             </div>

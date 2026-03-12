@@ -38,7 +38,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { IconTrash } from "@tabler/icons-react"
+import { IconTrash, IconPencil } from "@tabler/icons-react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { deletePassengerReservation, updateReservationStatus } from "@/app/actions/passenger-reservation"
@@ -73,12 +73,12 @@ type Reservation = {
     route: { id: string; origin: string; destination: string }
     branch: { id: string; name: string }
   }
-  customer: {
+  proveedor: {
     id: string
     firstName: string | null
     lastName: string | null
     companyName: string | null
-    customerTypeId: string
+    proveedorTypeId: string
   }
   reservationStatus: { id: string; name: string }
   _count: { passengers: number }
@@ -87,7 +87,7 @@ type Reservation = {
 type ReservationStatus = { id: string; name: string }
 type DocumentType = { id: string; name: string }
 type Country = { id: string; name: string }
-type CustomerType = { id: string; name: string }
+type ProveedorType = { id: string; name: string }
 
 export function PassengerReservationsTable({
   data,
@@ -95,7 +95,7 @@ export function PassengerReservationsTable({
   reservationStatuses,
   documentTypes,
   countries,
-  customerTypes,
+  proveedorTypes,
   currentSlug,
 }: {
   data: Reservation[]
@@ -103,7 +103,7 @@ export function PassengerReservationsTable({
   reservationStatuses: ReservationStatus[]
   documentTypes: DocumentType[]
   countries: Country[]
-  customerTypes: CustomerType[]
+  proveedorTypes: ProveedorType[]
   currentSlug: string
 }) {
   const router = useRouter()
@@ -143,11 +143,11 @@ export function PassengerReservationsTable({
       },
     },
     {
-      id: "customer",
-      header: "Cliente",
+      id: "proveedor",
+      header: "Proveedor",
       cell: ({ row }) => {
-        const c = row.original.customer
-        return c.companyName ?? `${c.firstName ?? ""} ${c.lastName ?? ""}`.trim()
+        const p = row.original.proveedor
+        return p.companyName ?? `${p.firstName ?? ""} ${p.lastName ?? ""}`.trim()
       },
     },
     {
@@ -172,6 +172,14 @@ export function PassengerReservationsTable({
         const isPendiente = reservation.reservationStatus.name === "PENDIENTE"
         return (
           <div className="flex items-center justify-end gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => router.push(`/${currentSlug}/reservas-pasajeros/${reservation.id}`)}
+            >
+              <IconPencil className="size-4" />
+            </Button>
             <Select
               defaultValue={reservation.reservationStatus.id}
               disabled={updatingStatusId === reservation.id}
@@ -260,7 +268,7 @@ export function PassengerReservationsTable({
             documentTypes={documentTypes}
             countries={countries}
             reservationStatuses={reservationStatuses}
-            customerTypes={customerTypes}
+            proveedorTypes={proveedorTypes}
           />
         </div>
         <div className="rounded-md border">

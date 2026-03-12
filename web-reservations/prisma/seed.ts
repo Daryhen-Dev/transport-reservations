@@ -10,7 +10,7 @@ const prisma = new PrismaClient({ adapter });
 
 const ROLES = ["SUPER_ADMIN", "AGENCY_ADMIN", "SUCURSAL_USER"] as const;
 
-const DOCUMENT_TYPES = ["CEDULA_IDENTIDAD", "PASAPORTE"] as const;
+const DOCUMENT_TYPES = ["CEDULA DE IDENTIDAD", "PASAPORTE", "RUC"] as const;
 
 const RESERVATION_STATUSES = ["PENDIENTE", "CONFIRMADA", "CANCELADA"] as const;
 
@@ -51,9 +51,9 @@ async function main() {
     await prisma.reservationStatus.upsert({ where: { name }, update: {}, create: { name } });
   }
 
-  // 4. Tipos de cliente
+  // 4. Tipos de proveedor
   for (const name of CUSTOMER_TYPES) {
-    await prisma.customerType.upsert({ where: { name }, update: {}, create: { name } });
+    await prisma.proveedorType.upsert({ where: { name }, update: {}, create: { name } });
   }
 
   // 5. Países
