@@ -54,7 +54,7 @@ type Props = {
   passenger: Passenger | null
   documentTypes: Array<{ id: string; name: string }>
   countries: Array<{ id: string; name: string }>
-  currentSlug: string
+  currentSlug?: string
 }
 
 export function PassengerSheet({
@@ -99,8 +99,8 @@ export function PassengerSheet({
 
   async function onSubmit(data: FormValues) {
     const result = isEditing
-      ? await updatePassenger({ id: passenger.id, ...data, currentSlug })
-      : await createPassenger({ ...data, currentSlug })
+      ? await updatePassenger({ id: passenger.id, ...data, currentSlug})
+      : await createPassenger({ ...data, currentSlug})
     if (result.error) {
       toast.error(result.error)
       return

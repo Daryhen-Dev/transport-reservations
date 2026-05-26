@@ -51,7 +51,7 @@ type Props = {
   schedules: TripScheduleWithRoute[]
   proveedorTypes: ProveedorType[]
   documentTypes: DocumentType[]
-  slug: string
+  slug?: string
   branchId: string
 }
 
@@ -148,7 +148,7 @@ export function NuevaReservaForm({ fecha, schedules, proveedorTypes, documentTyp
       }
 
       toast.success("Reserva creada exitosamente")
-      router.push(`/${slug}/reservas`)
+      router.push(`/reservas`)
     })
   }
 

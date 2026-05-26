@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { IconSearch, IconFileText, IconDownload } from "@tabler/icons-react"
 
-export function ManifestLookup({ currentSlug }: { currentSlug: string }) {
+export function ManifestLookup({ currentSlug = '' }: { currentSlug?: string }) {
   const [code, setCode] = useState("")
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<ManifestData | null>(null)
@@ -18,7 +18,7 @@ export function ManifestLookup({ currentSlug }: { currentSlug: string }) {
     setLoading(true)
     setError(null)
     setResult(null)
-    const res = await lookupManifestAction(code, currentSlug)
+    const res = await lookupManifestAction(code, currentSlug ?? "")
     setLoading(false)
     if ("error" in res) {
       setError(res.error)

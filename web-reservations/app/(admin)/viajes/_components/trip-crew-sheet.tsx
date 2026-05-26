@@ -60,7 +60,7 @@ type Props = {
   onOpenChange: (open: boolean) => void
   crewRoles: CrewRole[]
   documentTypes: { id: string; name: string }[]
-  currentSlug: string
+  currentSlug?: string
 }
 
 function getDisplayName(m: CrewMemberResult): string {
@@ -102,7 +102,7 @@ export function TripCrewSheet({
     if (!candidate) return
 
     setAssigning((prev) => ({ ...prev, [roleId]: true }))
-    const result = await assignCrewMember(trip!.id, candidate.id, roleId, currentSlug)
+    const result = await assignCrewMember(trip!.id, candidate.id, roleId, currentSlug ?? "")
     setAssigning((prev) => ({ ...prev, [roleId]: false }))
 
     if (result.error) {
@@ -121,7 +121,7 @@ export function TripCrewSheet({
 
   async function handleClose() {
     setIsClosing(true)
-    const result = await closeTripAction(trip!.id, currentSlug)
+    const result = await closeTripAction(trip!.id, currentSlug ?? "")
     setIsClosing(false)
     setCloseDialogOpen(false)
     if (result.error) { toast.error(result.error); return }
@@ -132,7 +132,7 @@ export function TripCrewSheet({
 
   async function handleRemove(roleId: string, crewMemberId: string) {
     setRemoving((prev) => ({ ...prev, [roleId]: true }))
-    const result = await removeCrewMember(trip!.id, crewMemberId, currentSlug)
+    const result = await removeCrewMember(trip!.id, crewMemberId, currentSlug ?? "")
     setRemoving((prev) => ({ ...prev, [roleId]: false }))
 
     if (result.error) {

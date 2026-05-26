@@ -29,7 +29,7 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>
 
-export function CreateBranchSheet({ currentSlug }: { currentSlug: string }) {
+export function CreateBranchSheet({ currentSlug = '' }: { currentSlug?: string }) {
   const [open, setOpen] = useState(false)
   const router = useRouter()
   const {
@@ -50,7 +50,7 @@ export function CreateBranchSheet({ currentSlug }: { currentSlug: string }) {
   }
 
   async function onSubmit(data: FormValues) {
-    const result = await createBranch({ ...data, currentSlug })
+    const result = await createBranch({ ...data, currentSlug})
     if (result.error) {
       toast.error(result.error)
       return

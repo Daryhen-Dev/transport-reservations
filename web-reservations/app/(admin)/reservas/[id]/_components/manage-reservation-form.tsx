@@ -66,7 +66,7 @@ type Props = {
   }>
   documentTypes: Array<{ id: string; name: string }>
   countries: Array<{ id: string; name: string }>
-  slug: string
+  slug?: string
 }
 
 function getPassengerDisplayValue(p: PassengerResult): string {
@@ -110,7 +110,7 @@ export function ManageReservationForm({ reservation, trips, documentTypes, count
 
   function handleRemovePassenger(passengerId: string) {
     setRemovingId(passengerId)
-    removePassengerFromReservation(passengerId, reservation.id, slug).then((result) => {
+    removePassengerFromReservation(passengerId, reservation.id, slug ?? "").then((result) => {
       setRemovingId(null)
       if (result.error) {
         toast.error(result.error)

@@ -39,14 +39,14 @@ type Country = {
 }
 
 type Props = {
-  currentSlug: string
+  currentSlug?: string
   country?: Country
   open?: boolean
   onOpenChange?: (open: boolean) => void
   trigger?: boolean
 }
 
-export function CountrySheet({ currentSlug, country, open, onOpenChange, trigger = true }: Props) {
+export function CountrySheet({ currentSlug = '', country, open, onOpenChange, trigger = true }: Props) {
   const [internalOpen, setInternalOpen] = useState(false)
   const isControlled = open !== undefined && onOpenChange !== undefined
   const isOpen = isControlled ? open : internalOpen
@@ -78,7 +78,7 @@ export function CountrySheet({ currentSlug, country, open, onOpenChange, trigger
   }, [isOpen, country, reset])
 
   async function onSubmit(data: FormValues) {
-    const payload = { ...data, currentSlug }
+    const payload = { ...data, currentSlug}
     const result = country
       ? await updateCountry(country.id, payload)
       : await createCountry(payload)

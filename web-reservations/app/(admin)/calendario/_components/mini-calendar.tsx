@@ -54,7 +54,7 @@ function PassengerIndicator({ r, slug }: { r: CalendarReservation; slug: string 
       </span>
       {hasPending && (
         <Link
-          href={`/${slug}/reservas/${r.id}`}
+          href={`/reservas/${r.id}`}
           className="flex shrink-0 items-center gap-1 rounded-md bg-primary px-2 py-0.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
         >
           <IconUserPlus className="size-3" />
@@ -197,7 +197,7 @@ type Props = {
   selectedDate: string | null;
   onDateSelect: (date: string) => void;
   onMonthChange: (year: number, month: number) => void;
-  currentSlug: string;
+  currentSlug?: string;
 };
 
 export function MiniCalendar({
@@ -257,7 +257,7 @@ export function MiniCalendar({
               {selectedTrips.map((trip, i) => (
                 <div key={trip.tripId}>
                   {i > 0 && <Separator className="mb-4" />}
-                  <TripPanel trip={trip} slug={currentSlug} />
+                  <TripPanel trip={trip} slug={currentSlug ?? ""} />
                 </div>
               ))}
             </div>

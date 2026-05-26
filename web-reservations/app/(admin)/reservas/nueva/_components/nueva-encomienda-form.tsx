@@ -60,7 +60,7 @@ type FormValues = z.infer<typeof cargoSchema>
 
 type Props = {
   fecha: string | null
-  slug: string
+  slug?: string
   branchId: string
   schedules: TripScheduleWithRoute[]
   documentTypes: { id: string; name: string }[]
@@ -184,7 +184,7 @@ export function NuevaEncomiendaForm({
       }
 
       toast.success("Encomienda creada exitosamente")
-      router.push(`/${slug}/reservas`)
+      router.push(`/reservas`)
     })
   }
 

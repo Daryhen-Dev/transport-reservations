@@ -75,7 +75,7 @@ export function SchedulesTable({
   data: Schedule[]
   routes: Route[]
   branches: Branch[]
-  currentSlug: string
+  currentSlug?: string
 }) {
   const router = useRouter()
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
@@ -173,7 +173,7 @@ export function SchedulesTable({
   async function handleDelete() {
     if (!deletingSchedule) return
     setIsDeleting(true)
-    const result = await deleteTripSchedule(deletingSchedule.id, currentSlug)
+    const result = await deleteTripSchedule(deletingSchedule.id, currentSlug ?? "")
     setIsDeleting(false)
     setDeletingSchedule(null)
     if (result.error) {

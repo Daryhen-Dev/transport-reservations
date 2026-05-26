@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { format } from "date-fns";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { fetchCalendarData } from "@/app/actions/calendar";
 import type { CalendarDay } from "@/lib/services/calendar.service";
 import { MiniCalendar } from "./mini-calendar";
@@ -23,8 +23,6 @@ export function CalendarioView({ initialData, initialYear, initialMonth }: Props
   );
   const [, startTransition] = useTransition();
   const router = useRouter();
-  const params = useParams();
-  const slug = params.slug as string;
 
   function handleMonthChange(newYear: number, newMonth: number) {
     setYear(newYear);
@@ -55,7 +53,6 @@ export function CalendarioView({ initialData, initialYear, initialMonth }: Props
         selectedDate={selectedDate}
         onDateSelect={handleDateSelect}
         onMonthChange={handleMonthChange}
-        currentSlug={slug}
       />
 
       {/* Right panel — Big month calendar */}
@@ -66,7 +63,7 @@ export function CalendarioView({ initialData, initialYear, initialMonth }: Props
         onMonthChange={handleMonthChange}
         selectedDate={selectedDate}
         onDateSelect={handleDateSelect}
-        onDoubleClick={(date) => router.push(`/${slug}/reservas/nueva?fecha=${date}`)}
+        onDoubleClick={(date) => router.push(`/reservas/nueva?fecha=${date}`)}
       />
     </div>
   );

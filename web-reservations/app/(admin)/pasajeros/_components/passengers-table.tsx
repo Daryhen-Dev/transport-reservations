@@ -55,10 +55,10 @@ type Props = {
   data: Passenger[]
   documentTypes: Array<{ id: string; name: string }>
   countries: Array<{ id: string; name: string }>
-  currentSlug: string
+  currentSlug?: string
 }
 
-export function PassengersTable({ data, documentTypes, countries, currentSlug }: Props) {
+export function PassengersTable({ data, documentTypes, countries, currentSlug}: Props) {
   const router = useRouter()
   const [sorting, setSorting] = useState<SortingState>([])
   const [globalFilter, setGlobalFilter] = useState("")
@@ -180,7 +180,7 @@ export function PassengersTable({ data, documentTypes, countries, currentSlug }:
   async function handleDelete() {
     if (!deletingPassenger) return
     setIsDeleting(true)
-    const result = await deletePassenger(deletingPassenger.id, currentSlug)
+    const result = await deletePassenger(deletingPassenger.id, currentSlug ?? "")
     setIsDeleting(false)
     setDeletingPassenger(null)
     if (result.error) {

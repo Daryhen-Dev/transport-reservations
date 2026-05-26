@@ -63,7 +63,7 @@ type Trip = {
 }
 
 type Props = {
-  currentSlug: string
+  currentSlug?: string
   branches: Branch[]
   routes: Route[]
   schedules: Schedule[]
@@ -77,7 +77,7 @@ function formatDate(date: Date): string {
   return date.toISOString().slice(0, 10)
 }
 
-export function TripSheet({ currentSlug, branches, routes, schedules, trip, open, onOpenChange, trigger = true }: Props) {
+export function TripSheet({ currentSlug = '', branches, routes, schedules, trip, open, onOpenChange, trigger = true }: Props) {
   const [internalOpen, setInternalOpen] = useState(false)
   const isControlled = open !== undefined && onOpenChange !== undefined
   const isOpen = isControlled ? open : internalOpen

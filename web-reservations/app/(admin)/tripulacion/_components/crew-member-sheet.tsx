@@ -42,7 +42,7 @@ type FormValues = z.infer<typeof schema>
 type DocumentType = { id: string; name: string }
 
 type Props = {
-  currentSlug: string
+  currentSlug?: string
   documentTypes: DocumentType[]
   crewMember?: CrewMemberRow
   open?: boolean
@@ -51,7 +51,7 @@ type Props = {
 }
 
 export function CrewMemberSheet({
-  currentSlug,
+  currentSlug = '',
   documentTypes,
   crewMember,
   open,
@@ -93,7 +93,7 @@ export function CrewMemberSheet({
   }, [isOpen, crewMember, reset])
 
   async function onSubmit(data: FormValues) {
-    const payload = { ...data, currentSlug }
+    const payload = { ...data, currentSlug}
     const result = crewMember
       ? await updateCrewMember(crewMember.id, payload)
       : await createCrewMember(payload)

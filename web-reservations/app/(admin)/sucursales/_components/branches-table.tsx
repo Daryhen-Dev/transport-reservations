@@ -60,7 +60,7 @@ export function BranchesTable({
   currentSlug,
 }: {
   data: Branch[]
-  currentSlug: string
+  currentSlug?: string
 }) {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [sorting, setSorting] = useState<SortingState>([])

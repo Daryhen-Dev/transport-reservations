@@ -14,7 +14,7 @@ type Props = {
   schedules: TripScheduleWithRoute[]
   proveedorTypes: { id: string; name: string }[]
   documentTypes: { id: string; name: string }[]
-  slug: string
+  slug?: string
   branchId: string
   categorias: { id: string; name: string }[]
   branches: { id: string; name: string }[]

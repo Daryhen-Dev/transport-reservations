@@ -26,14 +26,14 @@ type FormValues = z.infer<typeof schema>
 
 type TripStatus = { id: string; name: string }
 type Props = {
-  currentSlug: string
+  currentSlug?: string
   status?: TripStatus
   open?: boolean
   onOpenChange?: (open: boolean) => void
   trigger?: boolean
 }
 
-export function TripStatusSheet({ currentSlug, status, open, onOpenChange, trigger = true }: Props) {
+export function TripStatusSheet({ currentSlug = '', status, open, onOpenChange, trigger = true }: Props) {
   const [internalOpen, setInternalOpen] = useState(false)
   const isControlled = open !== undefined && onOpenChange !== undefined
   const isOpen = isControlled ? open : internalOpen
@@ -49,7 +49,7 @@ export function TripStatusSheet({ currentSlug, status, open, onOpenChange, trigg
   }, [isOpen, status, reset])
 
   async function onSubmit(data: FormValues) {
-    const payload = { ...data, name: data.name.toUpperCase(), currentSlug }
+    const payload = { ...data, name: data.name.toUpperCase(), currentSlug}
     const result = status
       ? await updateTripStatus(status.id, payload)
       : await createTripStatus(payload)

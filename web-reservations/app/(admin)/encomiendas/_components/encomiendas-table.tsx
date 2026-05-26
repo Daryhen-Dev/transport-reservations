@@ -79,7 +79,7 @@ export function EncomiendасTable({
 }: {
   data: CargoReservation[]
   cargoStatuses: CargoStatus[]
-  currentSlug: string
+  currentSlug?: string
   currentBranchId: string
 }) {
   const [localData, setLocalData] = useState<CargoReservation[]>(data)

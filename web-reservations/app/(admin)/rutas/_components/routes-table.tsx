@@ -62,7 +62,7 @@ export function RoutesTable({
 }: {
   data: Route[]
   branches: Branch[]
-  currentSlug: string
+  currentSlug?: string
 }) {
   const router = useRouter()
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
@@ -133,7 +133,7 @@ export function RoutesTable({
   async function handleDelete() {
     if (!deletingRoute) return
     setIsDeleting(true)
-    const result = await deleteRoute(deletingRoute.id, currentSlug)
+    const result = await deleteRoute(deletingRoute.id, currentSlug ?? "")
     setIsDeleting(false)
     setDeletingRoute(null)
     if (result.error) {

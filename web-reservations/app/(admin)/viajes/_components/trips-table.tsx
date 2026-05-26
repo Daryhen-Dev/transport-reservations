@@ -101,7 +101,7 @@ export function TripsTable({
   schedules: Schedule[]
   crewRoles: CrewRole[]
   documentTypes: { id: string; name: string }[]
-  currentSlug: string
+  currentSlug?: string
 }) {
   const router = useRouter()
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
@@ -209,7 +209,7 @@ export function TripsTable({
             title="Generar manifiesto"
             onClick={async () => {
               setGeneratingManifestId(row.original.id)
-              const result = await generateManifestAction(row.original.id, currentSlug)
+              const result = await generateManifestAction(row.original.id, currentSlug ?? "")
               setGeneratingManifestId(null)
               if ("error" in result) { toast.error(result.error); return }
               toast.success(`Manifiesto ${result.code} generado`)
@@ -238,8 +238,8 @@ export function TripsTable({
               onClick={async () => {
                 setTogglingId(row.original.id)
                 const result = isClosed
-                  ? await openTripAction(row.original.id, currentSlug)
-                  : await closeTripAction(row.original.id, currentSlug)
+                  ? await openTripAction(row.original.id, currentSlug ?? "")
+                  : await closeTripAction(row.original.id, currentSlug ?? "")
                 setTogglingId(null)
                 if (result.error) { toast.error(result.error); return }
                 toast.success(isClosed ? "Viaje reabierto" : "Viaje cerrado")
@@ -287,7 +287,7 @@ export function TripsTable({
   async function handleDelete() {
     if (!deletingTrip) return
     setIsDeleting(true)
-    const result = await deleteTrip(deletingTrip.id, currentSlug)
+    const result = await deleteTrip(deletingTrip.id, currentSlug ?? "")
     setIsDeleting(false)
     setDeletingTrip(null)
     if (result.error) {

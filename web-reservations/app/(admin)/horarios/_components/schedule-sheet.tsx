@@ -30,7 +30,7 @@ import {
 const schema = z.object({
   routeId: z.string().min(1, "Debe seleccionar una ruta"),
   time: z.string().regex(/^\d{2}:\d{2}$/, "Formato inválido (HH:MM)"),
-  isActive: z.boolean().default(true),
+  isActive: z.boolean(),
 })
 
 type FormValues = z.infer<typeof schema>
@@ -56,7 +56,7 @@ type Schedule = {
 }
 
 type Props = {
-  currentSlug: string
+  currentSlug?: string
   routes: Route[]
   schedule?: Schedule
   open?: boolean
@@ -64,7 +64,7 @@ type Props = {
   trigger?: boolean
 }
 
-export function ScheduleSheet({ currentSlug, routes, schedule, open, onOpenChange, trigger = true }: Props) {
+export function ScheduleSheet({ currentSlug = '', routes, schedule, open, onOpenChange, trigger = true }: Props) {
   const [internalOpen, setInternalOpen] = useState(false)
   const isControlled = open !== undefined && onOpenChange !== undefined
   const isOpen = isControlled ? open : internalOpen
@@ -100,9 +100,9 @@ export function ScheduleSheet({ currentSlug, routes, schedule, open, onOpenChang
   }, [isOpen, schedule, reset])
 
   async function onSubmit(data: FormValues) {
-    const payload = { ...data, currentSlug }
+    const payload = { ...data, currentSlug}
     const result = schedule
-      ? await updateTripSchedule(schedule.id, { time: data.time, isActive: data.isActive, currentSlug })
+      ? await updateTripSchedule(schedule.id, { time: data.time, isActive: data.isActive, currentSlug})
       : await createTripSchedule(payload)
 
     if (result.error) {

@@ -116,7 +116,7 @@ export function CargoReservationsTable({
   proveedorTypes: ProveedorType[]
   categorias: { id: string; name: string }[]
   branches: { id: string; name: string }[]
-  currentSlug: string
+  currentSlug?: string
 }) {
   const router = useRouter()
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
@@ -227,7 +227,7 @@ export function CargoReservationsTable({
               disabled={updatingStatusId === reservation.id}
               onValueChange={async (val) => {
                 setUpdatingStatusId(reservation.id)
-                const result = await updateCargoReservationStatus(reservation.id, val, currentSlug)
+                const result = await updateCargoReservationStatus(reservation.id, val, currentSlug ?? "")
                 setUpdatingStatusId(null)
                 if (result.error) {
                   toast.error(result.error)
@@ -278,7 +278,7 @@ export function CargoReservationsTable({
   async function handleDelete() {
     if (!deletingReservation) return
     setIsDeleting(true)
-    const result = await deleteCargoReservation(deletingReservation.id, currentSlug)
+    const result = await deleteCargoReservation(deletingReservation.id, currentSlug ?? "")
     setIsDeleting(false)
     setDeletingReservation(null)
     if (result.error) {

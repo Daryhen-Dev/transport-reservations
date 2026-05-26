@@ -29,7 +29,7 @@ type Props = {
   proveedorTypeId: string | null
   proveedorTypeName: string | null
   documentTypes: DocumentType[]
-  currentSlug: string
+  currentSlug?: string
   onCreated: (proveedor: ProveedorWithRelations) => void
 }
 
@@ -74,8 +74,8 @@ export function QuickProveedorSheet({
 
     startTransition(async () => {
       const payload = isPersona
-        ? { proveedorTypeId, firstName, lastName, documentTypeId, documentNumber, phone, currentSlug }
-        : { proveedorTypeId, companyName, documentTypeId, documentNumber, phone, currentSlug }
+        ? { proveedorTypeId, firstName, lastName, documentTypeId, documentNumber, phone, currentSlug}
+        : { proveedorTypeId, companyName, documentTypeId, documentNumber, phone, currentSlug}
 
       const result = await createProveedor(payload)
 

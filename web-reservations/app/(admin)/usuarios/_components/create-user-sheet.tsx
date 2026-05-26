@@ -44,10 +44,10 @@ type FormValues = z.infer<typeof schema>;
 type Branch = { id: string; name: string };
 
 export function CreateUserSheet({
-  currentSlug,
+  currentSlug = '',
   branches,
 }: {
-  currentSlug: string;
+  currentSlug?: string;
   branches: Branch[];
 }) {
   const [open, setOpen] = useState(false);
@@ -63,7 +63,7 @@ export function CreateUserSheet({
   });
 
   async function onSubmit(data: FormValues) {
-    const result = await createUser({ ...data, currentSlug });
+    const result = await createUser({ ...data, currentSlug});
     if (result.error) {
       toast.error(result.error);
       return;

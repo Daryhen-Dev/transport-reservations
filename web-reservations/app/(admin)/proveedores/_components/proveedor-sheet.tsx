@@ -75,7 +75,7 @@ type Proveedor = {
 }
 
 type Props = {
-  currentSlug: string
+  currentSlug?: string
   proveedorTypes: ProveedorType[]
   documentTypes: DocumentType[]
   proveedor?: Proveedor
@@ -91,7 +91,7 @@ function getSchemaForType(typeName: string | undefined) {
 }
 
 export function ProveedorSheet({
-  currentSlug,
+  currentSlug = '',
   proveedorTypes,
   documentTypes,
   proveedor,
@@ -154,7 +154,7 @@ export function ProveedorSheet({
   }, [isOpen, proveedor, reset])
 
   async function onSubmit(data: FormValues) {
-    const payload = { ...data, currentSlug }
+    const payload = { ...data, currentSlug}
     const result = proveedor
       ? await updateProveedor(proveedor.id, payload)
       : await createProveedor(payload)

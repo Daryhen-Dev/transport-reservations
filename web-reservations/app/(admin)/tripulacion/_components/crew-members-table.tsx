@@ -49,7 +49,7 @@ export function CrewMembersTable({
 }: {
   data: CrewMemberRow[]
   documentTypes: DocumentType[]
-  currentSlug: string
+  currentSlug?: string
 }) {
   const router = useRouter()
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
@@ -140,7 +140,7 @@ export function CrewMembersTable({
   async function handleDelete() {
     if (!deletingMember) return
     setIsDeleting(true)
-    const result = await deleteCrewMember(deletingMember.id, currentSlug)
+    const result = await deleteCrewMember(deletingMember.id, currentSlug ?? "")
     setIsDeleting(false)
     setDeletingMember(null)
     if (result.error) {

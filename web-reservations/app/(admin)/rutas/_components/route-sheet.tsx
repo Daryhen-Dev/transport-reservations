@@ -45,7 +45,7 @@ type Route = {
 }
 
 type Props = {
-  currentSlug: string
+  currentSlug?: string
   branches: Branch[]
   route?: Route
   open?: boolean
@@ -53,7 +53,7 @@ type Props = {
   trigger?: boolean
 }
 
-export function RouteSheet({ currentSlug, branches, route, open, onOpenChange, trigger = true }: Props) {
+export function RouteSheet({ currentSlug = '', branches, route, open, onOpenChange, trigger = true }: Props) {
   const [internalOpen, setInternalOpen] = useState(false)
   const isControlled = open !== undefined && onOpenChange !== undefined
   const isOpen = isControlled ? open : internalOpen
@@ -86,7 +86,7 @@ export function RouteSheet({ currentSlug, branches, route, open, onOpenChange, t
   }, [isOpen, route, reset])
 
   async function onSubmit(data: FormValues) {
-    const payload = { ...data, currentSlug }
+    const payload = { ...data, currentSlug}
     const result = route
       ? await updateRoute(route.id, payload)
       : await createRoute(payload)

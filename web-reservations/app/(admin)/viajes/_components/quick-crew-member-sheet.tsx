@@ -47,7 +47,7 @@ type Props = {
   open: boolean
   onOpenChange: (open: boolean) => void
   documentTypes: { id: string; name: string }[]
-  currentSlug: string
+  currentSlug?: string
   onCreated: (member: CreatedMember) => void
 }
 
@@ -74,7 +74,7 @@ export function QuickCrewMemberSheet({
   }, [open, reset])
 
   async function onSubmit(data: FormValues) {
-    const result = await createCrewMember({ ...data, currentSlug })
+    const result = await createCrewMember({ ...data, currentSlug})
     if (result.error) {
       toast.error(result.error)
       return

@@ -38,7 +38,7 @@ type Props = {
   onOpenChange: (open: boolean) => void
   documentTypes: DocumentType[]
   countries: Country[]
-  currentSlug: string
+  currentSlug?: string
   onCreated: (passenger: PassengerResult) => void
 }
 

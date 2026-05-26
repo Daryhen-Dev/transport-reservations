@@ -70,7 +70,7 @@ export function ProveedoresTable({
   data: Proveedor[]
   proveedorTypes: ProveedorType[]
   documentTypes: DocumentType[]
-  currentSlug: string
+  currentSlug?: string
 }) {
   const router = useRouter()
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
@@ -162,7 +162,7 @@ export function ProveedoresTable({
   async function handleDelete() {
     if (!deletingProveedor) return
     setIsDeleting(true)
-    const result = await deleteProveedor(deletingProveedor.id, currentSlug)
+    const result = await deleteProveedor(deletingProveedor.id, currentSlug ?? "")
     setIsDeleting(false)
     setDeletingProveedor(null)
     if (result.error) {

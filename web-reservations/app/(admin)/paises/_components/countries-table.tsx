@@ -50,7 +50,7 @@ export function CountriesTable({
   currentSlug,
 }: {
   data: Country[]
-  currentSlug: string
+  currentSlug?: string
 }) {
   const router = useRouter()
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
@@ -115,7 +115,7 @@ export function CountriesTable({
   async function handleDelete() {
     if (!deletingCountry) return
     setIsDeleting(true)
-    const result = await deleteCountry(deletingCountry.id, currentSlug)
+    const result = await deleteCountry(deletingCountry.id, currentSlug ?? "")
     setIsDeleting(false)
     setDeletingCountry(null)
     if (result.error) {

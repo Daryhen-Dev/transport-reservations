@@ -79,7 +79,7 @@ type ReservationStatus = { id: string; name: string }
 type ProveedorType = { id: string; name: string }
 
 type Props = {
-  currentSlug: string
+  currentSlug?: string
   trips: Trip[]
   documentTypes: DocumentType[]
   countries: Country[]
@@ -90,7 +90,7 @@ type Props = {
 }
 
 export function CargoReservationSheet({
-  currentSlug,
+  currentSlug = '',
   trips,
   documentTypes,
   countries,

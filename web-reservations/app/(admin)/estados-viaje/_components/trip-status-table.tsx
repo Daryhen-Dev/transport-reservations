@@ -21,7 +21,7 @@ import { TripStatusSheet } from "./trip-status-sheet"
 
 type TripStatus = { id: string; name: string; _count: { trips: number } }
 
-export function TripStatusTable({ data, currentSlug }: { data: TripStatus[]; currentSlug: string }) {
+export function TripStatusTable({ data, currentSlug}: { data: TripStatus[]; currentSlug?: string }) {
   const router = useRouter()
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [sorting, setSorting] = useState<SortingState>([])
@@ -79,7 +79,7 @@ export function TripStatusTable({ data, currentSlug }: { data: TripStatus[]; cur
   async function handleDelete() {
     if (!deletingStatus) return
     setIsDeleting(true)
-    const result = await deleteTripStatus(deletingStatus.id, currentSlug)
+    const result = await deleteTripStatus(deletingStatus.id, currentSlug ?? "")
     setIsDeleting(false)
     setDeletingStatus(null)
     if (result.error) { toast.error(result.error); return }

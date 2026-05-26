@@ -67,7 +67,7 @@ export function UsersTable({
   branches,
 }: {
   data: UserRow[];
-  currentSlug: string;
+  currentSlug?: string;
   branches: Branch[];
 }) {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);

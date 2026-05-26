@@ -104,7 +104,7 @@ export function PassengerReservationsTable({
   documentTypes: DocumentType[]
   countries: Country[]
   proveedorTypes: ProveedorType[]
-  currentSlug: string
+  currentSlug?: string
 }) {
   const router = useRouter()
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
@@ -190,7 +190,7 @@ export function PassengerReservationsTable({
                 const prev = localStatuses[reservation.id] ?? reservation.reservationStatus.id
                 setLocalStatuses((s) => ({ ...s, [reservation.id]: val }))
                 setUpdatingStatusId(reservation.id)
-                const result = await updateReservationStatus(reservation.id, val, currentSlug)
+                const result = await updateReservationStatus(reservation.id, val, currentSlug ?? "")
                 setUpdatingStatusId(null)
                 if (result.error) {
                   toast.error(result.error)
@@ -242,7 +242,7 @@ export function PassengerReservationsTable({
   async function handleDelete() {
     if (!deletingReservation) return
     setIsDeleting(true)
-    const result = await deletePassengerReservation(deletingReservation.id, currentSlug)
+    const result = await deletePassengerReservation(deletingReservation.id, currentSlug ?? "")
     setIsDeleting(false)
     setDeletingReservation(null)
     if (result.error) {
