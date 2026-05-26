@@ -12,7 +12,7 @@ const routeSchema = z.object({
 })
 
 function revalidate(slug: string) {
-  revalidatePath(`/${slug}/rutas`)
+  revalidatePath("/rutas")
 }
 
 export async function createRoute(data: unknown) {
@@ -48,7 +48,7 @@ export async function updateRoute(id: string, data: unknown) {
 export async function deleteRoute(id: string, currentSlug: string) {
   try {
     await prisma.route.delete({ where: { id } })
-    revalidatePath(`/${currentSlug}/rutas`)
+    revalidatePath("/rutas")
     return { success: true }
   } catch {
     return { error: "Error al eliminar la ruta. Puede que tenga viajes asociados." }

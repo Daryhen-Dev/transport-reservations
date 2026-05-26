@@ -19,7 +19,7 @@ export async function createTripStatus(data: unknown) {
 
   try {
     await prisma.tripStatus.create({ data: { name } })
-    revalidatePath(`/${currentSlug}/estados-viaje`)
+    revalidatePath("/estados-viaje")
     return { success: true }
   } catch {
     return { error: "Error al crear el estado" }
@@ -36,7 +36,7 @@ export async function updateTripStatus(id: string, data: unknown) {
 
   try {
     await prisma.tripStatus.update({ where: { id }, data: { name } })
-    revalidatePath(`/${currentSlug}/estados-viaje`)
+    revalidatePath("/estados-viaje")
     return { success: true }
   } catch {
     return { error: "Error al actualizar el estado" }
@@ -55,7 +55,7 @@ export async function deleteTripStatus(id: string, currentSlug: string) {
 
   try {
     await prisma.tripStatus.delete({ where: { id } })
-    revalidatePath(`/${currentSlug}/estados-viaje`)
+    revalidatePath("/estados-viaje")
     return { success: true }
   } catch {
     return { error: "Error al eliminar el estado" }

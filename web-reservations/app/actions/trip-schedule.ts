@@ -18,7 +18,7 @@ const updateScheduleSchema = z.object({
 })
 
 function revalidate(slug: string) {
-  revalidatePath(`/${slug}/horarios`)
+  revalidatePath("/horarios")
 }
 
 export async function createTripSchedule(data: unknown): Promise<{ success?: true; error?: string }> {
@@ -68,7 +68,7 @@ export async function deleteTripSchedule(id: string, currentSlug: string): Promi
 
   try {
     await prisma.tripSchedule.delete({ where: { id } })
-    revalidatePath(`/${currentSlug}/horarios`)
+    revalidatePath("/horarios")
     return { success: true }
   } catch {
     return { error: "Error al eliminar el horario" }
@@ -81,7 +81,7 @@ export async function toggleTripSchedule(id: string, currentSlug: string): Promi
 
   try {
     await prisma.tripSchedule.update({ where: { id }, data: { isActive: !existing.isActive } })
-    revalidatePath(`/${currentSlug}/horarios`)
+    revalidatePath("/horarios")
     return { success: true }
   } catch {
     return { error: "Error al actualizar el horario" }

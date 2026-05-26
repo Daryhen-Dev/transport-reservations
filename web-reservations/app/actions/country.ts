@@ -17,7 +17,7 @@ const countrySchema = z.object({
 })
 
 function revalidate(slug: string) {
-  revalidatePath(`/${slug}/paises`)
+  revalidatePath("/paises")
 }
 
 export async function createCountry(data: unknown) {
@@ -71,7 +71,7 @@ export async function updateCountry(id: string, data: unknown) {
 export async function deleteCountry(id: string, currentSlug: string) {
   try {
     await prisma.country.delete({ where: { id } })
-    revalidatePath(`/${currentSlug}/paises`)
+    revalidatePath("/paises")
     return { success: true }
   } catch {
     return { error: "Error al eliminar el país. Puede que tenga datos asociados." }

@@ -37,7 +37,7 @@ export async function assignCrewMember(
     const assignedRoles = await prisma.tripCrew.count({ where: { tripId } })
     const allCrewAssigned = assignedRoles >= totalRoles
 
-    revalidatePath(`/${currentSlug}/viajes`)
+    revalidatePath("/viajes")
     return { success: true, allCrewAssigned }
   } catch {
     return { error: "Error al asignar tripulante" }
@@ -53,7 +53,7 @@ export async function removeCrewMember(
     await prisma.tripCrew.delete({
       where: { tripId_crewMemberId: { tripId, crewMemberId } },
     })
-    revalidatePath(`/${currentSlug}/viajes`)
+    revalidatePath("/viajes")
     return { success: true }
   } catch {
     return { error: "Error al quitar tripulante" }

@@ -36,7 +36,7 @@ export async function createCrewMember(data: unknown) {
         birthDate: birthDate ? new Date(birthDate) : null,
       },
     })
-    revalidatePath(`/${currentSlug}/tripulacion`)
+    revalidatePath("/tripulacion")
     return { success: true, id: created.id }
   } catch {
     return { error: "Error al crear el tripulante" }
@@ -66,7 +66,7 @@ export async function updateCrewMember(id: string, data: unknown) {
         birthDate: birthDate ? new Date(birthDate) : null,
       },
     })
-    revalidatePath(`/${currentSlug}/tripulacion`)
+    revalidatePath("/tripulacion")
     return { success: true }
   } catch {
     return { error: "Error al actualizar el tripulante" }
@@ -86,7 +86,7 @@ export async function deleteCrewMember(id: string, currentSlug: string) {
 
   try {
     await prisma.crewMember.delete({ where: { id } })
-    revalidatePath(`/${currentSlug}/tripulacion`)
+    revalidatePath("/tripulacion")
     return { success: true }
   } catch {
     return { error: "Error al eliminar el tripulante" }

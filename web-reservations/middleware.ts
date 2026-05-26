@@ -1,6 +1,19 @@
-import NextAuth from "next-auth";
+import NextAuthImport from "next-auth";
 import { authConfig } from "@/auth.config";
 import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
+
+// Same workaround as in auth.ts for the next-auth v5 beta call signature.
+type AuthMiddlewareReq = NextRequest & { auth: unknown | null };
+type AuthMiddleware = (
+  handler: (req: AuthMiddlewareReq) => NextResponse | undefined,
+) => (req: NextRequest) => NextResponse;
+type NextAuthResult = {
+  auth: AuthMiddleware;
+};
+const NextAuth = NextAuthImport as unknown as (
+  config: unknown,
+) => NextAuthResult;
 
 const { auth } = NextAuth(authConfig);
 

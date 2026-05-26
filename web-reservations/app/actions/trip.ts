@@ -14,7 +14,7 @@ const tripSchema = z.object({
 })
 
 function revalidate(slug: string) {
-  revalidatePath(`/${slug}/viajes`)
+  revalidatePath("/viajes")
 }
 
 export async function createTrip(data: unknown) {
@@ -72,7 +72,7 @@ export async function closeTripAction(tripId: string, currentSlug: string) {
   if (!cerradoStatus) return { error: "Estado CERRADO no encontrado" }
   try {
     await prisma.trip.update({ where: { id: tripId }, data: { statusId: cerradoStatus.id } })
-    revalidatePath(`/${currentSlug}/viajes`)
+    revalidatePath("/viajes")
     return { success: true }
   } catch {
     return { error: "Error al cerrar el viaje" }
@@ -84,7 +84,7 @@ export async function openTripAction(tripId: string, currentSlug: string) {
   if (!abiertoStatus) return { error: "Estado ABIERTO no encontrado" }
   try {
     await prisma.trip.update({ where: { id: tripId }, data: { statusId: abiertoStatus.id } })
-    revalidatePath(`/${currentSlug}/viajes`)
+    revalidatePath("/viajes")
     return { success: true }
   } catch {
     return { error: "Error al reabrir el viaje" }
@@ -114,7 +114,7 @@ export async function updateTrip(id: string, data: unknown) {
 export async function deleteTrip(id: string, currentSlug: string) {
   try {
     await prisma.trip.delete({ where: { id } })
-    revalidatePath(`/${currentSlug}/viajes`)
+    revalidatePath("/viajes")
     return { success: true }
   } catch {
     return { error: "Error al eliminar el viaje. Puede que tenga reservas asociadas." }

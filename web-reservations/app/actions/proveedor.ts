@@ -30,7 +30,7 @@ const empresaSchema = z.object({
 })
 
 function revalidate(slug: string) {
-  revalidatePath(`/${slug}/proveedores`)
+  revalidatePath("/proveedores")
 }
 
 async function resolveTypeName(proveedorTypeId: string): Promise<string | null> {
@@ -156,7 +156,7 @@ export async function deleteProveedor(id: string, currentSlug: string): Promise<
 
   try {
     await prisma.proveedor.delete({ where: { id } })
-    revalidatePath(`/${currentSlug}/proveedores`)
+    revalidatePath("/proveedores")
     return { success: true }
   } catch {
     return { error: "Error al eliminar el proveedor" }

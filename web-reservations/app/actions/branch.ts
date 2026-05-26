@@ -16,7 +16,7 @@ const branchSchema = z.object({
 export async function createBranch(data: unknown) {
   const parsed = branchSchema.safeParse(data)
   if (!parsed.success) {
-    return { error: parsed.error.errors[0].message }
+    return { error: parsed.error.issues[0].message }
   }
   const { name, slug, currentSlug } = parsed.data
 
@@ -27,7 +27,7 @@ export async function createBranch(data: unknown) {
     await prisma.branch.create({
       data: { name, slug },
     })
-    revalidatePath(`/${currentSlug}/sucursales`)
+    revalidatePath("/sucursales")
     return { success: true }
   } catch {
     return { error: "Error al crear la sucursal" }

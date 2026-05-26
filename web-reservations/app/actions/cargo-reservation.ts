@@ -4,9 +4,10 @@ import { z } from "zod"
 import { prisma } from "@/lib/db"
 import { revalidatePath } from "next/cache"
 import { startOfDay, endOfDay } from "date-fns"
+import { getActiveBranch } from "@/lib/branch-context"
 
-async function resolveBranchId(slug: string): Promise<string | null> {
-  const branch = await prisma.branch.findUnique({ where: { slug }, select: { id: true } })
+async function resolveBranchId(): Promise<string | null> {
+  const branch = await getActiveBranch()
   return branch?.id ?? null
 }
 
@@ -85,7 +86,7 @@ export async function createCargoReservation(data: unknown) {
     reservationStatusId,
   } = parsed.data
 
-  const branchId = await resolveBranchId(currentSlug)
+  const branchId = await resolveBranchId()
   if (!branchId) return { error: "Sucursal no encontrada" }
   if (!(await verifyTripBranch(tripId, branchId))) return { error: "El viaje no pertenece a esta sucursal" }
 
@@ -140,7 +141,7 @@ export async function createCargoReservation(data: unknown) {
       })
     })
 
-    revalidatePath(`/${currentSlug}/reservas`)
+    revalidatePath("/reservas")
     return { success: true }
   } catch {
     return { error: "Error al crear la reserva de encomienda" }
@@ -176,7 +177,7 @@ export async function createQuickCargoReservation(data: unknown) {
     diameterCm, widthCm, heightCm, lengthCm, currentSlug,
   } = parsed.data
 
-  const resolvedBranchId = await resolveBranchId(currentSlug)
+  const resolvedBranchId = await resolveBranchId()
   if (!resolvedBranchId) return { error: "Sucursal no encontrada" }
   if (branchId !== resolvedBranchId) return { error: "La sucursal no coincide con la sesión activa" }
 
@@ -245,7 +246,7 @@ export async function createQuickCargoReservation(data: unknown) {
       })
     })
 
-    revalidatePath(`/${currentSlug}/reservas`)
+    revalidatePath("/reservas")
     return { success: true }
   } catch {
     return { error: "Error al crear la reserva de encomienda" }
@@ -260,7 +261,7 @@ export async function updateCargoReservationStatus(id: string, statusId: string,
       where: { id },
       data: { reservationStatusId: statusId },
     })
-    revalidatePath(`/${currentSlug}/reservas`)
+    revalidatePath("/reservas")
     return { success: true }
   } catch {
     return { error: "Error al actualizar el estado" }
@@ -302,7 +303,7 @@ export async function deleteCargoReservation(id: string, currentSlug: string) {
 
   try {
     await prisma.cargoReservation.delete({ where: { id } })
-    revalidatePath(`/${currentSlug}/reservas`)
+    revalidatePath("/reservas")
     return { success: true }
   } catch {
     return { error: "Error al eliminar la reserva de encomienda" }

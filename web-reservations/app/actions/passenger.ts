@@ -30,7 +30,7 @@ export async function createPassenger(data: unknown) {
     await prisma.passenger.create({
       data: { firstName, lastName, documentTypeId, documentNumber, countryId, birthDate: birthDate ? new Date(birthDate) : undefined, phone: phone || null },
     })
-    revalidatePath(`/${currentSlug}/pasajeros`)
+    revalidatePath("/pasajeros")
     return { success: true }
   } catch {
     return { error: "Error al crear el pasajero" }
@@ -74,7 +74,7 @@ export async function updatePassenger(data: unknown) {
         phone: phone || null,
       },
     })
-    revalidatePath(`/${currentSlug}/pasajeros`)
+    revalidatePath("/pasajeros")
     return { success: true }
   } catch {
     return { error: "Error al actualizar el pasajero" }
@@ -94,7 +94,7 @@ export async function deletePassenger(id: string, currentSlug: string) {
 
   try {
     await prisma.passenger.delete({ where: { id } })
-    revalidatePath(`/${currentSlug}/pasajeros`)
+    revalidatePath("/pasajeros")
     return { success: true }
   } catch {
     return { error: "Error al eliminar el pasajero" }

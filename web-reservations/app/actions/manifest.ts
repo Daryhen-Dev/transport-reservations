@@ -3,6 +3,7 @@
 import { randomBytes } from "crypto"
 import { prisma } from "@/lib/db"
 import { revalidatePath } from "next/cache"
+import { getActiveBranch } from "@/lib/branch-context"
 
 function generateCode(branchName: string, departureAt: Date, destination: string): string {
   const O = branchName.replace(/[^a-zA-Z]/g, "").padEnd(2, "X").substring(0, 2).toUpperCase()
@@ -22,9 +23,9 @@ function generateCode(branchName: string, departureAt: Date, destination: string
 
 export async function generateManifestAction(
   tripId: string,
-  currentSlug: string
+  _currentSlug?: string
 ): Promise<{ success: true; code: string } | { error: string }> {
-  const branch = await prisma.branch.findUnique({ where: { slug: currentSlug }, select: { id: true } })
+  const branch = await getActiveBranch()
   if (!branch) return { error: "Sucursal no encontrada" }
 
   const trip = await prisma.trip.findUnique({
@@ -57,14 +58,14 @@ export async function generateManifestAction(
     data: { cargoStatusId: "cargostatus_transito" },
   })
 
-  revalidatePath(`/${currentSlug}/viajes`)
-  revalidatePath(`/${currentSlug}/encomiendas`)
+  revalidatePath("/viajes")
+  revalidatePath("/encomiendas")
   return { success: true, code: manifest.code }
 }
 
 export async function lookupManifestAction(
   code: string,
-  currentSlug: string
+  _currentSlug?: string
 ): Promise<{ manifest: ManifestData } | { error: string }> {
   if (!code.trim()) return { error: "Ingresá un código de manifiesto" }
 
@@ -73,7 +74,7 @@ export async function lookupManifestAction(
     include: {
       trip: {
         include: {
-          branch: { select: { name: true, slug: true } },
+          branch: { select: { id: true, name: true, slug: true } },
           route: { select: { origin: true, destination: true } },
           status: { select: { name: true } },
           crew: {
@@ -126,13 +127,13 @@ export async function lookupManifestAction(
 
   // Record first receipt by this branch (only if different from origin branch)
   if (!manifest.receivedByBranchId) {
-    const branch = await prisma.branch.findUnique({ where: { slug: currentSlug }, select: { id: true } })
+    const branch = await getActiveBranch()
     if (branch && branch.id !== manifest.trip.branch.id) {
       await prisma.tripManifest.update({
         where: { id: manifest.id },
         data: { receivedByBranchId: branch.id, receivedAt: new Date() },
       })
-      revalidatePath(`/${currentSlug}/encomiendas`)
+      revalidatePath("/encomiendas")
     }
   }
 

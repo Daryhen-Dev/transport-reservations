@@ -1,8 +1,24 @@
-import NextAuth from "next-auth";
+import NextAuthImport from "next-auth";
 import Credentials from "next-auth/providers/credentials";
+import type { Session } from "next-auth";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { authConfig } from "@/auth.config";
+
+// Next-Auth v5 beta default export is incorrectly typed under TS bundler resolution
+// (TS2349). Cast through unknown to a callable function shape.
+type NextAuthResult = {
+  handlers: {
+    GET: (req: Request) => Promise<Response>;
+    POST: (req: Request) => Promise<Response>;
+  };
+  auth: () => Promise<Session | null>;
+  signIn: (...args: unknown[]) => Promise<unknown>;
+  signOut: (...args: unknown[]) => Promise<unknown>;
+};
+const NextAuth = NextAuthImport as unknown as (
+  config: unknown,
+) => NextAuthResult;
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,

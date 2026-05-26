@@ -4,9 +4,10 @@ import { z } from "zod"
 import { startOfDay, endOfDay } from "date-fns"
 import { prisma } from "@/lib/db"
 import { revalidatePath } from "next/cache"
+import { getActiveBranch } from "@/lib/branch-context"
 
-async function resolveBranchId(slug: string): Promise<string | null> {
-  const branch = await prisma.branch.findUnique({ where: { slug }, select: { id: true } })
+async function resolveBranchId(): Promise<string | null> {
+  const branch = await getActiveBranch()
   return branch?.id ?? null
 }
 
@@ -63,7 +64,7 @@ export async function createPassengerReservation(data: unknown) {
   const { tripId, seatCount, proveedor, passengers, currentSlug, proveedorTypeId } = parsed.data
   let { reservationStatusId } = parsed.data
 
-  const branchId = await resolveBranchId(currentSlug)
+  const branchId = await resolveBranchId()
   if (!branchId) return { error: "Sucursal no encontrada" }
   if (!(await verifyTripBranch(tripId, branchId))) return { error: "El viaje no pertenece a esta sucursal" }
 
@@ -149,7 +150,7 @@ export async function createPassengerReservation(data: unknown) {
       }
     })
 
-    revalidatePath(`/${currentSlug}/reservas`)
+    revalidatePath("/reservas")
     return { success: true, id: createdId }
   } catch {
     return { error: "Error al crear la reserva" }
@@ -172,7 +173,7 @@ export async function createQuickPassengerReservation(data: unknown) {
 
   const { scheduleId, date, proveedorId, seatCount, branchId, currentSlug, isPending } = parsed.data
 
-  const resolvedBranchId = await resolveBranchId(currentSlug)
+  const resolvedBranchId = await resolveBranchId()
   if (!resolvedBranchId) return { error: "Sucursal no encontrada" }
   if (branchId !== resolvedBranchId) return { error: "La sucursal no coincide con la sesión activa" }
 
@@ -230,8 +231,8 @@ export async function createQuickPassengerReservation(data: unknown) {
         reservationStatusId: pendingStatus.id,
       },
     })
-    revalidatePath(`/${currentSlug}/reservas`)
-    revalidatePath(`/${currentSlug}/calendario`)
+    revalidatePath("/reservas")
+    revalidatePath("/calendario")
     return { success: true, id: reservation.id }
   } catch {
     return { error: "Error al crear la reserva" }
@@ -246,8 +247,8 @@ export async function updateReservationStatus(id: string, statusId: string, curr
       where: { id },
       data: { reservationStatusId: statusId },
     })
-    revalidatePath(`/${currentSlug}/reservas`)
-    revalidatePath(`/${currentSlug}/calendario`)
+    revalidatePath("/reservas")
+    revalidatePath("/calendario")
     return { success: true }
   } catch {
     return { error: "Error al actualizar el estado" }
@@ -320,7 +321,7 @@ export async function createPassengerAction(data: unknown) {
         birthDate: true,
       },
     })
-    revalidatePath(`/${currentSlug}/reservas`)
+    revalidatePath("/reservas")
     return { passenger }
   } catch {
     return { error: "Error al crear el pasajero" }
@@ -360,8 +361,8 @@ export async function linkPassengerToReservation(data: unknown) {
         birthDate: true,
       },
     })
-    revalidatePath(`/${currentSlug}/reservas`)
-    revalidatePath(`/${currentSlug}/calendario`)
+    revalidatePath("/reservas")
+    revalidatePath("/calendario")
     return { passenger }
   } catch {
     return { error: "Error al agregar el pasajero a la reserva" }
@@ -373,8 +374,8 @@ export async function removePassengerFromReservation(passengerId: string, reserv
     await prisma.reservationPassenger.delete({
       where: { reservationId_passengerId: { reservationId, passengerId } },
     })
-    revalidatePath(`/${currentSlug}/reservas`)
-    revalidatePath(`/${currentSlug}/calendario`)
+    revalidatePath("/reservas")
+    revalidatePath("/calendario")
     return { success: true }
   } catch {
     return { error: "Error al eliminar el pasajero de la reserva" }
@@ -394,7 +395,7 @@ export async function updatePassengerReservation(data: unknown) {
 
   const { id, seatCount, tripId, currentSlug } = parsed.data
 
-  const branchId = await resolveBranchId(currentSlug)
+  const branchId = await resolveBranchId()
   if (!branchId) return { error: "Sucursal no encontrada" }
   if (!(await verifyTripBranch(tripId, branchId))) return { error: "El viaje no pertenece a esta sucursal" }
 
@@ -403,8 +404,8 @@ export async function updatePassengerReservation(data: unknown) {
       where: { id },
       data: { seatCount, tripId },
     })
-    revalidatePath(`/${currentSlug}/reservas`)
-    revalidatePath(`/${currentSlug}/calendario`)
+    revalidatePath("/reservas")
+    revalidatePath("/calendario")
     return { success: true }
   } catch {
     return { error: "Error al actualizar la reserva" }
@@ -428,7 +429,7 @@ export async function deletePassengerReservation(id: string, currentSlug: string
       // ReservationPassenger rows are deleted via onDelete: Cascade on PassengerReservation
       prisma.passengerReservation.delete({ where: { id } }),
     ])
-    revalidatePath(`/${currentSlug}/reservas`)
+    revalidatePath("/reservas")
     return { success: true }
   } catch {
     return { error: "Error al eliminar la reserva" }

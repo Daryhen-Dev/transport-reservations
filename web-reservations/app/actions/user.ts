@@ -24,7 +24,7 @@ const createUserSchema = z
 export async function createUser(data: unknown) {
   const parsed = createUserSchema.safeParse(data);
   if (!parsed.success) {
-    return { error: parsed.error.errors[0].message };
+    return { error: parsed.error.issues[0].message };
   }
 
   const { name, email, password, branchId, currentSlug } = parsed.data;
@@ -53,7 +53,7 @@ export async function createUser(data: unknown) {
         branchId,
       },
     });
-    revalidatePath(`/${currentSlug}/usuarios`);
+    revalidatePath("/usuarios");
     return { success: true };
   } catch {
     return { error: "Error al crear el usuario" };
