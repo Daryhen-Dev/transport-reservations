@@ -38,11 +38,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { IconEdit, IconTrash } from "@tabler/icons-react"
+import { IconEdit, IconTrash, IconAnchor, IconLock, IconLockOpen, IconFileCheck, IconFileText } from "@tabler/icons-react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { deleteTrip } from "@/app/actions/trip"
+import { deleteTrip, closeTripAction, openTripAction } from "@/app/actions/trip"
+import { generateManifestAction } from "@/app/actions/manifest"
+import { Badge } from "@/components/ui/badge"
 import { TripSheet } from "./trip-sheet"
+import { TripCrewSheet } from "./trip-crew-sheet"
 
 type Branch = { id: string; name: string }
 
@@ -61,6 +64,13 @@ type Schedule = {
   route: { id: string; origin: string; destination: string; branchId: string }
 }
 
+type CrewAssignment = {
+  crewMemberId: string
+  crewRoleId: string
+  crewMember: { id: string; firstName: string; lastName: string }
+  crewRole: { id: string; name: string }
+}
+
 type Trip = {
   id: string
   departureAt: Date
@@ -69,19 +79,28 @@ type Trip = {
   scheduleId: string | null
   route: { id: string; origin: string; destination: string }
   branch: { id: string; name: string }
+  crew: CrewAssignment[]
+  status: { id: string; name: string }
+  manifest: { code: string } | null
 }
+
+type CrewRole = { id: string; name: string }
 
 export function TripsTable({
   data,
   branches,
   routes,
   schedules,
+  crewRoles,
+  documentTypes,
   currentSlug,
 }: {
   data: Trip[]
   branches: Branch[]
   routes: Route[]
   schedules: Schedule[]
+  crewRoles: CrewRole[]
+  documentTypes: { id: string; name: string }[]
   currentSlug: string
 }) {
   const router = useRouter()
@@ -89,7 +108,10 @@ export function TripsTable({
   const [sorting, setSorting] = useState<SortingState>([])
   const [editingTrip, setEditingTrip] = useState<Trip | null>(null)
   const [deletingTrip, setDeletingTrip] = useState<Trip | null>(null)
+  const [crewTrip, setCrewTrip] = useState<Trip | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [togglingId, setTogglingId] = useState<string | null>(null)
+  const [generatingManifestId, setGeneratingManifestId] = useState<string | null>(null)
   const [selectedBranchId, setSelectedBranchId] = useState<string>("all")
 
   const filteredData = selectedBranchId === "all"
@@ -124,27 +146,128 @@ export function TripsTable({
       cell: ({ row }) => row.original.branch.name,
     },
     {
+      id: "status",
+      header: "Estado",
+      cell: ({ row }) => {
+        const isClosed = row.original.status.name === "CERRADO"
+        return (
+          <Badge variant={isClosed ? "secondary" : "outline"} className="text-xs">
+            {row.original.status.name}
+          </Badge>
+        )
+      },
+    },
+    {
+      id: "crew",
+      header: "Tripulación",
+      cell: ({ row }) => {
+        const count = row.original.crew.length
+        return (
+          <button
+            type="button"
+            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            onClick={() => setCrewTrip(row.original)}
+          >
+            <IconAnchor className="size-3.5" />
+            {count > 0 ? `${count}/3` : "Asignar"}
+          </button>
+        )
+      },
+    },
+    {
+      id: "manifest",
+      header: "Manifiesto",
+      cell: ({ row }) => {
+        const isClosed = row.original.status.name === "CERRADO"
+        if (!isClosed) return null
+        const isGenerating = generatingManifestId === row.original.id
+
+        if (row.original.manifest) {
+          return (
+            <div className="flex items-center gap-2">
+              <Badge variant="secondary" className="text-xs font-mono">
+                {row.original.manifest.code}
+              </Badge>
+              <Button
+                variant="ghost"
+                size="icon"
+                title="Descargar PDF"
+                onClick={() => window.open(`/api/manifests/${row.original.manifest!.code}`, "_blank")}
+              >
+                <IconFileText className="size-4 text-blue-600" />
+              </Button>
+            </div>
+          )
+        }
+
+        return (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-1.5 text-xs"
+            disabled={isGenerating}
+            title="Generar manifiesto"
+            onClick={async () => {
+              setGeneratingManifestId(row.original.id)
+              const result = await generateManifestAction(row.original.id, currentSlug)
+              setGeneratingManifestId(null)
+              if ("error" in result) { toast.error(result.error); return }
+              toast.success(`Manifiesto ${result.code} generado`)
+              router.refresh()
+            }}
+          >
+            <IconFileCheck className="size-4 text-emerald-600" />
+            {isGenerating ? "Generando..." : "Generar"}
+          </Button>
+        )
+      },
+    },
+    {
       id: "actions",
       header: "",
-      cell: ({ row }) => (
-        <div className="flex items-center justify-end gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setEditingTrip(row.original)}
-          >
-            <IconEdit className="size-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-destructive hover:text-destructive"
-            onClick={() => setDeletingTrip(row.original)}
-          >
-            <IconTrash className="size-4" />
-          </Button>
-        </div>
-      ),
+      cell: ({ row }) => {
+        const isClosed = row.original.status.name === "CERRADO"
+        const isToggling = togglingId === row.original.id
+        return (
+          <div className="flex items-center justify-end gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              title={isClosed ? "Reabrir viaje" : "Cerrar viaje"}
+              disabled={isToggling}
+              onClick={async () => {
+                setTogglingId(row.original.id)
+                const result = isClosed
+                  ? await openTripAction(row.original.id, currentSlug)
+                  : await closeTripAction(row.original.id, currentSlug)
+                setTogglingId(null)
+                if (result.error) { toast.error(result.error); return }
+                toast.success(isClosed ? "Viaje reabierto" : "Viaje cerrado")
+                router.refresh()
+              }}
+            >
+              {isClosed
+                ? <IconLockOpen className="size-4 text-green-600" />
+                : <IconLock className="size-4 text-amber-500" />}
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setEditingTrip(row.original)}
+            >
+              <IconEdit className="size-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-destructive hover:text-destructive"
+              onClick={() => setDeletingTrip(row.original)}
+            >
+              <IconTrash className="size-4" />
+            </Button>
+          </div>
+        )
+      },
     },
   ]
 
@@ -257,6 +380,15 @@ export function TripsTable({
           </div>
         </div>
       </div>
+
+      <TripCrewSheet
+        trip={crewTrip}
+        open={!!crewTrip}
+        onOpenChange={(open) => { if (!open) setCrewTrip(null) }}
+        crewRoles={crewRoles}
+        documentTypes={documentTypes}
+        currentSlug={currentSlug}
+      />
 
       {editingTrip && (
         <TripSheet

@@ -22,6 +22,15 @@ export type CalendarReservation = {
   statusColor: string;
 };
 
+export type CalendarCargoReservation = {
+  id: string;
+  destinatarioName: string;
+  weightKg: number;
+  categoriaName: string | null;
+  statusName: string;
+  statusColor: string;
+};
+
 // Per-trip summary used by MiniCalendar
 export type CalendarTrip = {
   tripId: string;
@@ -30,6 +39,8 @@ export type CalendarTrip = {
   totalPassengers: number;
   statuses: CalendarDayStatus[];
   reservations: CalendarReservation[];
+  cargoReservations: CalendarCargoReservation[];
+  totalWeightKg: number;
 };
 
 export type CalendarDay = {
@@ -88,6 +99,8 @@ export async function getTripsCalendarData(
       cargoReservations: {
         include: {
           reservationStatus: { select: { name: true } },
+          destinatario: { select: { firstName: true, lastName: true } },
+          categoria: { select: { name: true } },
         },
       },
     },
@@ -143,11 +156,33 @@ export async function getTripsCalendarData(
       });
     }
 
-    // Cargo only contributes to day-level status counts
+    // Cargo: day-level counts + trip-level list
+    const tripCargoReservations: CalendarCargoReservation[] = [];
+    let tripTotalWeightKg = 0;
+
     for (const r of trip.cargoReservations) {
       const name = r.reservationStatus.name;
+      const isCancelled = name.toLowerCase().includes("cancel");
+
+      // Day-level status count
       const prev = dayEntry.statusMap.get(name) ?? { count: 0, passengers: 0 };
       dayEntry.statusMap.set(name, { count: prev.count + 1, passengers: prev.passengers });
+
+      // Trip-level cargo list
+      if (!isCancelled) tripTotalWeightKg += r.weightKg;
+
+      const destinatarioName = r.destinatario
+        ? `${r.destinatario.firstName} ${r.destinatario.lastName}`.trim()
+        : "Sin destinatario";
+
+      tripCargoReservations.push({
+        id: r.id,
+        destinatarioName,
+        weightKg: r.weightKg,
+        categoriaName: r.categoria?.name ?? null,
+        statusName: name,
+        statusColor: getColor(name),
+      });
     }
 
     // Build trip statuses array
@@ -165,6 +200,8 @@ export async function getTripsCalendarData(
       totalPassengers: tripTotalPassengers,
       statuses: tripStatuses,
       reservations: tripReservations,
+      cargoReservations: tripCargoReservations,
+      totalWeightKg: tripTotalWeightKg,
     });
   }
 

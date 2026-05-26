@@ -67,6 +67,9 @@ type Trip = {
 type CargoReservation = {
   id: string
   weightKg: number
+  description: string | null
+  destinationBranchId: string | null
+  externalDestination: string | null
   diameterCm: number | null
   widthCm: number | null
   heightCm: number | null
@@ -85,6 +88,8 @@ type CargoReservation = {
     proveedorTypeId: string
   }
   reservationStatus: { id: string; name: string }
+  categoria: { id: string; name: string } | null
+  destinatario: { id: string; firstName: string; lastName: string; phone: string | null } | null
 }
 
 type ReservationStatus = { id: string; name: string }
@@ -99,6 +104,8 @@ export function CargoReservationsTable({
   documentTypes,
   countries,
   proveedorTypes,
+  categorias,
+  branches,
   currentSlug,
 }: {
   data: CargoReservation[]
@@ -107,6 +114,8 @@ export function CargoReservationsTable({
   documentTypes: DocumentType[]
   countries: Country[]
   proveedorTypes: ProveedorType[]
+  categorias: { id: string; name: string }[]
+  branches: { id: string; name: string }[]
   currentSlug: string
 }) {
   const router = useRouter()
@@ -151,6 +160,34 @@ export function CargoReservationsTable({
       cell: ({ row }) => {
         const p = row.original.proveedor
         return p.companyName ?? `${p.firstName ?? ""} ${p.lastName ?? ""}`.trim()
+      },
+    },
+    {
+      id: "destinatario",
+      header: "Destinatario",
+      cell: ({ row }) => {
+        const d = row.original.destinatario
+        if (!d) return <span className="text-muted-foreground">—</span>
+        return (
+          <div className="flex flex-col">
+            <span className="text-sm">{`${d.firstName} ${d.lastName}`}</span>
+            {d.phone && <span className="text-xs text-muted-foreground">{d.phone}</span>}
+          </div>
+        )
+      },
+    },
+    {
+      id: "categoria",
+      header: "Categoría",
+      cell: ({ row }) => {
+        const c = row.original.categoria
+        return c ? (
+          <span className="inline-flex items-center rounded-full bg-blue-100 text-blue-800 px-2 py-0.5 text-xs font-medium">
+            {c.name}
+          </span>
+        ) : (
+          <span className="text-muted-foreground">—</span>
+        )
       },
     },
     {
@@ -274,6 +311,8 @@ export function CargoReservationsTable({
             countries={countries}
             reservationStatuses={reservationStatuses}
             proveedorTypes={proveedorTypes}
+            categorias={categorias}
+            branches={branches}
           />
         </div>
         <div className="rounded-md border">

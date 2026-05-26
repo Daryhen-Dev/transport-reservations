@@ -27,7 +27,7 @@ export default async function PaisesPage({
         } as React.CSSProperties
       }
     >
-      <AgencySidebar variant="inset" slug={slug} user={user} />
+      <AgencySidebar variant="inset" slug={slug} />
       <SidebarInset>
         <SiteHeader />
         <div className="flex flex-1 flex-col">

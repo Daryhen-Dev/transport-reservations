@@ -12,6 +12,7 @@ export default auth((req) => {
   const isLoggedIn = !!session;
   const isSuperAdmin = session?.user?.role === "SUPER_ADMIN";
   const isAgencyAdmin = session?.user?.role === "AGENCY_ADMIN";
+  const isAgencyUser = isAgencyAdmin || session?.user?.role === "SUCURSAL_USER";
 
   const isSuperAdminRoute = nextUrl.pathname.startsWith(ROUTES.SUPER_ADMIN_BASE);
   const isLoginRoute = nextUrl.pathname === ROUTES.LOGIN;
@@ -39,8 +40,7 @@ export default auth((req) => {
     const isAgencyLoginPath = nextUrl.pathname === `/${slug}/login`;
 
     if (isAgencyLoginPath) {
-      // If already logged in as AGENCY_ADMIN, redirect to dashboard
-      if (isLoggedIn && isAgencyAdmin) {
+      if (isLoggedIn && isAgencyUser) {
         return NextResponse.redirect(new URL(ROUTES.agencyDashboard(slug), nextUrl));
       }
     } else {
@@ -48,7 +48,7 @@ export default auth((req) => {
       if (!isLoggedIn) {
         return NextResponse.redirect(new URL(ROUTES.agencyLogin(slug), nextUrl));
       }
-      if (!isAgencyAdmin) {
+      if (!isAgencyUser) {
         return NextResponse.redirect(new URL(ROUTES.agencyLogin(slug), nextUrl));
       }
     }

@@ -1,7 +1,8 @@
 import { prisma } from "@/lib/db";
 
-export async function getPassengerReservations() {
+export async function getPassengerReservationsByBranch(branchId: string) {
   return prisma.passengerReservation.findMany({
+    where: { trip: { branchId } },
     include: {
       trip: {
         include: {
@@ -17,8 +18,9 @@ export async function getPassengerReservations() {
   });
 }
 
-export async function getCargoReservations() {
+export async function getCargoReservationsByBranch(branchId: string) {
   return prisma.cargoReservation.findMany({
+    where: { trip: { branchId } },
     include: {
       trip: {
         include: {
@@ -28,6 +30,8 @@ export async function getCargoReservations() {
       },
       proveedor: { select: { id: true, firstName: true, lastName: true, companyName: true, proveedorTypeId: true } },
       reservationStatus: { select: { id: true, name: true } },
+      categoria: { select: { id: true, name: true } },
+      destinatario: { select: { id: true, firstName: true, lastName: true, phone: true } },
     },
     orderBy: { createdAt: "desc" },
   });

@@ -1,13 +1,13 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { useForm } from "react-hook-form"
+import { useForm, useFieldArray } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { IconPlus } from "@tabler/icons-react"
-import { createCargoReservation } from "@/app/actions/cargo-reservation"
+import { IconPlus, IconTrash } from "@tabler/icons-react"
+import { createPassengerReservation } from "@/app/actions/passenger-reservation"
 import {
   Sheet,
   SheetContent,
@@ -26,6 +26,15 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 
+const clienteSchema = z.object({
+  firstName: z.string().min(1, "Requerido"),
+  lastName: z.string().min(1, "Requerido"),
+  documentTypeId: z.string().min(1, "Requerido"),
+  documentNumber: z.string().min(1, "Requerido"),
+  countryId: z.string().min(1, "Requerido"),
+  birthDate: z.string().optional(),
+})
+
 const schema = z.object({
   tripId: z.string().min(1, "Debe seleccionar un viaje"),
   proveedorType: z.enum(["PERSONA", "EMPRESA"]),
@@ -40,12 +49,9 @@ const schema = z.object({
   companyName: z.string().optional(),
   taxId: z.string().optional(),
   contactName: z.string().optional(),
-  // Cargo
-  weightKg: z.number().positive("El peso debe ser mayor a 0"),
-  diameterCm: z.union([z.number().positive(), z.nan()]).optional(),
-  widthCm: z.union([z.number().positive(), z.nan()]).optional(),
-  heightCm: z.union([z.number().positive(), z.nan()]).optional(),
-  lengthCm: z.union([z.number().positive(), z.nan()]).optional(),
+  // Reservation
+  seatCount: z.number().int().min(1, "Mínimo 1 asiento"),
+  passengers: z.array(clienteSchema).optional(),
 })
 
 type FormValues = z.infer<typeof schema>
@@ -71,7 +77,7 @@ type Props = {
   proveedorTypes: ProveedorType[]
 }
 
-export function CargoReservationSheet({
+export function PassengerReservationSheet({
   currentSlug,
   trips,
   documentTypes,
@@ -82,7 +88,7 @@ export function CargoReservationSheet({
   const [open, setOpen] = useState(false)
   const router = useRouter()
 
-  const pendienteStatus = reservationStatuses.find((s) => s.name === "PENDIENTE")
+  const confirmadaStatus = reservationStatuses.find((s) => s.name === "CONFIRMADA")
   const personaType = proveedorTypes.find((t) => t.name === "PERSONA")
   const empresaType = proveedorTypes.find((t) => t.name === "EMPRESA")
 
@@ -91,14 +97,21 @@ export function CargoReservationSheet({
     handleSubmit,
     setValue,
     watch,
+    control,
     reset,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
       proveedorType: "PERSONA",
-      weightKg: undefined,
+      seatCount: 1,
+      passengers: [],
     },
+  })
+
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: "passengers",
   })
 
   const proveedorType = watch("proveedorType")
@@ -107,7 +120,8 @@ export function CargoReservationSheet({
     if (!open) {
       reset({
         proveedorType: "PERSONA",
-        weightKg: undefined,
+        seatCount: 1,
+        passengers: [],
       })
     }
   }, [open, reset])
@@ -145,25 +159,22 @@ export function CargoReservationSheet({
       }
     }
 
-    const result = await createCargoReservation({
+    const result = await createPassengerReservation({
       tripId: data.tripId,
-      weightKg: data.weightKg,
-      diameterCm: isNaN(data.diameterCm as number) ? undefined : data.diameterCm,
-      widthCm: isNaN(data.widthCm as number) ? undefined : data.widthCm,
-      heightCm: isNaN(data.heightCm as number) ? undefined : data.heightCm,
-      lengthCm: isNaN(data.lengthCm as number) ? undefined : data.lengthCm,
+      seatCount: data.seatCount,
       proveedor,
+      passengers: data.passengers ?? [],
       currentSlug,
       proveedorTypeId,
-      reservationStatusId: pendienteStatus?.id ?? "",
+      reservationStatusId: confirmadaStatus?.id ?? "",
     })
 
     if (result.error) {
       toast.error(result.error)
       return
     }
-    toast.success("Encomienda registrada exitosamente")
-    reset({ proveedorType: "PERSONA", weightKg: undefined })
+    toast.success("Reserva creada exitosamente")
+    reset({ proveedorType: "PERSONA", seatCount: 1, passengers: [] })
     setOpen(false)
     router.refresh()
   }
@@ -173,12 +184,12 @@ export function CargoReservationSheet({
       <SheetTrigger asChild>
         <Button size="sm">
           <IconPlus className="size-4" />
-          Nueva encomienda
+          Nueva reserva
         </Button>
       </SheetTrigger>
       <SheetContent className="overflow-y-auto w-full sm:max-w-lg">
         <SheetHeader>
-          <SheetTitle>Nueva reserva de encomienda</SheetTitle>
+          <SheetTitle>Nueva reserva de pasajeros</SheetTitle>
         </SheetHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4 px-4 pb-8">
           {/* Trip selection */}
@@ -295,74 +306,116 @@ export function CargoReservationSheet({
             </>
           )}
 
-          {/* Cargo details */}
-          <div className="border-t pt-4">
-            <p className="text-sm font-medium mb-3">Detalles de la encomienda</p>
-            <div className="flex flex-col gap-3">
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="weightKg">Peso (kg) *</Label>
-                <Input
-                  id="weightKg"
-                  type="number"
-                  step="0.01"
-                  min="0.01"
-                  placeholder="10.5"
-                  {...register("weightKg", { valueAsNumber: true })}
-                />
-                {errors.weightKg && (
-                  <p className="text-sm text-destructive">{errors.weightKg.message}</p>
-                )}
-              </div>
-              <p className="text-xs text-muted-foreground">
-                Para objetos cilíndricos use diámetro. Para cajas use ancho/alto/largo.
-              </p>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="diameterCm">Diámetro (cm) — opcional</Label>
-                <Input
-                  id="diameterCm"
-                  type="number"
-                  step="0.1"
-                  placeholder="30"
-                  {...register("diameterCm", { valueAsNumber: true })}
-                />
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="widthCm">Ancho (cm)</Label>
-                  <Input
-                    id="widthCm"
-                    type="number"
-                    step="0.1"
-                    placeholder="20"
-                    {...register("widthCm", { valueAsNumber: true })}
-                  />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="heightCm">Alto (cm)</Label>
-                  <Input
-                    id="heightCm"
-                    type="number"
-                    step="0.1"
-                    placeholder="30"
-                    {...register("heightCm", { valueAsNumber: true })}
-                  />
-                </div>
-                <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="lengthCm">Largo (cm)</Label>
-                  <Input
-                    id="lengthCm"
-                    type="number"
-                    step="0.1"
-                    placeholder="50"
-                    {...register("lengthCm", { valueAsNumber: true })}
-                  />
-                </div>
-              </div>
+          {/* Seat count */}
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="seatCount">Cantidad de asientos</Label>
+            <Input
+              id="seatCount"
+              type="number"
+              min={1}
+              {...register("seatCount", { valueAsNumber: true })}
+            />
+            {errors.seatCount && (
+              <p className="text-sm text-destructive">{errors.seatCount.message}</p>
+            )}
+          </div>
+
+          {/* Passengers */}
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between">
+              <Label>Pasajeros</Label>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  append({
+                    firstName: "",
+                    lastName: "",
+                    documentTypeId: "",
+                    documentNumber: "",
+                    countryId: "",
+                    birthDate: "",
+                  })
+                }
+              >
+                <IconPlus className="size-3" />
+                Agregar cliente
+              </Button>
             </div>
+            {fields.map((field, index) => (
+              <div key={field.id} className="border rounded-md p-3 flex flex-col gap-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">Pasajero {index + 1}</span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="size-7 text-destructive hover:text-destructive"
+                    onClick={() => remove(index)}
+                  >
+                    <IconTrash className="size-3" />
+                  </Button>
+                </div>
+                <div className="flex gap-2">
+                  <div className="flex flex-col gap-1 flex-1">
+                    <Label className="text-xs">Nombre</Label>
+                    <Input
+                      placeholder="Nombre"
+                      {...register(`passengers.${index}.firstName`)}
+                    />
+                  </div>
+                  <div className="flex flex-col gap-1 flex-1">
+                    <Label className="text-xs">Apellido</Label>
+                    <Input
+                      placeholder="Apellido"
+                      {...register(`passengers.${index}.lastName`)}
+                    />
+                  </div>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <Label className="text-xs">Tipo de documento</Label>
+                  <Select onValueChange={(val) => setValue(`passengers.${index}.documentTypeId`, val)}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Tipo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {documentTypes.map((dt) => (
+                        <SelectItem key={dt.id} value={dt.id}>{dt.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <Label className="text-xs">Número de documento</Label>
+                  <Input
+                    placeholder="V-12345678"
+                    {...register(`passengers.${index}.documentNumber`)}
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <Label className="text-xs">País</Label>
+                  <Select onValueChange={(val) => setValue(`passengers.${index}.countryId`, val)}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="País" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {countries.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <Label className="text-xs">Fecha de nacimiento (opcional)</Label>
+                  <Input type="date" {...register(`passengers.${index}.birthDate`)} />
+                </div>
+              </div>
+            ))}
           </div>
 
           <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? "Registrando..." : "Registrar encomienda"}
+            {isSubmitting ? "Creando..." : "Crear reserva"}
           </Button>
         </form>
       </SheetContent>

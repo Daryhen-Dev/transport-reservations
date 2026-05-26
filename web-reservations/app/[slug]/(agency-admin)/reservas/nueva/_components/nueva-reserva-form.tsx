@@ -3,11 +3,12 @@
 import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { parseISO, format } from "date-fns"
+import { parseISO, format, startOfDay, isToday, isBefore } from "date-fns"
 import { es } from "date-fns/locale"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Select,
   SelectContent,
@@ -85,6 +86,20 @@ export function NuevaReservaForm({ fecha, schedules, proveedorTypes, documentTyp
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
 
+  const fechaDate = fecha ? parseISO(fecha) : null
+  const isFechaInPast = fechaDate ? isBefore(startOfDay(fechaDate), startOfDay(new Date())) : false
+  const isFechaToday = fechaDate ? isToday(fechaDate) : false
+
+  function isTimePast(time: string): boolean {
+    const [h, m] = time.split(":").map(Number)
+    const now = new Date()
+    return h < now.getHours() || (h === now.getHours() && m <= now.getMinutes())
+  }
+
+  const availableSchedules = isFechaToday
+    ? schedules.filter((s) => !isTimePast(s.time))
+    : schedules
+
   const defaultPersonaType = proveedorTypes.find((pt) =>
     pt.name.toLowerCase().includes("persona")
   )
@@ -95,9 +110,11 @@ export function NuevaReservaForm({ fecha, schedules, proveedorTypes, documentTyp
   const [selectedProveedor, setSelectedProveedor] = useState<ProveedorResult | null>(null)
   const [proveedorDisplayValue, setProveedorDisplayValue] = useState<string>("")
   const [seatCount, setSeatCount] = useState<number>(1)
+  const [asPending, setAsPending] = useState<boolean>(false)
   const [quickSheetOpen, setQuickSheetOpen] = useState(false)
 
   const isFormComplete =
+    !isFechaInPast &&
     scheduleId !== "" &&
     proveedorTypeId !== null &&
     selectedProveedor !== null &&
@@ -122,6 +139,7 @@ export function NuevaReservaForm({ fecha, schedules, proveedorTypes, documentTyp
         seatCount,
         branchId,
         currentSlug: slug,
+        isPending: asPending,
       })
 
       if (result.error) {
@@ -130,7 +148,7 @@ export function NuevaReservaForm({ fecha, schedules, proveedorTypes, documentTyp
       }
 
       toast.success("Reserva creada exitosamente")
-      router.push(`/${slug}/reservas-pasajeros`)
+      router.push(`/${slug}/reservas`)
     })
   }
 
@@ -143,6 +161,11 @@ export function NuevaReservaForm({ fecha, schedules, proveedorTypes, documentTyp
           <p className="text-sm font-medium">
             {fecha ? capitalizeFirst(formatFecha(fecha)) : "Sin fecha seleccionada"}
           </p>
+          {isFechaInPast && (
+            <p className="text-sm text-destructive">
+              No se pueden crear reservas para fechas pasadas.
+            </p>
+          )}
         </div>
 
         {/* Horario */}
@@ -152,13 +175,17 @@ export function NuevaReservaForm({ fecha, schedules, proveedorTypes, documentTyp
             <p className="text-sm text-muted-foreground">
               No hay horarios configurados para esta sucursal
             </p>
+          ) : availableSchedules.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Todos los horarios de hoy ya pasaron.
+            </p>
           ) : (
             <Select onValueChange={setScheduleId} value={scheduleId}>
               <SelectTrigger id="scheduleId" className="w-full">
                 <SelectValue placeholder="Seleccionar horario" />
               </SelectTrigger>
               <SelectContent>
-                {schedules.map((schedule) => (
+                {availableSchedules.map((schedule) => (
                   <SelectItem key={schedule.id} value={schedule.id}>
                     {formatScheduleLabel(schedule)}
                   </SelectItem>
@@ -221,10 +248,22 @@ export function NuevaReservaForm({ fecha, schedules, proveedorTypes, documentTyp
           />
         </div>
 
+        {/* Estado */}
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="isPending"
+            checked={asPending}
+            onCheckedChange={(v) => setAsPending(v === true)}
+          />
+          <Label htmlFor="isPending" className="font-normal cursor-pointer">
+            Crear como pendiente
+          </Label>
+        </div>
+
         {/* Submit */}
         <Button
           onClick={handleSubmit}
-          disabled={!isFormComplete || isPending || schedules.length === 0}
+          disabled={!isFormComplete || isPending || availableSchedules.length === 0}
           className="w-fit"
         >
           {isPending ? "Creando..." : "Crear Reserva"}

@@ -1,4 +1,3 @@
-import { auth } from "@/auth"
 import { prisma } from "@/lib/db"
 import { getTripSchedulesByBranch } from "@/lib/services/trip-schedule.service"
 import { getProveedorTypes, getDocumentTypes } from "@/lib/services/proveedor.service"
@@ -8,7 +7,7 @@ import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { IconArrowLeft } from "@tabler/icons-react"
-import { NuevaReservaForm } from "./_components/nueva-reserva-form"
+import { NuevaReservaSelector } from "./_components/nueva-reserva-selector"
 
 export default async function NuevaReservaPasajeroPage({
   params,
@@ -20,18 +19,14 @@ export default async function NuevaReservaPasajeroPage({
   const { slug } = await params
   const { fecha } = await searchParams
 
-  const session = await auth()
-  const user = {
-    name: session?.user?.name ?? "",
-    email: session?.user?.email ?? "",
-  }
-
   const branch = await prisma.branch.findUnique({ where: { slug } })
 
-  const [proveedorTypes, documentTypes, schedules] = await Promise.all([
+  const [proveedorTypes, documentTypes, schedules, categorias, branches] = await Promise.all([
     getProveedorTypes(),
     getDocumentTypes(),
-    branch ? getTripSchedulesByBranch(branch.id) : Promise.resolve([]),
+    branch ? getTripSchedulesByBranch(branch.id) : Promise.resolve([] as Awaited<ReturnType<typeof getTripSchedulesByBranch>>),
+    prisma.cargaCategoria.findMany({ orderBy: { name: "asc" } }),
+    prisma.branch.findMany({ orderBy: { name: "asc" } }),
   ])
 
   return (
@@ -43,7 +38,7 @@ export default async function NuevaReservaPasajeroPage({
         } as React.CSSProperties
       }
     >
-      <AgencySidebar variant="inset" slug={slug} user={user} />
+      <AgencySidebar variant="inset" slug={slug} />
       <SidebarInset>
         <SiteHeader />
         <div className="flex flex-1 flex-col">
@@ -58,13 +53,15 @@ export default async function NuevaReservaPasajeroPage({
                   </Link>
                 </Button>
               </div>
-              <NuevaReservaForm
+              <NuevaReservaSelector
                 fecha={fecha ?? null}
                 schedules={schedules}
                 proveedorTypes={proveedorTypes}
                 documentTypes={documentTypes}
                 slug={slug}
                 branchId={branch?.id ?? ""}
+                categorias={categorias}
+                branches={branches}
               />
             </div>
           </div>

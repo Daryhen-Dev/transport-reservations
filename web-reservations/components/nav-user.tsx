@@ -32,12 +32,14 @@ import { signOutAction } from "@/app/actions/auth"
 
 export function NavUser({
   user,
+  signOutRedirect = "/login",
 }: {
   user: {
     name: string
     email: string
     avatar: string
   }
+  signOutRedirect?: string
 }) {
   const { isMobile } = useSidebar()
 
@@ -99,7 +101,7 @@ export function NavUser({
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => signOutAction()}>
+            <DropdownMenuItem onSelect={() => signOutAction(signOutRedirect)}>
               <IconLogout />
               Cerrar sesión
             </DropdownMenuItem>

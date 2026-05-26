@@ -12,7 +12,9 @@ export default async function AgencyAdminLayout({
   const { slug } = await params;
   const session = await auth();
 
-  if (!session || session.user?.role !== "AGENCY_ADMIN") {
+  const role = session?.user?.role;
+  const isAllowed = role === "AGENCY_ADMIN" || role === "SUCURSAL_USER";
+  if (!session || !isAllowed) {
     redirect(ROUTES.agencyLogin(slug));
   }
 

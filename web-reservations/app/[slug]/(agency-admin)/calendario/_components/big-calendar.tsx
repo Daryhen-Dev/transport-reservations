@@ -25,6 +25,13 @@ const STATUS_CLASSES: Record<string, string> = {
   gray: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-300",
 };
 
+const TRIP_BORDER_CLASSES: Record<string, string> = {
+  green: "border-l-green-500",
+  amber: "border-l-amber-500",
+  red: "border-l-red-500",
+  gray: "border-l-gray-400",
+};
+
 const DAY_NAMES = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
 
 const MONTH_NAMES = [
@@ -120,13 +127,14 @@ export function BigCalendar({
           const dayData = dataByDate.get(dateKey);
           const statuses = dayData?.statuses ?? [];
           const totalPassengers = dayData?.totalPassengers ?? 0;
+          const trips = dayData?.trips ?? [];
 
           return (
             <Button
               key={dateKey}
               variant="ghost"
               onClick={() => onDateSelect(dateKey)}
-              onDoubleClick={() => onDoubleClick?.(dateKey)}
+              onDoubleClick={() => !isPastDay && onDoubleClick?.(dateKey)}
               className={cn(
                 "relative h-auto min-h-[80px] flex-col items-start justify-start gap-1 rounded-lg border border-border p-1.5 text-left transition-colors",
                 !isCurrentMonth && "opacity-40",
@@ -153,22 +161,62 @@ export function BigCalendar({
                 )}
               </div>
 
-              {/* Status pills */}
-              <div className="flex w-full flex-col gap-1">
-                {statuses.map((s) => (
-                  <span
-                    key={s.name}
-                    className={cn(
-                      "truncate rounded px-1.5 py-0.5 text-xs font-medium leading-tight",
-                      STATUS_CLASSES[s.color] ?? STATUS_CLASSES.gray
+              {/* Trips / status area */}
+              <div className="flex w-full flex-col gap-0.5">
+                {trips.length > 0 ? (
+                  <>
+                    {trips.slice(0, 2).map((trip) => {
+                      const activeStatuses = trip.statuses.filter((s) => s.color !== "red");
+                      return (
+                        <div key={trip.tripId} className="flex flex-col gap-0.5">
+                          {/* Time + total active pax */}
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-semibold tabular-nums leading-tight">
+                              {trip.time}
+                            </span>
+                            {trip.totalPassengers > 0 && (
+                              <span className="text-xs font-medium leading-tight">
+                                {trip.totalPassengers} pax
+                              </span>
+                            )}
+                          </div>
+                          {/* Confirmed + pending pills */}
+                          {activeStatuses.map((s) => (
+                            <span
+                              key={s.name}
+                              className={cn(
+                                "truncate rounded px-1 py-0.5 text-xs leading-tight",
+                                STATUS_CLASSES[s.color] ?? STATUS_CLASSES.gray
+                              )}
+                            >
+                              ● {s.passengers} pax {s.name.toLowerCase()}
+                            </span>
+                          ))}
+                        </div>
+                      );
+                    })}
+                    {trips.length > 2 && (
+                      <span className="text-xs text-muted-foreground">
+                        +{trips.length - 2} más
+                      </span>
                     )}
-                  >
-                    ● {s.count} {s.name.toLowerCase()}
-                    {sidebarCollapsed && s.passengers > 0 && (
-                      <> · {s.passengers} pax</>
-                    )}
-                  </span>
-                ))}
+                  </>
+                ) : (
+                  statuses.map((s) => (
+                    <span
+                      key={s.name}
+                      className={cn(
+                        "truncate rounded px-1.5 py-0.5 text-xs font-medium leading-tight",
+                        STATUS_CLASSES[s.color] ?? STATUS_CLASSES.gray
+                      )}
+                    >
+                      ● {s.count} {s.name.toLowerCase()}
+                      {sidebarCollapsed && s.passengers > 0 && (
+                        <> · {s.passengers} pax</>
+                      )}
+                    </span>
+                  ))
+                )}
               </div>
             </Button>
           );

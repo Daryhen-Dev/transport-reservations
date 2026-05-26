@@ -5,8 +5,9 @@ import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { format, startOfDay, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
-import { IconCircleCheck, IconAlertTriangle, IconCircleX } from "@tabler/icons-react";
-import type { CalendarDay, CalendarReservation, CalendarTrip } from "@/lib/services/calendar.service";
+import { IconCircleCheck, IconAlertTriangle, IconCircleX, IconUserPlus, IconPackage } from "@tabler/icons-react";
+import Link from "next/link";
+import type { CalendarDay, CalendarReservation, CalendarTrip, CalendarCargoReservation } from "@/lib/services/calendar.service";
 
 const STATUS_CLASSES: Record<string, string> = {
   green: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
@@ -22,7 +23,9 @@ const DOT_CLASSES: Record<string, string> = {
   gray: "bg-gray-400",
 };
 
-function PassengerIndicator({ r }: { r: CalendarReservation }) {
+function PassengerIndicator({ r, slug }: { r: CalendarReservation; slug: string }) {
+  const hasPending = r.passengersEntered < r.seatCount;
+
   if (r.passengersEntered === r.seatCount && r.seatCount > 0) {
     return (
       <span className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
@@ -31,23 +34,72 @@ function PassengerIndicator({ r }: { r: CalendarReservation }) {
       </span>
     );
   }
-  if (r.passengersEntered > 0) {
-    return (
-      <span className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400">
-        <IconAlertTriangle className="size-3.5" />
-        {r.passengersEntered}/{r.seatCount} pasajeros ingresados
-      </span>
-    );
-  }
+
   return (
-    <span className="flex items-center gap-1 text-xs text-muted-foreground/70">
-      <IconCircleX className="size-3.5" />
-      Sin pasajeros ingresados
-    </span>
+    <div className="flex items-center justify-between gap-2">
+      <span className={cn(
+        "flex items-center gap-1 text-xs",
+        r.passengersEntered > 0
+          ? "text-amber-600 dark:text-amber-400"
+          : "text-muted-foreground/70"
+      )}>
+        {r.passengersEntered > 0
+          ? <IconAlertTriangle className="size-3.5" />
+          : <IconCircleX className="size-3.5" />
+        }
+        {r.passengersEntered > 0
+          ? `${r.passengersEntered}/${r.seatCount} pasajeros ingresados`
+          : "Sin pasajeros ingresados"
+        }
+      </span>
+      {hasPending && (
+        <Link
+          href={`/${slug}/reservas/${r.id}`}
+          className="flex shrink-0 items-center gap-1 rounded-md bg-primary px-2 py-0.5 text-xs font-medium text-primary-foreground hover:bg-primary/90 transition-colors"
+        >
+          <IconUserPlus className="size-3" />
+          Ingresar
+        </Link>
+      )}
+    </div>
   );
 }
 
-function TripPanel({ trip }: { trip: CalendarTrip }) {
+function CargoItem({ r }: { r: CalendarCargoReservation }) {
+  return (
+    <div className="flex items-start gap-2">
+      <span
+        className={cn(
+          "mt-1 size-2 shrink-0 rounded-full",
+          DOT_CLASSES[r.statusColor] ?? DOT_CLASSES.gray
+        )}
+      />
+      <div className="flex flex-col gap-0.5 min-w-0">
+        <div className="flex items-baseline justify-between gap-2">
+          <span className="truncate text-sm font-medium">{r.destinatarioName}</span>
+          <span className="shrink-0 text-xs text-muted-foreground">{r.weightKg} kg</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          {r.categoriaName && (
+            <span className="text-xs text-muted-foreground">{r.categoriaName}</span>
+          )}
+          <span
+            className={cn(
+              "inline-flex items-center rounded px-1.5 py-0.5 text-xs font-medium",
+              STATUS_CLASSES[r.statusColor] ?? STATUS_CLASSES.gray
+            )}
+          >
+            {r.statusName.toLowerCase()}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TripPanel({ trip, slug }: { trip: CalendarTrip; slug: string }) {
+  const hasCargo = trip.cargoReservations.length > 0;
+
   return (
     <div className="flex flex-col gap-2">
       {/* Trip header */}
@@ -60,11 +112,17 @@ function TripPanel({ trip }: { trip: CalendarTrip }) {
             {trip.route.origin} → {trip.route.destination}
           </span>
         </div>
-        {trip.totalPassengers > 0 && (
-          <span className="shrink-0 text-xs text-muted-foreground">
-            {trip.totalPassengers} pax
-          </span>
-        )}
+        <div className="flex items-center gap-2 shrink-0">
+          {trip.totalPassengers > 0 && (
+            <span className="text-xs text-muted-foreground">{trip.totalPassengers} pax</span>
+          )}
+          {hasCargo && (
+            <span className="flex items-center gap-0.5 text-xs text-muted-foreground">
+              <IconPackage className="size-3" />
+              {trip.cargoReservations.length}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Status pills */}
@@ -84,7 +142,7 @@ function TripPanel({ trip }: { trip: CalendarTrip }) {
         </div>
       )}
 
-      {/* Reservation list */}
+      {/* Passenger reservation list */}
       {trip.reservations.length > 0 && (
         <div className="flex flex-col gap-2 pl-1">
           {trip.reservations.map((r) => (
@@ -105,10 +163,27 @@ function TripPanel({ trip }: { trip: CalendarTrip }) {
                 ) : (
                   <span className="text-xs italic text-muted-foreground/60">Sin teléfono</span>
                 )}
-                <PassengerIndicator r={r} />
+                <PassengerIndicator r={r} slug={slug} />
               </div>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Cargo reservation list */}
+      {hasCargo && (
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center gap-1.5">
+            <IconPackage className="size-3 text-muted-foreground" />
+            <span className="text-xs font-medium text-muted-foreground">
+              Encomiendas · {trip.totalWeightKg.toFixed(1)} kg total
+            </span>
+          </div>
+          <div className="flex flex-col gap-2 pl-1">
+            {trip.cargoReservations.map((r) => (
+              <CargoItem key={r.id} r={r} />
+            ))}
+          </div>
         </div>
       )}
     </div>
@@ -122,6 +197,7 @@ type Props = {
   selectedDate: string | null;
   onDateSelect: (date: string) => void;
   onMonthChange: (year: number, month: number) => void;
+  currentSlug: string;
 };
 
 export function MiniCalendar({
@@ -131,6 +207,7 @@ export function MiniCalendar({
   selectedDate,
   onDateSelect,
   onMonthChange,
+  currentSlug,
 }: Props) {
   const dataByDate = new Map(data.map((d) => [d.date, d]));
   const today = startOfDay(new Date());
@@ -180,7 +257,7 @@ export function MiniCalendar({
               {selectedTrips.map((trip, i) => (
                 <div key={trip.tripId}>
                   {i > 0 && <Separator className="mb-4" />}
-                  <TripPanel trip={trip} />
+                  <TripPanel trip={trip} slug={currentSlug} />
                 </div>
               ))}
             </div>

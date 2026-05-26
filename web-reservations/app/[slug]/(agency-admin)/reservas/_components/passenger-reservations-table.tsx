@@ -113,6 +113,9 @@ export function PassengerReservationsTable({
   const [isDeleting, setIsDeleting] = useState(false)
   const [selectedStatusId, setSelectedStatusId] = useState<string>("all")
   const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null)
+  const [localStatuses, setLocalStatuses] = useState<Record<string, string>>(
+    () => Object.fromEntries(data.map((r) => [r.id, r.reservationStatus.id]))
+  )
 
   const filteredData = selectedStatusId === "all"
     ? data
@@ -176,19 +179,22 @@ export function PassengerReservationsTable({
               variant="ghost"
               size="icon"
               className="h-8 w-8"
-              onClick={() => router.push(`/${currentSlug}/reservas-pasajeros/${reservation.id}`)}
+              onClick={() => router.push(`/${currentSlug}/reservas/${reservation.id}`)}
             >
               <IconPencil className="size-4" />
             </Button>
             <Select
-              defaultValue={reservation.reservationStatus.id}
+              value={localStatuses[reservation.id] ?? reservation.reservationStatus.id}
               disabled={updatingStatusId === reservation.id}
               onValueChange={async (val) => {
+                const prev = localStatuses[reservation.id] ?? reservation.reservationStatus.id
+                setLocalStatuses((s) => ({ ...s, [reservation.id]: val }))
                 setUpdatingStatusId(reservation.id)
                 const result = await updateReservationStatus(reservation.id, val, currentSlug)
                 setUpdatingStatusId(null)
                 if (result.error) {
                   toast.error(result.error)
+                  setLocalStatuses((s) => ({ ...s, [reservation.id]: prev }))
                 } else {
                   toast.success("Estado actualizado")
                   router.refresh()

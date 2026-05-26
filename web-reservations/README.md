@@ -100,11 +100,11 @@ types/next-auth.d.ts               # Extensión de tipos Session/JWT
 
 ## Roles
 
-| Rol            | Acceso                       | Login URL       |
-|----------------|------------------------------|-----------------|
-| `SUPER_ADMIN`  | Global — gestiona agencias   | `/login`        |
-| `AGENCY_ADMIN` | Una agencia — sus sucursales | `/<slug>/login` |
-| `AGENCY_USER`  | Una agencia / sucursal       | `/<slug>/login` |
+| Rol             | Acceso                              | Login URL       |
+|-----------------|-------------------------------------|-----------------|
+| `SUPER_ADMIN`   | Global — gestiona agencias          | `/login`        |
+| `AGENCY_ADMIN`  | Una agencia — todas sus sucursales  | `/<slug>/login` |
+| `SUCURSAL_USER` | Una sucursal específica             | `/<slug>/login` |
 
 ## Patrones importantes
 

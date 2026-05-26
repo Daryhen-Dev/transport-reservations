@@ -83,7 +83,7 @@ export default async function ManageReservationPage({
         } as React.CSSProperties
       }
     >
-      <AgencySidebar variant="inset" slug={slug} user={user} />
+      <AgencySidebar variant="inset" slug={slug} />
       <SidebarInset>
         <SiteHeader />
         <div className="flex flex-1 flex-col">
@@ -92,7 +92,7 @@ export default async function ManageReservationPage({
               <div className="flex items-center justify-between px-4 lg:px-6">
                 <h1 className="text-xl font-semibold">Gestionar Reserva</h1>
                 <Button variant="outline" size="sm" asChild>
-                  <Link href={`/${slug}/reservas-pasajeros`}>
+                  <Link href={`/${slug}/reservas`}>
                     <IconArrowLeft className="size-4" />
                     Volver a reservas
                   </Link>

@@ -8,6 +8,28 @@ export async function searchProveedoresAction(query: string, proveedorTypeId?: s
   return searchProveedoresByType(query, proveedorTypeId)
 }
 
+export async function searchCrewMembersAction(query: string) {
+  if (query.length < 2) return []
+  return prisma.crewMember.findMany({
+    where: {
+      OR: [
+        { firstName: { contains: query, mode: "insensitive" } },
+        { lastName: { contains: query, mode: "insensitive" } },
+        { documentNumber: { contains: query, mode: "insensitive" } },
+      ],
+    },
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      documentType: { select: { id: true, name: true } },
+      documentNumber: true,
+    },
+    take: 10,
+    orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+  })
+}
+
 export async function searchPassengersAction(query: string) {
   if (query.length < 2) return []
   return prisma.passenger.findMany({

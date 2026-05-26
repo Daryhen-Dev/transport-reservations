@@ -5,6 +5,16 @@ import { startOfDay, endOfDay } from "date-fns"
 import { prisma } from "@/lib/db"
 import { revalidatePath } from "next/cache"
 
+async function resolveBranchId(slug: string): Promise<string | null> {
+  const branch = await prisma.branch.findUnique({ where: { slug }, select: { id: true } })
+  return branch?.id ?? null
+}
+
+async function verifyTripBranch(tripId: string, branchId: string): Promise<boolean> {
+  const trip = await prisma.trip.findUnique({ where: { id: tripId }, select: { branchId: true } })
+  return trip?.branchId === branchId
+}
+
 const clienteSchema = z.object({
   firstName: z.string().min(1, "El nombre es requerido"),
   lastName: z.string().min(1, "El apellido es requerido"),
@@ -53,6 +63,10 @@ export async function createPassengerReservation(data: unknown) {
   const { tripId, seatCount, proveedor, passengers, currentSlug, proveedorTypeId } = parsed.data
   let { reservationStatusId } = parsed.data
 
+  const branchId = await resolveBranchId(currentSlug)
+  if (!branchId) return { error: "Sucursal no encontrada" }
+  if (!(await verifyTripBranch(tripId, branchId))) return { error: "El viaje no pertenece a esta sucursal" }
+
   if (!reservationStatusId) {
     const pendiente = await prisma.reservationStatus.findFirst({
       where: { name: { contains: "pendiente", mode: "insensitive" } },
@@ -94,21 +108,40 @@ export async function createPassengerReservation(data: unknown) {
       })
       createdId = reservation.id
 
-      if (passengers && passengers.length > 0) {
-        for (const c of passengers) {
-          // Upsert passenger by unique document
-          const p = await tx.passenger.upsert({
-            where: { documentTypeId_documentNumber: { documentTypeId: c.documentTypeId, documentNumber: c.documentNumber } },
-            create: {
-              firstName: c.firstName,
-              lastName: c.lastName,
-              documentTypeId: c.documentTypeId,
-              documentNumber: c.documentNumber,
-              countryId: c.countryId,
-              birthDate: c.birthDate ? new Date(c.birthDate) : undefined,
-            },
-            update: {},
-          })
+      // Auto-link proveedor as passenger when seatCount === 1 and proveedor is PERSONA
+      const autoPassengers: typeof passengers =
+        seatCount === 1 && proveedor.customerType === "PERSONA"
+          ? [
+              {
+                firstName: proveedor.firstName,
+                lastName: proveedor.lastName,
+                documentTypeId: proveedor.documentTypeId,
+                documentNumber: proveedor.documentNumber,
+                countryId: proveedor.countryId,
+                birthDate: proveedor.birthDate,
+              },
+              ...(passengers ?? []),
+            ]
+          : (passengers ?? [])
+
+      for (const c of autoPassengers) {
+        const p = await tx.passenger.upsert({
+          where: { documentTypeId_documentNumber: { documentTypeId: c.documentTypeId, documentNumber: c.documentNumber } },
+          create: {
+            firstName: c.firstName,
+            lastName: c.lastName,
+            documentTypeId: c.documentTypeId,
+            documentNumber: c.documentNumber,
+            countryId: c.countryId,
+            birthDate: c.birthDate ? new Date(c.birthDate) : undefined,
+          },
+          update: {},
+        })
+        // Avoid duplicate link if the same passenger was also passed manually
+        const alreadyLinked = await tx.reservationPassenger.findUnique({
+          where: { reservationId_passengerId: { reservationId: reservation.id, passengerId: p.id } },
+        })
+        if (!alreadyLinked) {
           await tx.reservationPassenger.create({
             data: { reservationId: reservation.id, passengerId: p.id },
           })
@@ -116,7 +149,7 @@ export async function createPassengerReservation(data: unknown) {
       }
     })
 
-    revalidatePath(`/${currentSlug}/reservas-pasajeros`)
+    revalidatePath(`/${currentSlug}/reservas`)
     return { success: true, id: createdId }
   } catch {
     return { error: "Error al crear la reserva" }
@@ -130,13 +163,18 @@ const quickReservationSchema = z.object({
   seatCount: z.number().int().min(1, "Debe reservar al menos 1 asiento"),
   branchId: z.string().min(1, "La sucursal es requerida"),
   currentSlug: z.string(),
+  isPending: z.boolean().optional(),
 })
 
 export async function createQuickPassengerReservation(data: unknown) {
   const parsed = quickReservationSchema.safeParse(data)
   if (!parsed.success) return { error: parsed.error.issues[0].message }
 
-  const { scheduleId, date, proveedorId, seatCount, branchId, currentSlug } = parsed.data
+  const { scheduleId, date, proveedorId, seatCount, branchId, currentSlug, isPending } = parsed.data
+
+  const resolvedBranchId = await resolveBranchId(currentSlug)
+  if (!resolvedBranchId) return { error: "Sucursal no encontrada" }
+  if (branchId !== resolvedBranchId) return { error: "La sucursal no coincide con la sesión activa" }
 
   const departureDay = new Date(date + "T00:00:00")
   const start = startOfDay(departureDay)
@@ -153,12 +191,15 @@ export async function createQuickPassengerReservation(data: unknown) {
       branchId,
       departureAt: { gte: start, lte: end },
     },
+    include: { status: true },
   })
 
   if (!trip) {
     const [hours, minutes] = schedule.time.split(":").map(Number)
     const departureAt = new Date(departureDay)
     departureAt.setHours(hours, minutes, 0, 0)
+    const abiertoStatus = await prisma.tripStatus.findUnique({ where: { name: "ABIERTO" } })
+    if (!abiertoStatus) return { error: "Estado ABIERTO no encontrado" }
 
     trip = await prisma.trip.create({
       data: {
@@ -166,14 +207,19 @@ export async function createQuickPassengerReservation(data: unknown) {
         routeId: schedule.routeId,
         branchId,
         scheduleId,
+        statusId: abiertoStatus.id,
       },
+      include: { status: true },
     })
+  } else if (trip.status.name === "CERRADO") {
+    return { error: "Este viaje está cerrado y no acepta nuevas reservas" }
   }
 
+  const statusName = isPending ? "PENDIENTE" : "CONFIRMADA"
   const pendingStatus = await prisma.reservationStatus.findFirst({
-    where: { name: { contains: "pendiente", mode: "insensitive" } },
+    where: { name: { contains: statusName, mode: "insensitive" } },
   })
-  if (!pendingStatus) return { error: "Estado pendiente no configurado" }
+  if (!pendingStatus) return { error: `Estado ${statusName} no configurado` }
 
   try {
     const reservation = await prisma.passengerReservation.create({
@@ -184,7 +230,7 @@ export async function createQuickPassengerReservation(data: unknown) {
         reservationStatusId: pendingStatus.id,
       },
     })
-    revalidatePath(`/${currentSlug}/reservas-pasajeros`)
+    revalidatePath(`/${currentSlug}/reservas`)
     revalidatePath(`/${currentSlug}/calendario`)
     return { success: true, id: reservation.id }
   } catch {
@@ -200,7 +246,8 @@ export async function updateReservationStatus(id: string, statusId: string, curr
       where: { id },
       data: { reservationStatusId: statusId },
     })
-    revalidatePath(`/${currentSlug}/reservas-pasajeros`)
+    revalidatePath(`/${currentSlug}/reservas`)
+    revalidatePath(`/${currentSlug}/calendario`)
     return { success: true }
   } catch {
     return { error: "Error al actualizar el estado" }
@@ -273,7 +320,7 @@ export async function createPassengerAction(data: unknown) {
         birthDate: true,
       },
     })
-    revalidatePath(`/${currentSlug}/reservas-pasajeros`)
+    revalidatePath(`/${currentSlug}/reservas`)
     return { passenger }
   } catch {
     return { error: "Error al crear el pasajero" }
@@ -313,7 +360,7 @@ export async function linkPassengerToReservation(data: unknown) {
         birthDate: true,
       },
     })
-    revalidatePath(`/${currentSlug}/reservas-pasajeros`)
+    revalidatePath(`/${currentSlug}/reservas`)
     revalidatePath(`/${currentSlug}/calendario`)
     return { passenger }
   } catch {
@@ -326,7 +373,7 @@ export async function removePassengerFromReservation(passengerId: string, reserv
     await prisma.reservationPassenger.delete({
       where: { reservationId_passengerId: { reservationId, passengerId } },
     })
-    revalidatePath(`/${currentSlug}/reservas-pasajeros`)
+    revalidatePath(`/${currentSlug}/reservas`)
     revalidatePath(`/${currentSlug}/calendario`)
     return { success: true }
   } catch {
@@ -347,12 +394,16 @@ export async function updatePassengerReservation(data: unknown) {
 
   const { id, seatCount, tripId, currentSlug } = parsed.data
 
+  const branchId = await resolveBranchId(currentSlug)
+  if (!branchId) return { error: "Sucursal no encontrada" }
+  if (!(await verifyTripBranch(tripId, branchId))) return { error: "El viaje no pertenece a esta sucursal" }
+
   try {
     await prisma.passengerReservation.update({
       where: { id },
       data: { seatCount, tripId },
     })
-    revalidatePath(`/${currentSlug}/reservas-pasajeros`)
+    revalidatePath(`/${currentSlug}/reservas`)
     revalidatePath(`/${currentSlug}/calendario`)
     return { success: true }
   } catch {
@@ -377,7 +428,7 @@ export async function deletePassengerReservation(id: string, currentSlug: string
       // ReservationPassenger rows are deleted via onDelete: Cascade on PassengerReservation
       prisma.passengerReservation.delete({ where: { id } }),
     ])
-    revalidatePath(`/${currentSlug}/reservas-pasajeros`)
+    revalidatePath(`/${currentSlug}/reservas`)
     return { success: true }
   } catch {
     return { error: "Error al eliminar la reserva" }

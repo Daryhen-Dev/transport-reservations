@@ -55,6 +55,7 @@ export function CalendarioView({ initialData, initialYear, initialMonth }: Props
         selectedDate={selectedDate}
         onDateSelect={handleDateSelect}
         onMonthChange={handleMonthChange}
+        currentSlug={slug}
       />
 
       {/* Right panel — Big month calendar */}
@@ -65,7 +66,7 @@ export function CalendarioView({ initialData, initialYear, initialMonth }: Props
         onMonthChange={handleMonthChange}
         selectedDate={selectedDate}
         onDateSelect={handleDateSelect}
-        onDoubleClick={(date) => router.push(`/${slug}/reservas-pasajeros/nueva?fecha=${date}`)}
+        onDoubleClick={(date) => router.push(`/${slug}/reservas/nueva?fecha=${date}`)}
       />
     </div>
   );

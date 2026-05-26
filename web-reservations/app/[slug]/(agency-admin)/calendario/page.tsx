@@ -1,5 +1,6 @@
 import { auth } from "@/auth";
 import { getTripsCalendarData } from "@/lib/services/calendar.service";
+import { prisma } from "@/lib/db";
 import { AgencySidebar } from "@/components/agency-sidebar";
 import { SiteHeader } from "@/components/site-header";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
@@ -21,7 +22,8 @@ export default async function CalendarioPage({
   const year = now.getFullYear();
   const month = now.getMonth() + 1; // 1-based
 
-  const calendarData = await getTripsCalendarData(year, month);
+  const branch = await prisma.branch.findUnique({ where: { slug }, select: { id: true } });
+  const calendarData = await getTripsCalendarData(year, month, branch?.id);
 
   return (
     <SidebarProvider
@@ -32,7 +34,7 @@ export default async function CalendarioPage({
         } as React.CSSProperties
       }
     >
-      <AgencySidebar variant="inset" slug={slug} user={user} />
+      <AgencySidebar variant="inset" slug={slug} />
       <SidebarInset>
         <SiteHeader />
         <div className="flex flex-1 flex-col">

@@ -39,7 +39,7 @@ export default async function PasajerosPage({
         } as React.CSSProperties
       }
     >
-      <AgencySidebar variant="inset" slug={slug} user={user} />
+      <AgencySidebar variant="inset" slug={slug} />
       <SidebarInset>
         <SiteHeader />
         <div className="flex flex-1 flex-col">

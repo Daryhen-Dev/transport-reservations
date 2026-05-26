@@ -37,6 +37,12 @@ export async function createUser(data: unknown) {
   });
   if (!sucursalUserRole) return { error: "Rol no encontrado" };
 
+  const branch = await prisma.branch.findUnique({
+    where: { id: branchId },
+    select: { agencyId: true },
+  });
+  if (!branch) return { error: "Sucursal no encontrada" };
+
   try {
     await prisma.user.create({
       data: {
@@ -45,6 +51,7 @@ export async function createUser(data: unknown) {
         password: await bcrypt.hash(password, 12),
         roleId: sucursalUserRole.id,
         branchId,
+        agencyId: branch.agencyId,
       },
     });
     revalidatePath(`/${currentSlug}/usuarios`);

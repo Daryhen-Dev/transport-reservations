@@ -5,7 +5,6 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { signIn } from "next-auth/react";
-import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { ROUTES } from "@/lib/constants";
 import {
@@ -17,7 +16,14 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 
 const loginSchema = z.object({
   email: z.string().email("Email inválido"),
@@ -32,19 +38,17 @@ export default function AgencyLoginPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = use(params);
-  const router = useRouter();
-  const {
-    register,
-    handleSubmit,
-    formState: { errors, isSubmitting },
-  } = useForm<LoginForm>({
+
+  const form = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
+    defaultValues: { email: "", password: "" },
   });
 
   async function onSubmit(data: LoginForm) {
     const result = await signIn("credentials", {
       email: data.email,
       password: data.password,
+      slug,
       redirect: false,
     });
 
@@ -54,8 +58,7 @@ export default function AgencyLoginPage({
     }
 
     toast.success("Sesión iniciada");
-    router.refresh();
-    router.push(ROUTES.agencyDashboard(slug));
+    window.location.href = ROUTES.agencyDashboard(slug);
   }
 
   return (
@@ -66,35 +69,56 @@ export default function AgencyLoginPage({
           <CardDescription>Panel de Agencia</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="admin@agencia.com"
-                {...register("email")}
+          <Form {...form}>
+            <form
+              onSubmit={form.handleSubmit(onSubmit)}
+              className="flex flex-col gap-4"
+            >
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="email"
+                        placeholder="admin@agencia.com"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-              {errors.email && (
-                <p className="text-sm text-destructive">{errors.email.message}</p>
-              )}
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="password">Contraseña</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                {...register("password")}
+
+              <FormField
+                control={form.control}
+                name="password"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Contraseña</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="password"
+                        placeholder="••••••••"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
               />
-              {errors.password && (
-                <p className="text-sm text-destructive">{errors.password.message}</p>
-              )}
-            </div>
-            <Button type="submit" className="w-full mt-2" disabled={isSubmitting}>
-              {isSubmitting ? "Ingresando..." : "Ingresar"}
-            </Button>
-          </form>
+
+              <Button
+                type="submit"
+                className="mt-2 w-full"
+                disabled={form.formState.isSubmitting}
+              >
+                {form.formState.isSubmitting ? "Ingresando..." : "Ingresar"}
+              </Button>
+            </form>
+          </Form>
         </CardContent>
       </Card>
     </div>
