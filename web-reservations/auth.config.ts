@@ -9,6 +9,8 @@ export const authConfig = {
       if (user) {
         token.id = (user as { id: string }).id;
         token.role = (user as { role: string }).role;
+        token.branchId =
+          (user as { branchId: string | null }).branchId ?? null;
       }
       return token;
     },
@@ -16,6 +18,8 @@ export const authConfig = {
       if (session.user) {
         session.user.id = token.id as string;
         session.user.role = token.role as string;
+        session.user.branchId =
+          (token.branchId as string | null) ?? null;
       }
       return session;
     },
