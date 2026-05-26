@@ -64,7 +64,7 @@ export default function LoginPage() {
               <Input
                 id="email"
                 type="email"
-                placeholder="admin@system.com"
+                placeholder="owner@system.com"
                 {...register("email")}
               />
               {errors.email && (
