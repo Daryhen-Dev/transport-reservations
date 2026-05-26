@@ -47,7 +47,7 @@ export default function LoginPage() {
     }
 
     toast.success("Sesión iniciada");
-    window.location.href = ROUTES.SUPER_ADMIN_DASHBOARD;
+    window.location.href = ROUTES.CALENDARIO;
   }
 
   return (
