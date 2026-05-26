@@ -1,10 +1,12 @@
 "use client"
 
-import { usePathname, useRouter } from "next/navigation"
+import { useRouter } from "next/navigation"
+import { useTransition } from "react"
 import {
   IconInnerShadowTop,
   IconChevronDown,
   IconCheck,
+  IconLoader2,
 } from "@tabler/icons-react"
 import {
   DropdownMenu,
@@ -16,33 +18,35 @@ import { SidebarMenuButton } from "@/components/ui/sidebar"
 
 type Branch = { id: string; name: string; slug: string }
 
-export function BranchSwitcher({
-  branches,
-  currentSlug,
-}: {
+type Props = {
+  activeBranch: Branch
   branches: Branch[]
-  currentSlug: string
-}) {
-  const pathname = usePathname()
+  disabled?: boolean
+}
+
+export function BranchSwitcher({ activeBranch, branches, disabled }: Props) {
   const router = useRouter()
+  const [pending, startTransition] = useTransition()
 
-  const currentBranch = branches.find((b) => b.slug === currentSlug) ?? branches[0]
+  const isDisabled = disabled || branches.length <= 1
 
-  function handleSwitch(slug: string) {
-    if (slug === currentSlug) return
-    // Extract section from pathname: /main/viajes/[id] → viajes/[id]
-    const parts = pathname.split("/").filter(Boolean)
-    const section = parts.slice(1).join("/") || "dashboard"
-    router.push(`/${slug}/${section}`)
+  function handleSwitch(branchId: string) {
+    if (branchId === activeBranch.id) return
+    startTransition(async () => {
+      const res = await fetch("/api/v1/branches/active", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ branchId }),
+      })
+      if (res.ok) router.refresh()
+    })
   }
 
-  if (branches.length <= 1) {
+  if (isDisabled) {
     return (
       <SidebarMenuButton className="data-[slot=sidebar-menu-button]:p-1.5!">
         <IconInnerShadowTop className="size-5!" />
-        <span className="text-base font-semibold">
-          {currentBranch?.name ?? "Panel de Agencia"}
-        </span>
+        <span className="text-base font-semibold">{activeBranch.name}</span>
       </SidebarMenuButton>
     )
   }
@@ -50,11 +54,16 @@ export function BranchSwitcher({
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <SidebarMenuButton className="data-[slot=sidebar-menu-button]:p-1.5!">
-          <IconInnerShadowTop className="size-5!" />
-          <span className="text-base font-semibold">
-            {currentBranch?.name ?? "Panel de Agencia"}
-          </span>
+        <SidebarMenuButton
+          className="data-[slot=sidebar-menu-button]:p-1.5!"
+          disabled={pending}
+        >
+          {pending ? (
+            <IconLoader2 className="size-5! animate-spin" />
+          ) : (
+            <IconInnerShadowTop className="size-5!" />
+          )}
+          <span className="text-base font-semibold">{activeBranch.name}</span>
           <IconChevronDown className="ml-auto size-4 opacity-50" />
         </SidebarMenuButton>
       </DropdownMenuTrigger>
@@ -62,12 +71,13 @@ export function BranchSwitcher({
         {branches.map((branch) => (
           <DropdownMenuItem
             key={branch.id}
-            onClick={() => handleSwitch(branch.slug)}
+            onClick={() => handleSwitch(branch.id)}
             className="gap-2"
+            disabled={pending}
           >
             <IconInnerShadowTop className="size-4 opacity-60" />
             <span>{branch.name}</span>
-            {branch.slug === currentSlug && (
+            {branch.id === activeBranch.id && (
               <IconCheck className="ml-auto size-4" />
             )}
           </DropdownMenuItem>
