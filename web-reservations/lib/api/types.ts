@@ -8,18 +8,20 @@ export interface ApiErrorResponse {
   details?: Record<string, string[]>;
 }
 
-export interface AuthSession {
+export interface AuthContext {
   userId: string;
-  role: string; // 'SUPER_ADMIN' | 'AGENCY_ADMIN' | 'SUCURSAL_USER'
-  agencyId: string | null;
+  role: string; // "OWNER" | "SUCURSAL_USER"
   branchId: string | null;
   name: string;
   email: string;
+  transport: "bearer" | "cookie";
 }
+
+export type AuthSession = AuthContext;
 
 export interface MobileJwtPayload {
   id: string;
-  role: string;
+  role: string; // "OWNER" | "SUCURSAL_USER"
   branchId?: string | null;
 }
 
