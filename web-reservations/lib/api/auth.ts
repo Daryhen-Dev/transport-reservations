@@ -3,13 +3,13 @@ import { createHash, randomBytes } from "crypto";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/db";
-import type { AuthSession, MobileJwtPayload } from "./types";
+import type { AuthContext, MobileJwtPayload } from "./types";
 
 const SECRET = new TextEncoder().encode(process.env.AUTH_SECRET!);
 
 export async function requireAuth(
   req: Request
-): Promise<AuthSession | NextResponse> {
+): Promise<AuthContext | NextResponse> {
   const authHeader = req.headers.get("authorization");
 
   if (authHeader?.startsWith("Bearer ")) {
@@ -20,7 +20,7 @@ export async function requireAuth(
 
       const user = await prisma.user.findUnique({
         where: { id },
-        select: { branchId: true, agencyId: true, name: true, email: true },
+        select: { branchId: true, name: true, email: true },
       });
       if (!user)
         return NextResponse.json({ error: "No autorizado" }, { status: 401 });
@@ -29,9 +29,9 @@ export async function requireAuth(
         userId: id,
         role,
         branchId: user.branchId,
-        agencyId: user.agencyId,
         name: user.name,
         email: user.email,
+        transport: "bearer",
       };
     } catch {
       return NextResponse.json(
@@ -49,7 +49,7 @@ export async function requireAuth(
 
   const user = await prisma.user.findUnique({
     where: { id: session.user.id },
-    select: { branchId: true, agencyId: true, name: true, email: true },
+    select: { branchId: true, name: true, email: true },
   });
   if (!user)
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
@@ -58,43 +58,30 @@ export async function requireAuth(
     userId: session.user.id,
     role: session.user.role,
     branchId: user.branchId,
-    agencyId: user.agencyId,
     name: session.user.name ?? user.name,
     email: session.user.email ?? user.email,
+    transport: "cookie",
   };
 }
 
 export async function requireBranchAccess(
   req: Request,
-  slug: string
-): Promise<AuthSession | NextResponse> {
+  branchId: string
+): Promise<AuthContext | NextResponse> {
   const sessionOrError = await requireAuth(req);
   if (sessionOrError instanceof NextResponse) return sessionOrError;
 
-  const session = sessionOrError;
+  const ctx = sessionOrError;
 
-  // SUPER_ADMIN: access to any branch
-  if (session.role === "SUPER_ADMIN") return session;
+  // OWNER: access to any branch
+  if (ctx.role === "OWNER") return ctx;
 
-  const branch = await prisma.branch.findUnique({ where: { slug } });
-  if (!branch)
-    return NextResponse.json(
-      { error: "Sucursal no encontrada" },
-      { status: 404 }
-    );
-
-  if (session.role === "AGENCY_ADMIN") {
-    if (session.agencyId !== branch.agencyId) {
+  // SUCURSAL_USER: only own branch
+  if (ctx.role === "SUCURSAL_USER") {
+    if (ctx.branchId !== branchId) {
       return NextResponse.json({ error: "Acceso denegado" }, { status: 403 });
     }
-    return session;
-  }
-
-  if (session.role === "SUCURSAL_USER") {
-    if (session.branchId !== branch.id) {
-      return NextResponse.json({ error: "Acceso denegado" }, { status: 403 });
-    }
-    return session;
+    return ctx;
   }
 
   return NextResponse.json({ error: "Acceso denegado" }, { status: 403 });
@@ -110,17 +97,17 @@ export async function signMobileJwt(payload: MobileJwtPayload): Promise<string> 
 
 export async function verifyMobileJwt(
   token: string
-): Promise<AuthSession | null> {
+): Promise<AuthContext | null> {
   try {
     const { payload } = await jwtVerify(token, SECRET);
     if (!payload.id || !payload.role) return null;
     return {
       userId: payload.id as string,
       role: payload.role as string,
-      agencyId: (payload.agencyId as string) ?? null,
       branchId: (payload.branchId as string) ?? null,
       name: (payload.name as string) ?? "",
       email: (payload.email as string) ?? "",
+      transport: "bearer",
     };
   } catch {
     return null;
