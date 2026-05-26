@@ -1,8 +1,7 @@
 import { prisma } from "@/lib/db";
 
-export async function getBranches(agencyId: string) {
+export async function getBranches() {
   return prisma.branch.findMany({
-    where: { agencyId },
     orderBy: { createdAt: "desc" },
   });
 }

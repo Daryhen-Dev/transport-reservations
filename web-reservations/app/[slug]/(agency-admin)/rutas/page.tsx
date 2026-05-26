@@ -20,7 +20,7 @@ export default async function RutasPage({
 
   const [routes, branches] = await Promise.all([
     getRoutes(),
-    getBranches("agency_main"),
+    getBranches(),
   ]);
 
   return (

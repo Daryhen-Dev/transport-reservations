@@ -39,7 +39,7 @@ export async function createUser(data: unknown) {
 
   const branch = await prisma.branch.findUnique({
     where: { id: branchId },
-    select: { agencyId: true },
+    select: { id: true },
   });
   if (!branch) return { error: "Sucursal no encontrada" };
 
@@ -51,7 +51,6 @@ export async function createUser(data: unknown) {
         password: await bcrypt.hash(password, 12),
         roleId: sucursalUserRole.id,
         branchId,
-        agencyId: branch.agencyId,
       },
     });
     revalidatePath(`/${currentSlug}/usuarios`);

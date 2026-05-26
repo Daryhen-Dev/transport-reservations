@@ -22,7 +22,7 @@ export default async function HorariosPage({
   const [schedules, routes, branches] = await Promise.all([
     getTripSchedules(),
     getRoutes(),
-    getBranches("agency_main"),
+    getBranches(),
   ]);
 
   return (

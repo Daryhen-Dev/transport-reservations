@@ -8,11 +8,8 @@ export async function getUserByEmail(email: string) {
   return prisma.user.findUnique({ where: { email } });
 }
 
-export async function getUsersByAgency(agencyId: string) {
+export async function getAllUsers() {
   return prisma.user.findMany({
-    where: {
-      branch: { agencyId },
-    },
     include: {
       branch: { select: { name: true } },
       role: { select: { name: true } },

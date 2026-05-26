@@ -25,7 +25,7 @@ export async function createBranch(data: unknown) {
 
   try {
     await prisma.branch.create({
-      data: { name, slug, agencyId: "agency_main" },
+      data: { name, slug },
     })
     revalidatePath(`/${currentSlug}/sucursales`)
     return { success: true }

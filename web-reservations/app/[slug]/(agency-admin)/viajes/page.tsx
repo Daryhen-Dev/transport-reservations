@@ -25,7 +25,7 @@ export default async function ViajesPage({
 
   const [trips, branches, routes, schedules, crewRoles, documentTypes] = await Promise.all([
     branch ? getTrips(branch.id) : Promise.resolve([]),
-    getBranches("agency_main"),
+    getBranches(),
     getRoutes(),
     getTripSchedules(),
     prisma.crewRole.findMany({ orderBy: { name: "asc" } }),

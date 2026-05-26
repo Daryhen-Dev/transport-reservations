@@ -1,5 +1,5 @@
 import { auth } from "@/auth";
-import { getUsersByAgency } from "@/lib/services/user.service";
+import { getAllUsers } from "@/lib/services/user.service";
 import { getBranches } from "@/lib/services/branch.service";
 import { AgencySidebar } from "@/components/agency-sidebar";
 import { UsersTable } from "./_components/users-table";
@@ -19,8 +19,8 @@ export default async function UsuariosPage({
   };
 
   const [users, branches] = await Promise.all([
-    getUsersByAgency("agency_main"),
-    getBranches("agency_main"),
+    getAllUsers(),
+    getBranches(),
   ]);
 
   return (

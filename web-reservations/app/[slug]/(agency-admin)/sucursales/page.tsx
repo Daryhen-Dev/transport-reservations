@@ -16,7 +16,7 @@ export default async function SucursalesPage({
     name: session?.user?.name ?? "",
     email: session?.user?.email ?? "",
   };
-  const branches = await getBranches("agency_main");
+  const branches = await getBranches();
 
   return (
     <SidebarProvider
