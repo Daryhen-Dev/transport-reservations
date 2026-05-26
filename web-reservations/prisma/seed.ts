@@ -8,13 +8,36 @@ const prisma = new PrismaClient({ adapter });
 
 // ─── Catálogos ────────────────────────────────────────────────────────────────
 
-const ROLES = ["SUPER_ADMIN", "AGENCY_ADMIN", "SUCURSAL_USER"] as const;
+const ROLES = ["OWNER", "SUCURSAL_USER"] as const;
 
 const DOCUMENT_TYPES = ["CEDULA DE IDENTIDAD", "PASAPORTE", "RUC"] as const;
 
 const RESERVATION_STATUSES = ["PENDIENTE", "CONFIRMADA", "CANCELADA"] as const;
 
 const CUSTOMER_TYPES = ["PERSONA", "EMPRESA"] as const;
+
+const CARGA_CATEGORIAS = [
+  "DOCUMENTOS",
+  "ELECTRONICA",
+  "ALIMENTOS",
+  "ROPA",
+  "MEDICAMENTOS",
+  "OTROS",
+] as const;
+
+const CREW_ROLES = ["CAPITAN", "PRIMER_OFICIAL", "MAQUINISTA"] as const;
+
+const TRIP_STATUSES = [
+  { id: "tripstatus_abierto", name: "ABIERTO" },
+  { id: "tripstatus_cerrado", name: "CERRADO" },
+] as const
+
+const CARGO_STATUSES = [
+  { id: "cargostatus_transito",    name: "EN TRANSITO" },
+  { id: "cargostatus_entregada",   name: "ENTREGADA" },
+  { id: "cargostatus_noreclamada", name: "NO RECLAMADA" },
+  { id: "cargostatus_devuelta",    name: "DEVUELTA" },
+] as const;
 
 const COUNTRIES = [
   { name: "Venezuela",  nationality: "Venezolano/a",  code: "VE" },
@@ -56,7 +79,27 @@ async function main() {
     await prisma.proveedorType.upsert({ where: { name }, update: {}, create: { name } });
   }
 
-  // 5. Países
+  // 5. Categorías de carga
+  for (const name of CARGA_CATEGORIAS) {
+    await prisma.cargaCategoria.upsert({ where: { name }, update: {}, create: { name } });
+  }
+
+  // 6. Estados de viaje
+  for (const { id, name } of TRIP_STATUSES) {
+    await prisma.tripStatus.upsert({ where: { name }, update: {}, create: { id, name } });
+  }
+
+  // 7. Roles de tripulación
+  for (const name of CREW_ROLES) {
+    await prisma.crewRole.upsert({ where: { name }, update: {}, create: { name } });
+  }
+
+  // 7b. Estados de cargo (encomiendas en tránsito)
+  for (const { id, name } of CARGO_STATUSES) {
+    await prisma.cargoStatus.upsert({ where: { name }, update: {}, create: { id, name } });
+  }
+
+  // 8. Países
   for (const country of COUNTRIES) {
     await prisma.country.upsert({
       where: { code: country.code },
@@ -65,57 +108,55 @@ async function main() {
     });
   }
 
-  // 6. Usuarios del sistema
-  const superAdminRole  = await prisma.role.findUniqueOrThrow({ where: { name: "SUPER_ADMIN" } });
-  const agencyAdminRole = await prisma.role.findUniqueOrThrow({ where: { name: "AGENCY_ADMIN" } });
+  // 9. Sucursal principal
+  const principalBranch = await prisma.branch.upsert({
+    where: { slug: "principal" },
+    update: {},
+    create: { name: "Principal", slug: "principal" },
+  });
 
+  // 10. Usuarios del sistema
+  const ownerRole        = await prisma.role.findUniqueOrThrow({ where: { name: "OWNER" } });
+  const sucursalUserRole = await prisma.role.findUniqueOrThrow({ where: { name: "SUCURSAL_USER" } });
+
+  // 10a. OWNER (sin sucursal)
   await prisma.user.upsert({
-    where: { email: "admin@system.com" },
+    where: { email: "owner@system.com" },
     update: {},
     create: {
-      name: "Super Admin",
-      email: "admin@system.com",
+      name: "Owner",
+      email: "owner@system.com",
       password: await bcrypt.hash("Admin1234!", 12),
-      roleId: superAdminRole.id,
+      roleId: ownerRole.id,
+      branchId: null,
     },
   });
 
-  // 7. Agencia
-  const agency = await prisma.agency.upsert({
-    where: { id: "agency_main" },
-    update: {},
-    create: { id: "agency_main", name: "Mi Agencia" },
-  });
-
-  // 8. Sucursal inicial
-  await prisma.branch.upsert({
-    where: { slug: "main" },
-    update: {},
-    create: { name: "Principal", slug: "main", agencyId: agency.id },
-  });
-
-  // 9. Agency admin
+  // 10b. SUCURSAL_USER (ligado a sucursal principal)
   await prisma.user.upsert({
-    where: { email: "admin@agencia.com" },
+    where: { email: "user@system.com" },
     update: {},
     create: {
-      name: "Admin Agencia",
-      email: "admin@agencia.com",
-      password: await bcrypt.hash("Agencia1234!", 12),
-      roleId: agencyAdminRole.id,
-      agencyId: agency.id,
+      name: "Usuario Sucursal",
+      email: "user@system.com",
+      password: await bcrypt.hash("User1234!", 12),
+      roleId: sucursalUserRole.id,
+      branchId: principalBranch.id,
     },
   });
 
   console.log("Seed completado:");
-  console.log("  → Super admin:        admin@system.com  / Admin1234!");
-  console.log("  → Agency admin:       admin@agencia.com / Agencia1234!");
-  console.log("  → Agencia:            Mi Agencia");
-  console.log("  → Sucursal:           Principal (slug: main)");
+  console.log("  → OWNER:              owner@system.com / Admin1234!");
+  console.log("  → SUCURSAL_USER:      user@system.com  / User1234!");
+  console.log("  → Sucursal:           Principal (slug: principal)");
   console.log(`  → Países:             ${COUNTRIES.length}`);
-  console.log("  → Tipos de documento: CEDULA_IDENTIDAD, PASAPORTE");
+  console.log("  → Tipos de documento: CEDULA DE IDENTIDAD, PASAPORTE, RUC");
   console.log("  → Estados de reserva: PENDIENTE, CONFIRMADA, CANCELADA");
   console.log("  → Tipos de cliente:   PERSONA, EMPRESA");
+  console.log(`  → Categorías de carga: ${CARGA_CATEGORIAS.join(", ")}`);
+  console.log(`  → Roles de tripulación: ${CREW_ROLES.join(", ")}`);
+  console.log(`  → Estados de viaje: ${TRIP_STATUSES.map((s) => s.name).join(", ")}`);
+  console.log(`  → Estados de cargo: ${CARGO_STATUSES.map((s) => s.name).join(", ")}`);
 }
 
 main()
