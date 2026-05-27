@@ -42,7 +42,7 @@ import { IconEdit, IconTrash, IconAnchor, IconLock, IconLockOpen, IconFileCheck,
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { deleteTrip, closeTripAction, openTripAction } from "@/app/actions/trip"
-import { generateManifestAction } from "@/app/actions/manifest"
+import { api, ApiError } from "@/lib/api/client"
 import { Badge } from "@/components/ui/badge"
 import { TripSheet } from "./trip-sheet"
 import { TripCrewSheet } from "./trip-crew-sheet"
@@ -209,11 +209,19 @@ export function TripsTable({
             title="Generar manifiesto"
             onClick={async () => {
               setGeneratingManifestId(row.original.id)
-              const result = await generateManifestAction(row.original.id, currentSlug ?? "")
-              setGeneratingManifestId(null)
-              if ("error" in result) { toast.error(result.error); return }
-              toast.success(`Manifiesto ${result.code} generado`)
-              router.refresh()
+              try {
+                const result = await api.manifests.generate(row.original.id)
+                toast.success(
+                  result.alreadyExisted
+                    ? `Manifiesto ${result.code} ya existía`
+                    : `Manifiesto ${result.code} generado`
+                )
+                router.refresh()
+              } catch (err) {
+                toast.error(err instanceof ApiError ? err.message : "Error al generar manifiesto")
+              } finally {
+                setGeneratingManifestId(null)
+              }
             }}
           >
             <IconFileCheck className="size-4 text-emerald-600" />

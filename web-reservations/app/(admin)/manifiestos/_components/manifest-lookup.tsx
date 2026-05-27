@@ -1,16 +1,16 @@
 "use client"
 
 import { useState } from "react"
-import { lookupManifestAction, type ManifestData } from "@/app/actions/manifest"
+import { api, ApiError, type ManifestLookupResult } from "@/lib/api/client"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { IconSearch, IconFileText, IconDownload } from "@tabler/icons-react"
 
-export function ManifestLookup({ currentSlug = '' }: { currentSlug?: string }) {
+export function ManifestLookup() {
   const [code, setCode] = useState("")
   const [loading, setLoading] = useState(false)
-  const [result, setResult] = useState<ManifestData | null>(null)
+  const [result, setResult] = useState<ManifestLookupResult | null>(null)
   const [error, setError] = useState<string | null>(null)
 
   async function handleSearch() {
@@ -18,12 +18,13 @@ export function ManifestLookup({ currentSlug = '' }: { currentSlug?: string }) {
     setLoading(true)
     setError(null)
     setResult(null)
-    const res = await lookupManifestAction(code, currentSlug ?? "")
-    setLoading(false)
-    if ("error" in res) {
-      setError(res.error)
-    } else {
-      setResult(res.manifest)
+    try {
+      const manifest = await api.manifests.lookup(code)
+      setResult(manifest)
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Error al buscar manifiesto")
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -74,7 +75,7 @@ export function ManifestLookup({ currentSlug = '' }: { currentSlug?: string }) {
             </div>
             <Button
               variant="outline"
-              onClick={() => window.open(`/api/manifests/${result.code}`, "_blank")}
+              onClick={() => window.open(api.manifests.pdfUrl(result.code), "_blank")}
             >
               <IconDownload className="size-4 mr-2" />
               Descargar PDF

@@ -192,6 +192,62 @@ export type TripSchedule = {
 
 export type { CalendarDay };
 
+export type ManifestLookupResult = {
+  id: string;
+  code: string;
+  receivedByBranchId: string | null;
+  receivedAt: string | null;
+  trip: {
+    departureAt: string;
+    branch: { id: string; name: string; slug: string };
+    route: { origin: string; destination: string };
+    status: { name: string };
+    crew: Array<{
+      crewMember: {
+        firstName: string;
+        lastName: string;
+        documentNumber: string;
+        documentType: { name: string };
+      };
+      crewRole: { name: string };
+    }>;
+    passengerReservations: Array<{
+      seatCount: number;
+      proveedor: {
+        firstName: string | null;
+        lastName: string | null;
+        companyName: string | null;
+        proveedorType: { name: string };
+      };
+      passengers: Array<{
+        passenger: {
+          firstName: string;
+          lastName: string;
+          documentNumber: string;
+          documentType: { name: string };
+        };
+      }>;
+    }>;
+    cargoReservations: Array<{
+      weightKg: number;
+      description: string | null;
+      categoria: { name: string } | null;
+      destinatario: {
+        firstName: string;
+        lastName: string;
+        phone: string | null;
+      } | null;
+      proveedor: {
+        firstName: string | null;
+        lastName: string | null;
+        companyName: string | null;
+      };
+      destinationBranch: { name: string } | null;
+      externalDestination: string | null;
+    }>;
+  };
+};
+
 export const api = {
   branches: {
     list: () => request<Branch[]>("/branches"),
@@ -366,5 +422,16 @@ export const api = {
       request<TripSchedule>(`/trip-schedules/${id}/toggle`, {
         method: "PATCH",
       }),
+  },
+  manifests: {
+    lookup: (code: string) =>
+      request<ManifestLookupResult>(`/manifests/${encodeURIComponent(code)}`),
+    pdfUrl: (code: string) =>
+      `${BASE}/manifests/${encodeURIComponent(code)}/pdf`,
+    generate: (tripId: string) =>
+      request<{ id: string; code: string; tripId: string; createdAt: string; alreadyExisted?: boolean }>(
+        `/trips/${tripId}/manifest`,
+        { method: "POST" }
+      ),
   },
 };
