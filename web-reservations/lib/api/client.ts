@@ -2,6 +2,10 @@ import type {
   CreateBranchInput,
   UpdateBranchInput,
 } from "./schemas/branches";
+import type {
+  CreateCountryInput,
+  UpdateCountryInput,
+} from "./schemas/countries";
 
 const BASE = "/api/v1";
 
@@ -54,6 +58,15 @@ export type Branch = {
   updatedAt: string;
 };
 
+export type Country = {
+  id: string;
+  name: string;
+  nationality: string;
+  code: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export const api = {
   branches: {
     list: () => request<Branch[]>("/branches"),
@@ -77,5 +90,20 @@ export const api = {
       }),
     clearActive: () =>
       request<void>("/branches/active", { method: "DELETE" }),
+  },
+  countries: {
+    list: () => request<Country[]>("/countries"),
+    create: (data: CreateCountryInput) =>
+      request<Country>("/countries", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    update: (id: string, data: UpdateCountryInput) =>
+      request<Country>(`/countries/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }),
+    delete: (id: string) =>
+      request<void>(`/countries/${id}`, { method: "DELETE" }),
   },
 };

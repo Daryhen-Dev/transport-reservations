@@ -35,7 +35,7 @@ import {
 import { IconEdit, IconTrash } from "@tabler/icons-react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { deleteCountry } from "@/app/actions/country"
+import { api, ApiError } from "@/lib/api/client"
 import { CountrySheet } from "./country-sheet"
 
 type Country = {
@@ -45,13 +45,7 @@ type Country = {
   code: string | null
 }
 
-export function CountriesTable({
-  data,
-  currentSlug,
-}: {
-  data: Country[]
-  currentSlug?: string
-}) {
+export function CountriesTable({ data }: { data: Country[] }) {
   const router = useRouter()
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [sorting, setSorting] = useState<SortingState>([])
@@ -115,15 +109,16 @@ export function CountriesTable({
   async function handleDelete() {
     if (!deletingCountry) return
     setIsDeleting(true)
-    const result = await deleteCountry(deletingCountry.id, currentSlug ?? "")
-    setIsDeleting(false)
-    setDeletingCountry(null)
-    if (result.error) {
-      toast.error(result.error)
-      return
+    try {
+      await api.countries.delete(deletingCountry.id)
+      toast.success("País eliminado")
+      router.refresh()
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Error al eliminar el país")
+    } finally {
+      setIsDeleting(false)
+      setDeletingCountry(null)
     }
-    toast.success("País eliminado")
-    router.refresh()
   }
 
   return (
@@ -136,7 +131,7 @@ export function CountriesTable({
             onChange={(e) => table.getColumn("name")?.setFilterValue(e.target.value)}
             className="max-w-sm"
           />
-          <CountrySheet currentSlug={currentSlug} />
+          <CountrySheet />
         </div>
         <div className="rounded-md border">
           <Table>
@@ -205,7 +200,6 @@ export function CountriesTable({
       {/* Edit sheet (controlled, no trigger button) */}
       {editingCountry && (
         <CountrySheet
-          currentSlug={currentSlug}
           country={editingCountry}
           open={!!editingCountry}
           onOpenChange={(open) => { if (!open) setEditingCountry(null) }}

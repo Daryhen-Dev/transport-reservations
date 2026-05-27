@@ -7,7 +7,7 @@ import { z } from "zod"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { IconPlus } from "@tabler/icons-react"
-import { createCountry, updateCountry } from "@/app/actions/country"
+import { api, ApiError } from "@/lib/api/client"
 import {
   Sheet,
   SheetContent,
@@ -39,14 +39,13 @@ type Country = {
 }
 
 type Props = {
-  currentSlug?: string
   country?: Country
   open?: boolean
   onOpenChange?: (open: boolean) => void
   trigger?: boolean
 }
 
-export function CountrySheet({ currentSlug = '', country, open, onOpenChange, trigger = true }: Props) {
+export function CountrySheet({ country, open, onOpenChange, trigger = true }: Props) {
   const [internalOpen, setInternalOpen] = useState(false)
   const isControlled = open !== undefined && onOpenChange !== undefined
   const isOpen = isControlled ? open : internalOpen
@@ -78,19 +77,19 @@ export function CountrySheet({ currentSlug = '', country, open, onOpenChange, tr
   }, [isOpen, country, reset])
 
   async function onSubmit(data: FormValues) {
-    const payload = { ...data, currentSlug}
-    const result = country
-      ? await updateCountry(country.id, payload)
-      : await createCountry(payload)
-
-    if (result.error) {
-      toast.error(result.error)
-      return
+    try {
+      if (country) {
+        await api.countries.update(country.id, data)
+      } else {
+        await api.countries.create(data)
+      }
+      toast.success(country ? "País actualizado" : "País creado exitosamente")
+      reset()
+      setOpen(false)
+      router.refresh()
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Error al guardar el país")
     }
-    toast.success(country ? "País actualizado" : "País creado exitosamente")
-    reset()
-    setOpen(false)
-    router.refresh()
   }
 
   return (
