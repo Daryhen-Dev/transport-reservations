@@ -2,8 +2,7 @@
 
 import { useState, useTransition } from "react"
 import { toast } from "sonner"
-import { api, ApiError } from "@/lib/api/client"
-import type { ProveedorWithRelations } from "@/app/actions/proveedor"
+import { api, ApiError, type Proveedor as ProveedorWithRelations } from "@/lib/api/client"
 import {
   Sheet,
   SheetContent,
@@ -78,7 +77,7 @@ export function QuickProveedorSheet({
 
         const created = await api.proveedores.create(payload)
         toast.success("Proveedor creado exitosamente")
-        onCreated(created as unknown as ProveedorWithRelations)
+        onCreated(created)
         resetFields()
       } catch (err) {
         toast.error(

@@ -25,7 +25,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { searchCrewMembersAction } from "@/app/actions/search"
 import { api, ApiError } from "@/lib/api/client"
 import { QuickCrewMemberSheet } from "./quick-crew-member-sheet"
 
@@ -202,7 +201,7 @@ export function TripCrewSheet({
                     /* Search + assign row */
                     <div className="flex flex-col gap-2">
                       <Autocomplete<CrewMemberResult>
-                        searchFn={searchCrewMembersAction}
+                        searchFn={(query) => api.crewMembers.search(query)}
                         displayFn={getDisplayName}
                         value={pendingDisplay[role.id] ?? ""}
                         onSelect={(m) => {

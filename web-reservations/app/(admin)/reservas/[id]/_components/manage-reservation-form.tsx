@@ -19,7 +19,6 @@ import {
 } from "@/components/ui/select"
 import { Autocomplete } from "@/components/ui/autocomplete"
 import { api, ApiError } from "@/lib/api/client"
-import { searchPassengersAction } from "@/app/actions/search"
 import { QuickPassengerSheet } from "./quick-passenger-sheet"
 
 type PassengerRecord = {
@@ -246,7 +245,19 @@ export function ManageReservationForm({ reservation, trips, documentTypes, count
           <div className="flex flex-col gap-1.5">
             <Label>Buscar pasajero</Label>
             <Autocomplete<PassengerResult>
-              searchFn={(query) => searchPassengersAction(query) as Promise<PassengerResult[]>}
+              searchFn={(query) =>
+                api.passengers.search(query).then((results) =>
+                  results.map((r) => ({
+                    id: r.id,
+                    firstName: r.firstName,
+                    lastName: r.lastName,
+                    documentType: r.documentType,
+                    documentNumber: r.documentNumber,
+                    country: r.country,
+                    birthDate: r.birthDate ? new Date(r.birthDate) : null,
+                  }))
+                )
+              }
               displayFn={getPassengerDisplayValue}
               value={passengerDisplayValue}
               onSelect={handleSelectPassenger}

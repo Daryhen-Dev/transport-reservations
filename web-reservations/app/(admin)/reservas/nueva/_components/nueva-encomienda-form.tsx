@@ -20,10 +20,8 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Autocomplete } from "@/components/ui/autocomplete"
-import { api, ApiError } from "@/lib/api/client"
-import { searchProveedoresAction } from "@/app/actions/search"
+import { api, ApiError, type Proveedor as ProveedorWithRelations } from "@/lib/api/client"
 import { QuickProveedorSheet } from "./quick-proveedor-sheet"
-import type { ProveedorWithRelations } from "@/app/actions/proveedor"
 import type { TripSchedule, Route } from "@/lib/generated/prisma/client"
 
 type TripScheduleWithRoute = TripSchedule & { route: Route }
@@ -256,7 +254,17 @@ export function NuevaEncomiendaForm({
           <Label>Proveedor (remitente)</Label>
           <Autocomplete<ProveedorResult>
             searchFn={(query) =>
-              searchProveedoresAction(query, proveedorTypeId ?? undefined) as Promise<ProveedorResult[]>
+              api.proveedores.search(query, proveedorTypeId ?? undefined).then((results) =>
+                results.map((p) => ({
+                  id: p.id,
+                  firstName: p.firstName,
+                  lastName: p.lastName,
+                  companyName: p.companyName,
+                  documentNumber: p.documentNumber,
+                  proveedorType: p.proveedorType ? { id: p.proveedorType.id, name: p.proveedorType.name } : null,
+                  documentType: p.documentType ? { id: p.documentType.id, name: p.documentType.name } : null,
+                }))
+              )
             }
             displayFn={getProveedorDisplayValue}
             value={proveedorDisplayValue}
