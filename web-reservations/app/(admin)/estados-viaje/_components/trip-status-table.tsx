@@ -16,12 +16,12 @@ import {
 import { IconEdit, IconTrash } from "@tabler/icons-react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { deleteTripStatus } from "@/app/actions/trip-status"
+import { api, ApiError } from "@/lib/api/client"
 import { TripStatusSheet } from "./trip-status-sheet"
 
 type TripStatus = { id: string; name: string; _count: { trips: number } }
 
-export function TripStatusTable({ data, currentSlug}: { data: TripStatus[]; currentSlug?: string }) {
+export function TripStatusTable({ data }: { data: TripStatus[] }) {
   const router = useRouter()
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [sorting, setSorting] = useState<SortingState>([])
@@ -79,12 +79,16 @@ export function TripStatusTable({ data, currentSlug}: { data: TripStatus[]; curr
   async function handleDelete() {
     if (!deletingStatus) return
     setIsDeleting(true)
-    const result = await deleteTripStatus(deletingStatus.id, currentSlug ?? "")
-    setIsDeleting(false)
-    setDeletingStatus(null)
-    if (result.error) { toast.error(result.error); return }
-    toast.success("Estado eliminado")
-    router.refresh()
+    try {
+      await api.tripStatuses.delete(deletingStatus.id)
+      toast.success("Estado eliminado")
+      router.refresh()
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Error al eliminar el estado")
+    } finally {
+      setIsDeleting(false)
+      setDeletingStatus(null)
+    }
   }
 
   return (
@@ -97,7 +101,7 @@ export function TripStatusTable({ data, currentSlug}: { data: TripStatus[]; curr
             onChange={(e) => table.getColumn("name")?.setFilterValue(e.target.value)}
             className="max-w-sm"
           />
-          <TripStatusSheet currentSlug={currentSlug} />
+          <TripStatusSheet />
         </div>
         <div className="rounded-md border">
           <Table>
@@ -137,7 +141,6 @@ export function TripStatusTable({ data, currentSlug}: { data: TripStatus[]; curr
 
       {editingStatus && (
         <TripStatusSheet
-          currentSlug={currentSlug}
           status={editingStatus}
           open={!!editingStatus}
           onOpenChange={(o) => { if (!o) setEditingStatus(null) }}

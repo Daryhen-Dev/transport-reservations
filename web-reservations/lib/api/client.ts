@@ -6,6 +6,11 @@ import type {
   CreateCountryInput,
   UpdateCountryInput,
 } from "./schemas/countries";
+import type {
+  CreateTripStatusInput,
+  UpdateTripStatusInput,
+} from "./schemas/trip-statuses";
+import type { CalendarDay } from "@/lib/services/calendar.service";
 
 const BASE = "/api/v1";
 
@@ -67,6 +72,16 @@ export type Country = {
   updatedAt: string;
 };
 
+export type TripStatus = {
+  id: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+  _count?: { trips: number };
+};
+
+export type { CalendarDay };
+
 export const api = {
   branches: {
     list: () => request<Branch[]>("/branches"),
@@ -105,5 +120,29 @@ export const api = {
       }),
     delete: (id: string) =>
       request<void>(`/countries/${id}`, { method: "DELETE" }),
+  },
+  tripStatuses: {
+    list: () => request<TripStatus[]>("/trip-statuses"),
+    create: (data: CreateTripStatusInput) =>
+      request<TripStatus>("/trip-statuses", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    update: (id: string, data: UpdateTripStatusInput) =>
+      request<TripStatus>(`/trip-statuses/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }),
+    delete: (id: string) =>
+      request<void>(`/trip-statuses/${id}`, { method: "DELETE" }),
+  },
+  calendar: {
+    get: (params: { year: number; month: number; branchId?: string }) => {
+      const q = new URLSearchParams();
+      q.set("year", String(params.year));
+      q.set("month", String(params.month));
+      if (params.branchId) q.set("branchId", params.branchId);
+      return request<CalendarDay[]>(`/calendar?${q.toString()}`);
+    },
   },
 };

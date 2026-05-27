@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { format } from "date-fns";
 import { useRouter } from "next/navigation";
-import { fetchCalendarData } from "@/app/actions/calendar";
+import { api } from "@/lib/api/client";
 import type { CalendarDay } from "@/lib/services/calendar.service";
 import { MiniCalendar } from "./mini-calendar";
 import { BigCalendar } from "./big-calendar";
@@ -28,8 +28,12 @@ export function CalendarioView({ initialData, initialYear, initialMonth }: Props
     setYear(newYear);
     setMonth(newMonth);
     startTransition(async () => {
-      const newData = await fetchCalendarData(newYear, newMonth);
-      setData(newData);
+      try {
+        const newData = await api.calendar.get({ year: newYear, month: newMonth });
+        setData(newData);
+      } catch {
+        // silent failure — keep current data
+      }
     });
   }
 

@@ -7,7 +7,7 @@ import { z } from "zod"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { IconPlus } from "@tabler/icons-react"
-import { createTripStatus, updateTripStatus } from "@/app/actions/trip-status"
+import { api, ApiError } from "@/lib/api/client"
 import {
   Sheet,
   SheetContent,
@@ -26,14 +26,13 @@ type FormValues = z.infer<typeof schema>
 
 type TripStatus = { id: string; name: string }
 type Props = {
-  currentSlug?: string
   status?: TripStatus
   open?: boolean
   onOpenChange?: (open: boolean) => void
   trigger?: boolean
 }
 
-export function TripStatusSheet({ currentSlug = '', status, open, onOpenChange, trigger = true }: Props) {
+export function TripStatusSheet({ status, open, onOpenChange, trigger = true }: Props) {
   const [internalOpen, setInternalOpen] = useState(false)
   const isControlled = open !== undefined && onOpenChange !== undefined
   const isOpen = isControlled ? open : internalOpen
@@ -49,15 +48,20 @@ export function TripStatusSheet({ currentSlug = '', status, open, onOpenChange, 
   }, [isOpen, status, reset])
 
   async function onSubmit(data: FormValues) {
-    const payload = { ...data, name: data.name.toUpperCase(), currentSlug}
-    const result = status
-      ? await updateTripStatus(status.id, payload)
-      : await createTripStatus(payload)
-    if (result.error) { toast.error(result.error); return }
-    toast.success(status ? "Estado actualizado" : "Estado creado")
-    reset()
-    setOpen(false)
-    router.refresh()
+    const payload = { name: data.name.toUpperCase() }
+    try {
+      if (status) {
+        await api.tripStatuses.update(status.id, payload)
+      } else {
+        await api.tripStatuses.create(payload)
+      }
+      toast.success(status ? "Estado actualizado" : "Estado creado")
+      reset()
+      setOpen(false)
+      router.refresh()
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Error al guardar el estado")
+    }
   }
 
   return (
