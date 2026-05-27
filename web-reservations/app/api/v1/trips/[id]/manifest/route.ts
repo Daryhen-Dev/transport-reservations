@@ -28,9 +28,9 @@ function generateCode(
 
 export async function POST(
   req: Request,
-  ctx: { params: Promise<{ tripId: string }> }
+  ctx: { params: Promise<{ id: string }> }
 ) {
-  const { tripId } = await ctx.params;
+  const { id: tripId } = await ctx.params;
 
   const trip = await prisma.trip.findUnique({
     where: { id: tripId },
@@ -74,7 +74,7 @@ export async function POST(
 
   const manifest = await prisma.tripManifest.create({
     data: { code, tripId },
-    select: { code: true, id: true, tripId: true, createdAt: true },
+    select: { id: true, code: true, tripId: true, createdAt: true },
   });
 
   await prisma.cargoReservation.updateMany({
