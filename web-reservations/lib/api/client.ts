@@ -23,6 +23,10 @@ import type {
   UpdateRouteInput,
 } from "./schemas/routes";
 import type {
+  CreateTripScheduleInput,
+  UpdateTripScheduleInput,
+} from "./schemas/trip-schedules";
+import type {
   CreateTripStatusInput,
   UpdateTripStatusInput,
 } from "./schemas/trip-statuses";
@@ -167,6 +171,21 @@ export type Route = {
   destination: string;
   branchId: string;
   branch?: { id: string; name: string; slug: string };
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type TripSchedule = {
+  id: string;
+  routeId: string;
+  time: string;
+  isActive: boolean;
+  route: {
+    id: string;
+    origin: string;
+    destination: string;
+    branchId: string;
+  };
   createdAt: string;
   updatedAt: string;
 };
@@ -321,5 +340,31 @@ export const api = {
       }),
     delete: (id: string) =>
       request<void>(`/routes/${id}`, { method: "DELETE" }),
+  },
+  tripSchedules: {
+    listByRoute: (routeId: string) => {
+      const params = new URLSearchParams({ routeId });
+      return request<TripSchedule[]>(`/trip-schedules?${params.toString()}`);
+    },
+    listByBranch: (branchId: string) => {
+      const params = new URLSearchParams({ branchId });
+      return request<TripSchedule[]>(`/trip-schedules?${params.toString()}`);
+    },
+    create: (data: CreateTripScheduleInput) =>
+      request<TripSchedule>("/trip-schedules", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    update: (id: string, data: UpdateTripScheduleInput) =>
+      request<TripSchedule>(`/trip-schedules/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }),
+    delete: (id: string) =>
+      request<void>(`/trip-schedules/${id}`, { method: "DELETE" }),
+    toggle: (id: string) =>
+      request<TripSchedule>(`/trip-schedules/${id}/toggle`, {
+        method: "PATCH",
+      }),
   },
 };

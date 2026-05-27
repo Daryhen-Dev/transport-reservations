@@ -41,7 +41,7 @@ import {
 import { IconEdit, IconTrash } from "@tabler/icons-react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { deleteTripSchedule } from "@/app/actions/trip-schedule"
+import { api, ApiError } from "@/lib/api/client"
 import { ScheduleSheet } from "./schedule-sheet"
 
 type Branch = { id: string; name: string }
@@ -70,12 +70,10 @@ export function SchedulesTable({
   data,
   routes,
   branches,
-  currentSlug,
 }: {
   data: Schedule[]
   routes: Route[]
   branches: Branch[]
-  currentSlug?: string
 }) {
   const router = useRouter()
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
@@ -173,15 +171,18 @@ export function SchedulesTable({
   async function handleDelete() {
     if (!deletingSchedule) return
     setIsDeleting(true)
-    const result = await deleteTripSchedule(deletingSchedule.id, currentSlug ?? "")
-    setIsDeleting(false)
-    setDeletingSchedule(null)
-    if (result.error) {
-      toast.error(result.error)
-      return
+    try {
+      await api.tripSchedules.delete(deletingSchedule.id)
+      toast.success("Horario eliminado")
+      router.refresh()
+    } catch (err) {
+      toast.error(
+        err instanceof ApiError ? err.message : "Error al eliminar el horario"
+      )
+    } finally {
+      setIsDeleting(false)
+      setDeletingSchedule(null)
     }
-    toast.success("Horario eliminado")
-    router.refresh()
   }
 
   return (
@@ -222,7 +223,7 @@ export function SchedulesTable({
               </SelectContent>
             </Select>
           </div>
-          <ScheduleSheet currentSlug={currentSlug} routes={routes} />
+          <ScheduleSheet routes={routes} />
         </div>
         <div className="rounded-md border">
           <Table>
@@ -290,7 +291,6 @@ export function SchedulesTable({
 
       {editingSchedule && (
         <ScheduleSheet
-          currentSlug={currentSlug}
           routes={routes}
           schedule={editingSchedule}
           open={!!editingSchedule}

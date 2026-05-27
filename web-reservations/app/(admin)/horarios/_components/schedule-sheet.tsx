@@ -7,7 +7,7 @@ import { z } from "zod"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { IconPlus } from "@tabler/icons-react"
-import { createTripSchedule, updateTripSchedule } from "@/app/actions/trip-schedule"
+import { api, ApiError } from "@/lib/api/client"
 import {
   Sheet,
   SheetContent,
@@ -29,7 +29,7 @@ import {
 
 const schema = z.object({
   routeId: z.string().min(1, "Debe seleccionar una ruta"),
-  time: z.string().regex(/^\d{2}:\d{2}$/, "Formato inválido (HH:MM)"),
+  time: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Formato inválido (HH:MM)"),
   isActive: z.boolean(),
 })
 
@@ -56,7 +56,6 @@ type Schedule = {
 }
 
 type Props = {
-  currentSlug?: string
   routes: Route[]
   schedule?: Schedule
   open?: boolean
@@ -64,7 +63,7 @@ type Props = {
   trigger?: boolean
 }
 
-export function ScheduleSheet({ currentSlug = '', routes, schedule, open, onOpenChange, trigger = true }: Props) {
+export function ScheduleSheet({ routes, schedule, open, onOpenChange, trigger = true }: Props) {
   const [internalOpen, setInternalOpen] = useState(false)
   const isControlled = open !== undefined && onOpenChange !== undefined
   const isOpen = isControlled ? open : internalOpen
@@ -100,19 +99,28 @@ export function ScheduleSheet({ currentSlug = '', routes, schedule, open, onOpen
   }, [isOpen, schedule, reset])
 
   async function onSubmit(data: FormValues) {
-    const payload = { ...data, currentSlug}
-    const result = schedule
-      ? await updateTripSchedule(schedule.id, { time: data.time, isActive: data.isActive, currentSlug})
-      : await createTripSchedule(payload)
-
-    if (result.error) {
-      toast.error(result.error)
-      return
+    try {
+      if (schedule) {
+        await api.tripSchedules.update(schedule.id, {
+          time: data.time,
+          isActive: data.isActive,
+        })
+      } else {
+        await api.tripSchedules.create({
+          routeId: data.routeId,
+          time: data.time,
+          isActive: data.isActive,
+        })
+      }
+      toast.success(schedule ? "Horario actualizado" : "Horario creado exitosamente")
+      reset()
+      setOpen(false)
+      router.refresh()
+    } catch (err) {
+      toast.error(
+        err instanceof ApiError ? err.message : "Error al guardar el horario"
+      )
     }
-    toast.success(schedule ? "Horario actualizado" : "Horario creado exitosamente")
-    reset()
-    setOpen(false)
-    router.refresh()
   }
 
   const selectedRoute = schedule
