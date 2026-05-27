@@ -42,7 +42,7 @@ import {
 import { IconEdit, IconTrash } from "@tabler/icons-react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { deleteRoute } from "@/app/actions/route"
+import { api, ApiError } from "@/lib/api/client"
 import { RouteSheet } from "./route-sheet"
 
 type Branch = { id: string; name: string }
@@ -58,11 +58,9 @@ type Route = {
 export function RoutesTable({
   data,
   branches,
-  currentSlug,
 }: {
   data: Route[]
   branches: Branch[]
-  currentSlug?: string
 }) {
   const router = useRouter()
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
@@ -133,15 +131,18 @@ export function RoutesTable({
   async function handleDelete() {
     if (!deletingRoute) return
     setIsDeleting(true)
-    const result = await deleteRoute(deletingRoute.id, currentSlug ?? "")
-    setIsDeleting(false)
-    setDeletingRoute(null)
-    if (result.error) {
-      toast.error(result.error)
-      return
+    try {
+      await api.routes.delete(deletingRoute.id)
+      toast.success("Ruta eliminada")
+      router.refresh()
+    } catch (err) {
+      toast.error(
+        err instanceof ApiError ? err.message : "Error al eliminar la ruta"
+      )
+    } finally {
+      setIsDeleting(false)
+      setDeletingRoute(null)
     }
-    toast.success("Ruta eliminada")
-    router.refresh()
   }
 
   return (
@@ -169,7 +170,7 @@ export function RoutesTable({
               </SelectContent>
             </Select>
           </div>
-          <RouteSheet currentSlug={currentSlug} branches={branches} />
+          <RouteSheet branches={branches} />
         </div>
         <div className="rounded-md border">
           <Table>
@@ -237,7 +238,6 @@ export function RoutesTable({
 
       {editingRoute && (
         <RouteSheet
-          currentSlug={currentSlug}
           branches={branches}
           route={editingRoute}
           open={!!editingRoute}

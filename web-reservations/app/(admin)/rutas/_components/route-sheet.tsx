@@ -7,7 +7,7 @@ import { z } from "zod"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { IconPlus } from "@tabler/icons-react"
-import { createRoute, updateRoute } from "@/app/actions/route"
+import { api, ApiError } from "@/lib/api/client"
 import {
   Sheet,
   SheetContent,
@@ -45,7 +45,6 @@ type Route = {
 }
 
 type Props = {
-  currentSlug?: string
   branches: Branch[]
   route?: Route
   open?: boolean
@@ -53,7 +52,7 @@ type Props = {
   trigger?: boolean
 }
 
-export function RouteSheet({ currentSlug = '', branches, route, open, onOpenChange, trigger = true }: Props) {
+export function RouteSheet({ branches, route, open, onOpenChange, trigger = true }: Props) {
   const [internalOpen, setInternalOpen] = useState(false)
   const isControlled = open !== undefined && onOpenChange !== undefined
   const isOpen = isControlled ? open : internalOpen
@@ -86,19 +85,21 @@ export function RouteSheet({ currentSlug = '', branches, route, open, onOpenChan
   }, [isOpen, route, reset])
 
   async function onSubmit(data: FormValues) {
-    const payload = { ...data, currentSlug}
-    const result = route
-      ? await updateRoute(route.id, payload)
-      : await createRoute(payload)
-
-    if (result.error) {
-      toast.error(result.error)
-      return
+    try {
+      if (route) {
+        await api.routes.update(route.id, data)
+      } else {
+        await api.routes.create(data)
+      }
+      toast.success(route ? "Ruta actualizada" : "Ruta creada exitosamente")
+      reset()
+      setOpen(false)
+      router.refresh()
+    } catch (err) {
+      toast.error(
+        err instanceof ApiError ? err.message : "Error al guardar la ruta"
+      )
     }
-    toast.success(route ? "Ruta actualizada" : "Ruta creada exitosamente")
-    reset()
-    setOpen(false)
-    router.refresh()
   }
 
   return (

@@ -19,6 +19,10 @@ import type {
   UpdateProveedorInput,
 } from "./schemas/proveedores";
 import type {
+  CreateRouteInput,
+  UpdateRouteInput,
+} from "./schemas/routes";
+import type {
   CreateTripStatusInput,
   UpdateTripStatusInput,
 } from "./schemas/trip-statuses";
@@ -157,6 +161,16 @@ export type Proveedor = {
   updatedAt: string;
 };
 
+export type Route = {
+  id: string;
+  origin: string;
+  destination: string;
+  branchId: string;
+  branch?: { id: string; name: string; slug: string };
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type { CalendarDay };
 
 export const api = {
@@ -288,5 +302,24 @@ export const api = {
       }),
     delete: (id: string) =>
       request<void>(`/proveedores/${id}`, { method: "DELETE" }),
+  },
+  routes: {
+    list: (branchId: string) => {
+      const params = new URLSearchParams({ branchId });
+      return request<Route[]>(`/routes?${params.toString()}`);
+    },
+    get: (id: string) => request<Route>(`/routes/${id}`),
+    create: (data: CreateRouteInput) =>
+      request<Route>("/routes", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    update: (id: string, data: UpdateRouteInput) =>
+      request<Route>(`/routes/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }),
+    delete: (id: string) =>
+      request<void>(`/routes/${id}`, { method: "DELETE" }),
   },
 };
