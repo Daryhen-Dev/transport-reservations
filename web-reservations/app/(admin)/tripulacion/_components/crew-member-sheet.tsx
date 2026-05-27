@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { IconPlus } from "@tabler/icons-react"
 import { format } from "date-fns"
-import { createCrewMember, updateCrewMember } from "@/app/actions/crew-member"
+import { api, ApiError } from "@/lib/api/client"
 import {
   Sheet,
   SheetContent,
@@ -42,7 +42,6 @@ type FormValues = z.infer<typeof schema>
 type DocumentType = { id: string; name: string }
 
 type Props = {
-  currentSlug?: string
   documentTypes: DocumentType[]
   crewMember?: CrewMemberRow
   open?: boolean
@@ -51,7 +50,6 @@ type Props = {
 }
 
 export function CrewMemberSheet({
-  currentSlug = '',
   documentTypes,
   crewMember,
   open,
@@ -93,19 +91,23 @@ export function CrewMemberSheet({
   }, [isOpen, crewMember, reset])
 
   async function onSubmit(data: FormValues) {
-    const payload = { ...data, currentSlug}
-    const result = crewMember
-      ? await updateCrewMember(crewMember.id, payload)
-      : await createCrewMember(payload)
-
-    if (result.error) {
-      toast.error(result.error)
-      return
+    try {
+      if (crewMember) {
+        await api.crewMembers.update(crewMember.id, data)
+      } else {
+        await api.crewMembers.create(data)
+      }
+      toast.success(crewMember ? "Tripulante actualizado" : "Tripulante creado")
+      reset()
+      setOpen(false)
+      router.refresh()
+    } catch (err) {
+      toast.error(
+        err instanceof ApiError
+          ? err.message
+          : "Error al guardar el tripulante"
+      )
     }
-    toast.success(crewMember ? "Tripulante actualizado" : "Tripulante creado")
-    reset()
-    setOpen(false)
-    router.refresh()
   }
 
   return (

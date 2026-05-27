@@ -7,6 +7,10 @@ import type {
   UpdateCountryInput,
 } from "./schemas/countries";
 import type {
+  CreateCrewMemberInput,
+  UpdateCrewMemberInput,
+} from "./schemas/crew-members";
+import type {
   CreateTripStatusInput,
   UpdateTripStatusInput,
 } from "./schemas/trip-statuses";
@@ -80,6 +84,27 @@ export type TripStatus = {
   _count?: { trips: number };
 };
 
+export type CrewMember = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  phone: string | null;
+  documentNumber: string;
+  documentType: { id: string; name: string };
+  birthDate: string | null;
+  createdAt: string;
+  updatedAt: string;
+  _count?: { trips: number };
+};
+
+export type CrewMemberSearchResult = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  documentNumber: string;
+  documentType: { id: string; name: string };
+};
+
 export type { CalendarDay };
 
 export const api = {
@@ -144,5 +169,26 @@ export const api = {
       if (params.branchId) q.set("branchId", params.branchId);
       return request<CalendarDay[]>(`/calendar?${q.toString()}`);
     },
+  },
+  crewMembers: {
+    list: () => request<CrewMember[]>("/crew-members"),
+    search: (q: string) => {
+      const params = new URLSearchParams({ q });
+      return request<CrewMemberSearchResult[]>(
+        `/crew-members?${params.toString()}`
+      );
+    },
+    create: (data: CreateCrewMemberInput) =>
+      request<CrewMember>("/crew-members", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    update: (id: string, data: UpdateCrewMemberInput) =>
+      request<CrewMember>(`/crew-members/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }),
+    delete: (id: string) =>
+      request<void>(`/crew-members/${id}`, { method: "DELETE" }),
   },
 };

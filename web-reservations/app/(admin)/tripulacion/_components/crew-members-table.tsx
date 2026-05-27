@@ -36,7 +36,7 @@ import { IconEdit, IconTrash } from "@tabler/icons-react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { format } from "date-fns"
-import { deleteCrewMember } from "@/app/actions/crew-member"
+import { api, ApiError } from "@/lib/api/client"
 import { CrewMemberSheet } from "./crew-member-sheet"
 import type { CrewMemberRow } from "@/lib/services/crew-member.service"
 
@@ -45,11 +45,9 @@ type DocumentType = { id: string; name: string }
 export function CrewMembersTable({
   data,
   documentTypes,
-  currentSlug,
 }: {
   data: CrewMemberRow[]
   documentTypes: DocumentType[]
-  currentSlug?: string
 }) {
   const router = useRouter()
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
@@ -140,15 +138,18 @@ export function CrewMembersTable({
   async function handleDelete() {
     if (!deletingMember) return
     setIsDeleting(true)
-    const result = await deleteCrewMember(deletingMember.id, currentSlug ?? "")
-    setIsDeleting(false)
-    setDeletingMember(null)
-    if (result.error) {
-      toast.error(result.error)
-      return
+    try {
+      await api.crewMembers.delete(deletingMember.id)
+      toast.success("Tripulante eliminado")
+      router.refresh()
+    } catch (err) {
+      toast.error(
+        err instanceof ApiError ? err.message : "Error al eliminar el tripulante"
+      )
+    } finally {
+      setIsDeleting(false)
+      setDeletingMember(null)
     }
-    toast.success("Tripulante eliminado")
-    router.refresh()
   }
 
   return (
@@ -161,7 +162,7 @@ export function CrewMembersTable({
             onChange={(e) => table.getColumn("fullName")?.setFilterValue(e.target.value)}
             className="max-w-sm"
           />
-          <CrewMemberSheet currentSlug={currentSlug} documentTypes={documentTypes} />
+          <CrewMemberSheet documentTypes={documentTypes} />
         </div>
         <div className="rounded-md border">
           <Table>
@@ -230,7 +231,6 @@ export function CrewMembersTable({
       {/* Edit sheet (controlled) */}
       {editingMember && (
         <CrewMemberSheet
-          currentSlug={currentSlug}
           documentTypes={documentTypes}
           crewMember={editingMember}
           open={!!editingMember}

@@ -5,8 +5,7 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { toast } from "sonner"
-import { format } from "date-fns"
-import { createCrewMember } from "@/app/actions/crew-member"
+import { api, ApiError } from "@/lib/api/client"
 import {
   Sheet,
   SheetContent,
@@ -47,7 +46,6 @@ type Props = {
   open: boolean
   onOpenChange: (open: boolean) => void
   documentTypes: { id: string; name: string }[]
-  currentSlug?: string
   onCreated: (member: CreatedMember) => void
 }
 
@@ -55,7 +53,6 @@ export function QuickCrewMemberSheet({
   open,
   onOpenChange,
   documentTypes,
-  currentSlug,
   onCreated,
 }: Props) {
   const {
@@ -74,22 +71,21 @@ export function QuickCrewMemberSheet({
   }, [open, reset])
 
   async function onSubmit(data: FormValues) {
-    const result = await createCrewMember({ ...data, currentSlug})
-    if (result.error) {
-      toast.error(result.error)
-      return
+    try {
+      const created = await api.crewMembers.create(data)
+      onCreated({
+        id: created.id,
+        firstName: created.firstName,
+        lastName: created.lastName,
+        documentNumber: created.documentNumber,
+        documentType: created.documentType,
+      })
+      toast.success("Tripulante creado")
+    } catch (err) {
+      toast.error(
+        err instanceof ApiError ? err.message : "Error al crear el tripulante"
+      )
     }
-
-    // Find the documentType object to pass back
-    const docType = documentTypes.find((d) => d.id === data.documentTypeId)!
-    onCreated({
-      id: (result as { id?: string }).id ?? "",
-      firstName: data.firstName,
-      lastName: data.lastName,
-      documentNumber: data.documentNumber,
-      documentType: docType,
-    })
-    toast.success("Tripulante creado")
   }
 
   return (

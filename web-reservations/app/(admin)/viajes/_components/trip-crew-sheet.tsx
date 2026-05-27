@@ -255,7 +255,6 @@ export function TripCrewSheet({
         open={!!quickOpen}
         onOpenChange={(o) => { if (!o) setQuickOpen(null) }}
         documentTypes={documentTypes}
-        currentSlug={currentSlug}
         onCreated={(member) => {
           if (quickOpen) handleCreated(quickOpen, member)
         }}
