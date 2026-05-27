@@ -7,7 +7,7 @@ import { z } from "zod"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { IconPlus } from "@tabler/icons-react"
-import { createTrip, updateTrip } from "@/app/actions/trip"
+import { api, ApiError } from "@/lib/api/client"
 import {
   Sheet,
   SheetContent,
@@ -63,7 +63,6 @@ type Trip = {
 }
 
 type Props = {
-  currentSlug?: string
   branches: Branch[]
   routes: Route[]
   schedules: Schedule[]
@@ -77,7 +76,7 @@ function formatDate(date: Date): string {
   return date.toISOString().slice(0, 10)
 }
 
-export function TripSheet({ currentSlug = '', branches, routes, schedules, trip, open, onOpenChange, trigger = true }: Props) {
+export function TripSheet({ branches, routes, schedules, trip, open, onOpenChange, trigger = true }: Props) {
   const [internalOpen, setInternalOpen] = useState(false)
   const isControlled = open !== undefined && onOpenChange !== undefined
   const isOpen = isControlled ? open : internalOpen
@@ -132,26 +131,30 @@ export function TripSheet({ currentSlug = '', branches, routes, schedules, trip,
       toast.error("Horario no encontrado")
       return
     }
-    const departureAt = `${data.departureDate}T${selectedSchedule.time}:00`
+    const departureAt = new Date(`${data.departureDate}T${selectedSchedule.time}:00`)
+    if (isNaN(departureAt.getTime())) {
+      toast.error("Fecha de salida inválida")
+      return
+    }
     const payload = {
       departureAt,
       routeId: data.routeId,
       branchId: data.branchId,
       scheduleId: data.scheduleId,
-      currentSlug,
     }
-    const result = trip
-      ? await updateTrip(trip.id, payload)
-      : await createTrip(payload)
-
-    if (result.error) {
-      toast.error(result.error)
-      return
+    try {
+      if (trip) {
+        await api.trips.update(trip.id, payload)
+      } else {
+        await api.trips.create(payload)
+      }
+      toast.success(trip ? "Viaje actualizado" : "Viaje creado exitosamente")
+      reset()
+      setOpen(false)
+      router.refresh()
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Error al guardar el viaje")
     }
-    toast.success(trip ? "Viaje actualizado" : "Viaje creado exitosamente")
-    reset()
-    setOpen(false)
-    router.refresh()
   }
 
   return (

@@ -31,6 +31,11 @@ import type {
   UpdateTripStatusInput,
 } from "./schemas/trip-statuses";
 import type {
+  CreateTripInput,
+  UpdateTripInput,
+  AssignCrewInput,
+} from "./schemas/trips";
+import type {
   CreateUserInput,
   UpdateUserInput,
 } from "./schemas/users";
@@ -195,6 +200,41 @@ export type TripSchedule = {
 };
 
 export type { CalendarDay };
+
+export type TripCrewAssignment = {
+  crewMemberId: string;
+  crewRoleId: string;
+  assignedAt?: string;
+  crewMember: { id: string; firstName: string; lastName: string };
+  crewRole: { id: string; name: string };
+};
+
+export type Trip = {
+  id: string;
+  departureAt: string;
+  routeId: string;
+  branchId: string;
+  scheduleId: string | null;
+  statusId: string;
+  route: { id: string; origin: string; destination: string; branchId: string };
+  branch: { id: string; name: string; slug: string };
+  status: { id: string; name: string };
+  schedule: {
+    id: string;
+    routeId: string;
+    time: string;
+    isActive: boolean;
+  } | null;
+  crew: TripCrewAssignment[];
+  manifest: { id: string; code: string } | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CrewAssignmentResult = TripCrewAssignment & {
+  tripId: string;
+  allCrewAssigned: boolean;
+};
 
 export type User = {
   id: string;
@@ -464,5 +504,42 @@ export const api = {
       }),
     delete: (id: string) =>
       request<void>(`/users/${id}`, { method: "DELETE" }),
+  },
+  trips: {
+    list: (params: { branchId: string; date?: string }) => {
+      const q = new URLSearchParams({ branchId: params.branchId });
+      if (params.date) q.set("date", params.date);
+      return request<Trip[]>(`/trips?${q.toString()}`);
+    },
+    get: (id: string) => request<Trip>(`/trips/${id}`),
+    create: (data: CreateTripInput) =>
+      request<Trip>("/trips", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    update: (id: string, data: UpdateTripInput) =>
+      request<Trip>(`/trips/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }),
+    delete: (id: string) =>
+      request<void>(`/trips/${id}`, { method: "DELETE" }),
+    close: (id: string) =>
+      request<Trip>(`/trips/${id}/close`, { method: "POST" }),
+    open: (id: string) =>
+      request<Trip>(`/trips/${id}/open`, { method: "POST" }),
+    assignCrew: (
+      tripId: string,
+      crewMemberId: string,
+      data: AssignCrewInput
+    ) =>
+      request<CrewAssignmentResult>(
+        `/trips/${tripId}/crew/${crewMemberId}`,
+        { method: "PUT", body: JSON.stringify(data) }
+      ),
+    removeCrew: (tripId: string, crewMemberId: string) =>
+      request<void>(`/trips/${tripId}/crew/${crewMemberId}`, {
+        method: "DELETE",
+      }),
   },
 };

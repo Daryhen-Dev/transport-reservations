@@ -26,8 +26,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { searchCrewMembersAction } from "@/app/actions/search"
-import { assignCrewMember, removeCrewMember } from "@/app/actions/trip-crew"
-import { closeTripAction } from "@/app/actions/trip"
+import { api, ApiError } from "@/lib/api/client"
 import { QuickCrewMemberSheet } from "./quick-crew-member-sheet"
 
 type CrewMemberResult = {
@@ -60,7 +59,6 @@ type Props = {
   onOpenChange: (open: boolean) => void
   crewRoles: CrewRole[]
   documentTypes: { id: string; name: string }[]
-  currentSlug?: string
 }
 
 function getDisplayName(m: CrewMemberResult): string {
@@ -79,7 +77,6 @@ export function TripCrewSheet({
   onOpenChange,
   crewRoles,
   documentTypes,
-  currentSlug,
 }: Props) {
   const router = useRouter()
 
@@ -102,45 +99,51 @@ export function TripCrewSheet({
     if (!candidate) return
 
     setAssigning((prev) => ({ ...prev, [roleId]: true }))
-    const result = await assignCrewMember(trip!.id, candidate.id, roleId, currentSlug ?? "")
-    setAssigning((prev) => ({ ...prev, [roleId]: false }))
+    try {
+      const result = await api.trips.assignCrew(trip!.id, candidate.id, {
+        crewRoleId: roleId,
+      })
+      toast.success("Tripulante asignado")
+      setPending((prev) => ({ ...prev, [roleId]: null }))
+      setPendingDisplay((prev) => ({ ...prev, [roleId]: "" }))
+      router.refresh()
 
-    if (result.error) {
-      toast.error(result.error)
-      return
-    }
-    toast.success("Tripulante asignado")
-    setPending((prev) => ({ ...prev, [roleId]: null }))
-    setPendingDisplay((prev) => ({ ...prev, [roleId]: "" }))
-    router.refresh()
-
-    if ("allCrewAssigned" in result && result.allCrewAssigned) {
-      setCloseDialogOpen(true)
+      if (result.allCrewAssigned) {
+        setCloseDialogOpen(true)
+      }
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Error al asignar tripulante")
+    } finally {
+      setAssigning((prev) => ({ ...prev, [roleId]: false }))
     }
   }
 
   async function handleClose() {
     setIsClosing(true)
-    const result = await closeTripAction(trip!.id, currentSlug ?? "")
-    setIsClosing(false)
-    setCloseDialogOpen(false)
-    if (result.error) { toast.error(result.error); return }
-    toast.success("Viaje cerrado")
-    onOpenChange(false)
-    router.refresh()
+    try {
+      await api.trips.close(trip!.id)
+      toast.success("Viaje cerrado")
+      setCloseDialogOpen(false)
+      onOpenChange(false)
+      router.refresh()
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Error al cerrar el viaje")
+    } finally {
+      setIsClosing(false)
+    }
   }
 
   async function handleRemove(roleId: string, crewMemberId: string) {
     setRemoving((prev) => ({ ...prev, [roleId]: true }))
-    const result = await removeCrewMember(trip!.id, crewMemberId, currentSlug ?? "")
-    setRemoving((prev) => ({ ...prev, [roleId]: false }))
-
-    if (result.error) {
-      toast.error(result.error)
-      return
+    try {
+      await api.trips.removeCrew(trip!.id, crewMemberId)
+      toast.success("Tripulante removido")
+      router.refresh()
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Error al quitar tripulante")
+    } finally {
+      setRemoving((prev) => ({ ...prev, [roleId]: false }))
     }
-    toast.success("Tripulante removido")
-    router.refresh()
   }
 
   function handleCreated(roleId: string, member: CrewMemberResult) {

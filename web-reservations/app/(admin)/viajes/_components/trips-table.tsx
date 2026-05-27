@@ -41,7 +41,6 @@ import {
 import { IconEdit, IconTrash, IconAnchor, IconLock, IconLockOpen, IconFileCheck, IconFileText } from "@tabler/icons-react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { deleteTrip, closeTripAction, openTripAction } from "@/app/actions/trip"
 import { api, ApiError } from "@/lib/api/client"
 import { Badge } from "@/components/ui/badge"
 import { TripSheet } from "./trip-sheet"
@@ -93,7 +92,6 @@ export function TripsTable({
   schedules,
   crewRoles,
   documentTypes,
-  currentSlug,
 }: {
   data: Trip[]
   branches: Branch[]
@@ -101,7 +99,6 @@ export function TripsTable({
   schedules: Schedule[]
   crewRoles: CrewRole[]
   documentTypes: { id: string; name: string }[]
-  currentSlug?: string
 }) {
   const router = useRouter()
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
@@ -245,13 +242,25 @@ export function TripsTable({
               disabled={isToggling}
               onClick={async () => {
                 setTogglingId(row.original.id)
-                const result = isClosed
-                  ? await openTripAction(row.original.id, currentSlug ?? "")
-                  : await closeTripAction(row.original.id, currentSlug ?? "")
-                setTogglingId(null)
-                if (result.error) { toast.error(result.error); return }
-                toast.success(isClosed ? "Viaje reabierto" : "Viaje cerrado")
-                router.refresh()
+                try {
+                  if (isClosed) {
+                    await api.trips.open(row.original.id)
+                  } else {
+                    await api.trips.close(row.original.id)
+                  }
+                  toast.success(isClosed ? "Viaje reabierto" : "Viaje cerrado")
+                  router.refresh()
+                } catch (err) {
+                  toast.error(
+                    err instanceof ApiError
+                      ? err.message
+                      : isClosed
+                        ? "Error al reabrir el viaje"
+                        : "Error al cerrar el viaje"
+                  )
+                } finally {
+                  setTogglingId(null)
+                }
               }}
             >
               {isClosed
@@ -295,15 +304,16 @@ export function TripsTable({
   async function handleDelete() {
     if (!deletingTrip) return
     setIsDeleting(true)
-    const result = await deleteTrip(deletingTrip.id, currentSlug ?? "")
-    setIsDeleting(false)
-    setDeletingTrip(null)
-    if (result.error) {
-      toast.error(result.error)
-      return
+    try {
+      await api.trips.delete(deletingTrip.id)
+      toast.success("Viaje eliminado")
+      setDeletingTrip(null)
+      router.refresh()
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Error al eliminar el viaje")
+    } finally {
+      setIsDeleting(false)
     }
-    toast.success("Viaje eliminado")
-    router.refresh()
   }
 
   return (
@@ -323,7 +333,7 @@ export function TripsTable({
               ))}
             </SelectContent>
           </Select>
-          <TripSheet currentSlug={currentSlug} branches={branches} routes={routes} schedules={schedules} />
+          <TripSheet branches={branches} routes={routes} schedules={schedules} />
         </div>
         <div className="rounded-md border">
           <Table>
@@ -395,12 +405,10 @@ export function TripsTable({
         onOpenChange={(open) => { if (!open) setCrewTrip(null) }}
         crewRoles={crewRoles}
         documentTypes={documentTypes}
-        currentSlug={currentSlug}
       />
 
       {editingTrip && (
         <TripSheet
-          currentSlug={currentSlug}
           branches={branches}
           routes={routes}
           schedules={schedules}
