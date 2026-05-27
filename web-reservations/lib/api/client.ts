@@ -39,6 +39,12 @@ import type {
   CreateUserInput,
   UpdateUserInput,
 } from "./schemas/users";
+import type {
+  CreateCargoReservationInput,
+  CreateQuickCargoReservationInput,
+  UpdateReservationStatusInput as UpdateCargoReservationStatusInput,
+  UpdateCargoStatusInput,
+} from "./schemas/cargo-reservations";
 import type { CalendarDay } from "@/lib/services/calendar.service";
 
 const BASE = "/api/v1";
@@ -234,6 +240,46 @@ export type Trip = {
 export type CrewAssignmentResult = TripCrewAssignment & {
   tripId: string;
   allCrewAssigned: boolean;
+};
+
+export type CargoReservation = {
+  id: string;
+  tripId: string;
+  weightKg: number;
+  description: string | null;
+  destinationBranchId: string | null;
+  externalDestination: string | null;
+  diameterCm: number | null;
+  widthCm: number | null;
+  heightCm: number | null;
+  lengthCm: number | null;
+  trip: {
+    id: string;
+    departureAt: string;
+    route: { id: string; origin: string; destination: string };
+    branch: { id: string; name: string };
+    manifest: { code: string } | null;
+    status: { id: string; name: string };
+  };
+  proveedor: {
+    id: string;
+    firstName: string | null;
+    lastName: string | null;
+    companyName: string | null;
+    proveedorTypeId: string;
+  };
+  reservationStatus: { id: string; name: string };
+  cargoStatus: { id: string; name: string } | null;
+  destinationBranch: { id: string; name: string } | null;
+  categoria: { id: string; name: string } | null;
+  destinatario: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    phone: string | null;
+  } | null;
+  createdAt: string;
+  updatedAt: string;
 };
 
 export type User = {
@@ -541,5 +587,35 @@ export const api = {
       request<void>(`/trips/${tripId}/crew/${crewMemberId}`, {
         method: "DELETE",
       }),
+  },
+  reservations: {
+    cargo: {
+      list: (params: { branchId: string }) => {
+        const q = new URLSearchParams({ branchId: params.branchId });
+        return request<CargoReservation[]>(`/reservations/cargo?${q.toString()}`);
+      },
+      create: (data: CreateCargoReservationInput) =>
+        request<CargoReservation>("/reservations/cargo", {
+          method: "POST",
+          body: JSON.stringify(data),
+        }),
+      createQuick: (data: CreateQuickCargoReservationInput) =>
+        request<CargoReservation>("/reservations/cargo/quick", {
+          method: "POST",
+          body: JSON.stringify(data),
+        }),
+      delete: (id: string) =>
+        request<void>(`/reservations/cargo/${id}`, { method: "DELETE" }),
+      setStatus: (id: string, data: UpdateCargoReservationStatusInput) =>
+        request<CargoReservation>(`/reservations/cargo/${id}/status`, {
+          method: "PATCH",
+          body: JSON.stringify(data),
+        }),
+      setCargoStatus: (id: string, data: UpdateCargoStatusInput) =>
+        request<CargoReservation>(`/reservations/cargo/${id}/cargo-status`, {
+          method: "PATCH",
+          body: JSON.stringify(data),
+        }),
+    },
   },
 };

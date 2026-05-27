@@ -20,7 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Autocomplete } from "@/components/ui/autocomplete"
-import { createQuickCargoReservation } from "@/app/actions/cargo-reservation"
+import { api, ApiError } from "@/lib/api/client"
 import { searchProveedoresAction } from "@/app/actions/search"
 import { QuickProveedorSheet } from "./quick-proveedor-sheet"
 import type { ProveedorWithRelations } from "@/app/actions/proveedor"
@@ -154,37 +154,36 @@ export function NuevaEncomiendaForm({
     }
 
     startTransition(async () => {
-      const result = await createQuickCargoReservation({
-        scheduleId,
-        date: fecha,
-        branchId,
-        proveedorId: selectedProveedor.id,
-        categoriaId: data.categoriaId,
-        destinatario: {
-          firstName: data.destFirstName,
-          lastName: data.destLastName,
-          phone: data.destPhone,
-          documentTypeId: data.destDocumentTypeId,
-          documentNumber: data.destDocumentNumber,
-        },
-        description: data.description,
-        weightKg: data.weightKg,
-        destinationBranchId: data.destinoType === "SUCURSAL" ? data.destinationBranchId : undefined,
-        externalDestination: data.destinoType === "EXTERNO" ? data.externalDestination : undefined,
-        diameterCm: isNaN(data.diameterCm as number) ? undefined : data.diameterCm,
-        widthCm: isNaN(data.widthCm as number) ? undefined : data.widthCm,
-        heightCm: isNaN(data.heightCm as number) ? undefined : data.heightCm,
-        lengthCm: isNaN(data.lengthCm as number) ? undefined : data.lengthCm,
-        currentSlug: slug,
-      })
+      try {
+        await api.reservations.cargo.createQuick({
+          scheduleId,
+          date: fecha,
+          branchId,
+          proveedorId: selectedProveedor.id,
+          categoriaId: data.categoriaId,
+          destinatario: {
+            firstName: data.destFirstName,
+            lastName: data.destLastName,
+            phone: data.destPhone,
+            documentTypeId: data.destDocumentTypeId,
+            documentNumber: data.destDocumentNumber,
+          },
+          description: data.description,
+          weightKg: data.weightKg,
+          destinationBranchId: data.destinoType === "SUCURSAL" ? data.destinationBranchId : undefined,
+          externalDestination: data.destinoType === "EXTERNO" ? data.externalDestination : undefined,
+          diameterCm: isNaN(data.diameterCm as number) ? undefined : data.diameterCm,
+          widthCm: isNaN(data.widthCm as number) ? undefined : data.widthCm,
+          heightCm: isNaN(data.heightCm as number) ? undefined : data.heightCm,
+          lengthCm: isNaN(data.lengthCm as number) ? undefined : data.lengthCm,
+        })
 
-      if (result.error) {
-        toast.error(result.error)
-        return
+        toast.success("Encomienda creada exitosamente")
+        router.push(`/reservas`)
+      } catch (err) {
+        const message = err instanceof ApiError ? err.message : "Error al crear la encomienda"
+        toast.error(message)
       }
-
-      toast.success("Encomienda creada exitosamente")
-      router.push(`/reservas`)
     })
   }
 

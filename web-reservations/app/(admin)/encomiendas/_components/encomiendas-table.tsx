@@ -30,6 +30,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { toast } from "sonner"
+import { api, ApiError } from "@/lib/api/client"
 
 type CargoStatus = { id: string; name: string }
 
@@ -79,7 +80,6 @@ export function EncomiendасTable({
 }: {
   data: CargoReservation[]
   cargoStatuses: CargoStatus[]
-  currentSlug?: string
   currentBranchId: string
 }) {
   const [localData, setLocalData] = useState<CargoReservation[]>(data)
@@ -218,23 +218,15 @@ export function EncomiendасTable({
             onValueChange={async (cargoStatusId) => {
               setUpdatingId(reservation.id)
               try {
-                const res = await fetch("/api/cargo-status", {
-                  method: "PATCH",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ cargoReservationId: reservation.id, cargoStatusId }),
-                })
-                const result = await res.json()
-                if (!res.ok || result.error) {
-                  toast.error(result.error ?? "Error al actualizar")
-                  return
-                }
+                await api.reservations.cargo.setCargoStatus(reservation.id, { cargoStatusId })
                 toast.success("Estado actualizado")
                 const newStatus = cargoStatuses.find((s) => s.id === cargoStatusId) ?? null
                 setLocalData((prev) =>
                   prev.map((r) => (r.id === reservation.id ? { ...r, cargoStatus: newStatus } : r))
                 )
-              } catch {
-                toast.error("Error de red al actualizar")
+              } catch (err) {
+                const message = err instanceof ApiError ? err.message : "Error al actualizar"
+                toast.error(message)
               } finally {
                 setUpdatingId(null)
               }

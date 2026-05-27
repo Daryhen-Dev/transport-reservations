@@ -41,7 +41,7 @@ import {
 import { IconTrash } from "@tabler/icons-react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { deleteCargoReservation, updateCargoReservationStatus } from "@/app/actions/cargo-reservation"
+import { api, ApiError } from "@/lib/api/client"
 import { CargoReservationSheet } from "./cargo-reservation-sheet"
 
 function StatusBadge({ status }: { status: string }) {
@@ -106,7 +106,6 @@ export function CargoReservationsTable({
   proveedorTypes,
   categorias,
   branches,
-  currentSlug,
 }: {
   data: CargoReservation[]
   trips: Trip[]
@@ -116,7 +115,6 @@ export function CargoReservationsTable({
   proveedorTypes: ProveedorType[]
   categorias: { id: string; name: string }[]
   branches: { id: string; name: string }[]
-  currentSlug?: string
 }) {
   const router = useRouter()
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
@@ -227,13 +225,15 @@ export function CargoReservationsTable({
               disabled={updatingStatusId === reservation.id}
               onValueChange={async (val) => {
                 setUpdatingStatusId(reservation.id)
-                const result = await updateCargoReservationStatus(reservation.id, val, currentSlug ?? "")
-                setUpdatingStatusId(null)
-                if (result.error) {
-                  toast.error(result.error)
-                } else {
+                try {
+                  await api.reservations.cargo.setStatus(reservation.id, { reservationStatusId: val })
                   toast.success("Estado actualizado")
                   router.refresh()
+                } catch (err) {
+                  const message = err instanceof ApiError ? err.message : "Error al actualizar el estado"
+                  toast.error(message)
+                } finally {
+                  setUpdatingStatusId(null)
                 }
               }}
             >
@@ -278,15 +278,17 @@ export function CargoReservationsTable({
   async function handleDelete() {
     if (!deletingReservation) return
     setIsDeleting(true)
-    const result = await deleteCargoReservation(deletingReservation.id, currentSlug ?? "")
-    setIsDeleting(false)
-    setDeletingReservation(null)
-    if (result.error) {
-      toast.error(result.error)
-      return
+    try {
+      await api.reservations.cargo.delete(deletingReservation.id)
+      toast.success("Encomienda eliminada")
+      router.refresh()
+    } catch (err) {
+      const message = err instanceof ApiError ? err.message : "Error al eliminar la encomienda"
+      toast.error(message)
+    } finally {
+      setIsDeleting(false)
+      setDeletingReservation(null)
     }
-    toast.success("Encomienda eliminada")
-    router.refresh()
   }
 
   return (
@@ -305,7 +307,6 @@ export function CargoReservationsTable({
             </SelectContent>
           </Select>
           <CargoReservationSheet
-            currentSlug={currentSlug}
             trips={trips}
             documentTypes={documentTypes}
             countries={countries}

@@ -7,7 +7,8 @@ import { z } from "zod"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { IconPlus } from "@tabler/icons-react"
-import { createCargoReservation } from "@/app/actions/cargo-reservation"
+import { api, ApiError } from "@/lib/api/client"
+import type { CreateCargoReservationInput } from "@/lib/api/schemas/cargo-reservations"
 import {
   Sheet,
   SheetContent,
@@ -79,7 +80,6 @@ type ReservationStatus = { id: string; name: string }
 type ProveedorType = { id: string; name: string }
 
 type Props = {
-  currentSlug?: string
   trips: Trip[]
   documentTypes: DocumentType[]
   countries: Country[]
@@ -90,7 +90,6 @@ type Props = {
 }
 
 export function CargoReservationSheet({
-  currentSlug = '',
   trips,
   documentTypes,
   countries,
@@ -140,7 +139,7 @@ export function CargoReservationSheet({
       ? personaType?.id ?? ""
       : empresaType?.id ?? ""
 
-    let proveedor: Record<string, unknown>
+    let proveedor: CreateCargoReservationInput["proveedor"]
     if (data.proveedorType === "PERSONA") {
       if (!data.firstName || !data.lastName || !data.documentTypeId || !data.documentNumber || !data.countryId) {
         toast.error("Complete todos los campos del proveedor")
@@ -168,38 +167,37 @@ export function CargoReservationSheet({
       }
     }
 
-    const result = await createCargoReservation({
-      tripId: data.tripId,
-      weightKg: data.weightKg,
-      diameterCm: isNaN(data.diameterCm as number) ? undefined : data.diameterCm,
-      widthCm: isNaN(data.widthCm as number) ? undefined : data.widthCm,
-      heightCm: isNaN(data.heightCm as number) ? undefined : data.heightCm,
-      lengthCm: isNaN(data.lengthCm as number) ? undefined : data.lengthCm,
-      categoriaId: data.categoriaId,
-      description: data.description,
-      destinationBranchId: data.destinoType === "SUCURSAL" ? data.destinationBranchId : undefined,
-      externalDestination: data.destinoType === "EXTERNO" ? data.externalDestination : undefined,
-      destinatario: {
-        firstName: data.destFirstName,
-        lastName: data.destLastName,
-        phone: data.destPhone,
-        documentTypeId: data.destDocumentTypeId,
-        documentNumber: data.destDocumentNumber,
-      },
-      proveedor,
-      currentSlug,
-      proveedorTypeId,
-      reservationStatusId: confirmadaStatus?.id ?? "",
-    })
-
-    if (result.error) {
-      toast.error(result.error)
-      return
+    try {
+      await api.reservations.cargo.create({
+        tripId: data.tripId,
+        weightKg: data.weightKg,
+        diameterCm: isNaN(data.diameterCm as number) ? undefined : data.diameterCm,
+        widthCm: isNaN(data.widthCm as number) ? undefined : data.widthCm,
+        heightCm: isNaN(data.heightCm as number) ? undefined : data.heightCm,
+        lengthCm: isNaN(data.lengthCm as number) ? undefined : data.lengthCm,
+        categoriaId: data.categoriaId,
+        description: data.description,
+        destinationBranchId: data.destinoType === "SUCURSAL" ? data.destinationBranchId : undefined,
+        externalDestination: data.destinoType === "EXTERNO" ? data.externalDestination : undefined,
+        destinatario: {
+          firstName: data.destFirstName,
+          lastName: data.destLastName,
+          phone: data.destPhone,
+          documentTypeId: data.destDocumentTypeId,
+          documentNumber: data.destDocumentNumber,
+        },
+        proveedor,
+        proveedorTypeId,
+        reservationStatusId: confirmadaStatus?.id ?? "",
+      })
+      toast.success("Encomienda registrada exitosamente")
+      reset({ proveedorType: "PERSONA", destinoType: "SUCURSAL", weightKg: undefined })
+      setOpen(false)
+      router.refresh()
+    } catch (err) {
+      const message = err instanceof ApiError ? err.message : "Error al crear la reserva de encomienda"
+      toast.error(message)
     }
-    toast.success("Encomienda registrada exitosamente")
-    reset({ proveedorType: "PERSONA", destinoType: "SUCURSAL", weightKg: undefined })
-    setOpen(false)
-    router.refresh()
   }
 
   return (
