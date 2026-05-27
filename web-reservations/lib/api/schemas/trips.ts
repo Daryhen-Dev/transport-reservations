@@ -2,7 +2,7 @@ import { z } from "zod";
 import { cuidSchema } from "./cuid";
 
 const departureAtSchema = z.coerce.date({
-  errorMap: () => ({ message: "Fecha y hora de salida inválida" }),
+  error: "Fecha y hora de salida inválida",
 });
 
 export const createTripSchema = z.object({
