@@ -7,7 +7,7 @@ import { z } from "zod"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { IconPlus } from "@tabler/icons-react"
-import { createBranch } from "@/app/actions/branch"
+import { api, ApiError } from "@/lib/api/client"
 import {
   Sheet,
   SheetContent,
@@ -29,7 +29,7 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>
 
-export function CreateBranchSheet({ currentSlug = '' }: { currentSlug?: string }) {
+export function CreateBranchSheet() {
   const [open, setOpen] = useState(false)
   const router = useRouter()
   const {
@@ -50,15 +50,19 @@ export function CreateBranchSheet({ currentSlug = '' }: { currentSlug?: string }
   }
 
   async function onSubmit(data: FormValues) {
-    const result = await createBranch({ ...data, currentSlug})
-    if (result.error) {
-      toast.error(result.error)
-      return
+    try {
+      await api.branches.create(data)
+      toast.success("Sucursal creada exitosamente")
+      reset()
+      setOpen(false)
+      router.refresh()
+    } catch (err) {
+      if (err instanceof ApiError) {
+        toast.error(err.message)
+      } else {
+        toast.error("Error al crear la sucursal")
+      }
     }
-    toast.success("Sucursal creada exitosamente")
-    reset()
-    setOpen(false)
-    router.refresh()
   }
 
   return (

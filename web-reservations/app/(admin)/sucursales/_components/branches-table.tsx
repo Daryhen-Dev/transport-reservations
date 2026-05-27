@@ -55,13 +55,7 @@ const columns: ColumnDef<Branch>[] = [
   },
 ]
 
-export function BranchesTable({
-  data,
-  currentSlug,
-}: {
-  data: Branch[]
-  currentSlug?: string
-}) {
+export function BranchesTable({ data }: { data: Branch[] }) {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [sorting, setSorting] = useState<SortingState>([])
 
@@ -96,7 +90,7 @@ export function BranchesTable({
           }
           className="max-w-sm"
         />
-        <CreateBranchSheet currentSlug={currentSlug} />
+        <CreateBranchSheet />
       </div>
       <div className="rounded-md border">
         <Table>

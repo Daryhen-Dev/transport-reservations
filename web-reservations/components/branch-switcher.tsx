@@ -15,6 +15,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { SidebarMenuButton } from "@/components/ui/sidebar"
+import { api } from "@/lib/api/client"
 
 type Branch = { id: string; name: string; slug: string }
 
@@ -33,12 +34,12 @@ export function BranchSwitcher({ activeBranch, branches, disabled }: Props) {
   function handleSwitch(branchId: string) {
     if (branchId === activeBranch.id) return
     startTransition(async () => {
-      const res = await fetch("/api/v1/branches/active", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ branchId }),
-      })
-      if (res.ok) router.refresh()
+      try {
+        await api.branches.setActive(branchId)
+        router.refresh()
+      } catch {
+        // Silent fail — UI stays on old branch
+      }
     })
   }
 
