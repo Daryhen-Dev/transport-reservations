@@ -28,7 +28,7 @@ import {
   SidebarMenuItem,
   useSidebar,
 } from "@/components/ui/sidebar"
-import { signOutAction } from "@/app/actions/auth"
+import { signOut } from "next-auth/react"
 
 export function NavUser({
   user,
@@ -101,7 +101,11 @@ export function NavUser({
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem onSelect={() => signOutAction(signOutRedirect)}>
+            <DropdownMenuItem
+              onSelect={() =>
+                signOut({ callbackUrl: signOutRedirect, redirect: true })
+              }
+            >
               <IconLogout />
               Cerrar sesión
             </DropdownMenuItem>
