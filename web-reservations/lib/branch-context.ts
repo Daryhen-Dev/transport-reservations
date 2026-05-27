@@ -9,8 +9,12 @@ const COOKIE_NAME = "active_branch_id";
 export async function getActiveBranch(): Promise<Branch | null> {
   const session = await auth();
   if (!session?.user) return null;
-  const role = (session.user as any).role as string;
-  const userBranchId = (session.user as any).branchId as string | null;
+  const sessionUser = session.user as {
+    role?: string;
+    branchId?: string | null;
+  };
+  const role = sessionUser.role ?? "";
+  const userBranchId = sessionUser.branchId ?? null;
 
   if (role === "SUCURSAL_USER") {
     if (!userBranchId) return null;

@@ -103,18 +103,21 @@ export function TripSheet({ branches, routes, schedules, trip, open, onOpenChang
   })
 
   useEffect(() => {
-    if (isOpen) {
-      const defaultBranchId = trip?.branchId ?? ""
-      const defaultRouteId = trip?.routeId ?? ""
+    if (!isOpen) return
+    const defaultBranchId = trip?.branchId ?? ""
+    const defaultRouteId = trip?.routeId ?? ""
+    // Defer setState to next tick so the effect doesn't trigger a cascading
+    // render in the same commit (react-hooks/immutability).
+    queueMicrotask(() => {
       setSelectedBranchId(defaultBranchId)
       setSelectedRouteId(defaultRouteId)
-      reset({
-        branchId: defaultBranchId,
-        routeId: defaultRouteId,
-        departureDate: trip ? formatDate(trip.departureAt) : "",
-        scheduleId: trip?.scheduleId ?? "",
-      })
-    }
+    })
+    reset({
+      branchId: defaultBranchId,
+      routeId: defaultRouteId,
+      departureDate: trip ? formatDate(trip.departureAt) : "",
+      scheduleId: trip?.scheduleId ?? "",
+    })
   }, [isOpen, trip, reset])
 
   const filteredRoutes = selectedBranchId

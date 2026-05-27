@@ -1,6 +1,7 @@
 "use client";
 
 import { useForm } from "react-hook-form";
+import { useRouter } from "next/navigation";
 import { ROUTES } from "@/lib/constants";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -25,6 +26,7 @@ const loginSchema = z.object({
 type LoginForm = z.infer<typeof loginSchema>;
 
 export default function LoginPage() {
+  const router = useRouter();
   const {
     register,
     handleSubmit,
@@ -34,7 +36,6 @@ export default function LoginPage() {
   });
 
   async function onSubmit(data: LoginForm) {
-    console.log("Intentando iniciar sesión con:", data);
     const result = await signIn("credentials", {
       email: data.email,
       password: data.password,
@@ -47,7 +48,8 @@ export default function LoginPage() {
     }
 
     toast.success("Sesión iniciada");
-    window.location.href = ROUTES.CALENDARIO;
+    router.push(ROUTES.CALENDARIO);
+    router.refresh();
   }
 
   return (
