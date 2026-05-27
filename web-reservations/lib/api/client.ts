@@ -45,6 +45,14 @@ import type {
   UpdateReservationStatusInput as UpdateCargoReservationStatusInput,
   UpdateCargoStatusInput,
 } from "./schemas/cargo-reservations";
+import type {
+  CreatePassengerReservationInput,
+  CreateQuickPassengerReservationInput,
+  UpdatePassengerReservationInput,
+  UpdateReservationStatusInput as UpdatePassengerReservationStatusInput,
+  AddPassengerByCreateInput,
+  AddPassengerByLinkInput,
+} from "./schemas/passenger-reservations";
 import type { CalendarDay } from "@/lib/services/calendar.service";
 
 const BASE = "/api/v1";
@@ -240,6 +248,49 @@ export type Trip = {
 export type CrewAssignmentResult = TripCrewAssignment & {
   tripId: string;
   allCrewAssigned: boolean;
+};
+
+export type PassengerLink = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  documentNumber: string;
+  documentType: { id: string; name: string } | null;
+  country: { id: string; name: string } | null;
+  birthDate: string | null;
+};
+
+export type PassengerReservation = {
+  id: string;
+  tripId: string;
+  seatCount: number;
+  trip: {
+    id: string;
+    departureAt: string;
+    route: { id: string; origin: string; destination: string };
+    branch: { id: string; name: string };
+    status: { id: string; name: string };
+  };
+  proveedor: {
+    id: string;
+    firstName: string | null;
+    lastName: string | null;
+    companyName: string | null;
+    proveedorTypeId: string;
+    phone: string | null;
+  };
+  reservationStatus: { id: string; name: string };
+  _count: { passengers: number };
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type PassengerReservationDetail = PassengerReservation & {
+  passengers: Array<{
+    reservationId: string;
+    passengerId: string;
+    passenger: PassengerLink;
+  }>;
 };
 
 export type CargoReservation = {
@@ -616,6 +667,58 @@ export const api = {
           method: "PATCH",
           body: JSON.stringify(data),
         }),
+    },
+    passengers: {
+      list: (params: { branchId: string }) => {
+        const q = new URLSearchParams({ branchId: params.branchId });
+        return request<PassengerReservation[]>(
+          `/reservations/passengers?${q.toString()}`
+        );
+      },
+      get: (id: string) =>
+        request<PassengerReservationDetail>(`/reservations/passengers/${id}`),
+      create: (data: CreatePassengerReservationInput) =>
+        request<PassengerReservation>("/reservations/passengers", {
+          method: "POST",
+          body: JSON.stringify(data),
+        }),
+      createQuick: (data: CreateQuickPassengerReservationInput) =>
+        request<PassengerReservation>("/reservations/passengers/quick", {
+          method: "POST",
+          body: JSON.stringify(data),
+        }),
+      update: (id: string, data: UpdatePassengerReservationInput) =>
+        request<PassengerReservationDetail>(`/reservations/passengers/${id}`, {
+          method: "PATCH",
+          body: JSON.stringify(data),
+        }),
+      delete: (id: string) =>
+        request<void>(`/reservations/passengers/${id}`, { method: "DELETE" }),
+      setStatus: (id: string, data: UpdatePassengerReservationStatusInput) =>
+        request<PassengerReservation>(`/reservations/passengers/${id}/status`, {
+          method: "PATCH",
+          body: JSON.stringify(data),
+        }),
+      listPassengers: (reservationId: string) =>
+        request<PassengerLink[]>(
+          `/reservations/passengers/${reservationId}/passengers`
+        ),
+      addPassenger: (
+        reservationId: string,
+        body: AddPassengerByCreateInput | AddPassengerByLinkInput
+      ) =>
+        request<PassengerLink>(
+          `/reservations/passengers/${reservationId}/passengers`,
+          {
+            method: "POST",
+            body: JSON.stringify(body),
+          }
+        ),
+      removePassenger: (reservationId: string, passengerId: string) =>
+        request<void>(
+          `/reservations/passengers/${reservationId}/passengers/${passengerId}`,
+          { method: "DELETE" }
+        ),
     },
   },
 };

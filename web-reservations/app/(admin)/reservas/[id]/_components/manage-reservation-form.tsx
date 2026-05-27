@@ -18,11 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Autocomplete } from "@/components/ui/autocomplete"
-import {
-  linkPassengerToReservation,
-  removePassengerFromReservation,
-  updatePassengerReservation,
-} from "@/app/actions/passenger-reservation"
+import { api, ApiError } from "@/lib/api/client"
 import { searchPassengersAction } from "@/app/actions/search"
 import { QuickPassengerSheet } from "./quick-passenger-sheet"
 
@@ -66,7 +62,6 @@ type Props = {
   }>
   documentTypes: Array<{ id: string; name: string }>
   countries: Array<{ id: string; name: string }>
-  slug?: string
 }
 
 function getPassengerDisplayValue(p: PassengerResult): string {
@@ -75,7 +70,7 @@ function getPassengerDisplayValue(p: PassengerResult): string {
   return `${name}${doc}`
 }
 
-export function ManageReservationForm({ reservation, trips, documentTypes, countries, slug }: Props) {
+export function ManageReservationForm({ reservation, trips, documentTypes, countries }: Props) {
   const router = useRouter()
 
   // Passenger state (initialized from server data)
@@ -93,67 +88,70 @@ export function ManageReservationForm({ reservation, trips, documentTypes, count
   function handleSelectPassenger(p: PassengerResult | null) {
     if (!p) return
     startLinkTransition(async () => {
-      const result = await linkPassengerToReservation({
-        reservationId: reservation.id,
-        passengerId: p.id,
-        currentSlug: slug,
-      })
-      if ("error" in result) {
-        toast.error(result.error)
-        return
+      try {
+        const linked = await api.reservations.passengers.addPassenger(reservation.id, {
+          mode: "link",
+          passengerId: p.id,
+        })
+        setPassengers((prev) => [
+          ...prev,
+          {
+            id: linked.id,
+            firstName: linked.firstName,
+            lastName: linked.lastName,
+            documentType: linked.documentType,
+            documentNumber: linked.documentNumber,
+            country: linked.country,
+            birthDate: linked.birthDate ? new Date(linked.birthDate) : null,
+          },
+        ])
+        setPassengerDisplayValue("")
+        router.refresh()
+      } catch (err) {
+        const message = err instanceof ApiError ? err.message : "Error al agregar el pasajero"
+        toast.error(message)
       }
-      setPassengers((prev) => [...prev, result.passenger as PassengerRecord])
-      setPassengerDisplayValue("")
-      router.refresh()
     })
   }
 
   function handleRemovePassenger(passengerId: string) {
     setRemovingId(passengerId)
-    removePassengerFromReservation(passengerId, reservation.id, slug ?? "").then((result) => {
-      setRemovingId(null)
-      if (result.error) {
-        toast.error(result.error)
-        return
-      }
-      setPassengers((prev) => prev.filter((p) => p.id !== passengerId))
-      router.refresh()
-    })
+    api.reservations.passengers
+      .removePassenger(reservation.id, passengerId)
+      .then(() => {
+        setPassengers((prev) => prev.filter((p) => p.id !== passengerId))
+        router.refresh()
+      })
+      .catch((err: unknown) => {
+        const message = err instanceof ApiError ? err.message : "Error al eliminar el pasajero"
+        toast.error(message)
+      })
+      .finally(() => setRemovingId(null))
   }
 
   function handleSaveReservation() {
     startSaveTransition(async () => {
-      const result = await updatePassengerReservation({
-        id: reservation.id,
-        seatCount: editSeatCount,
-        tripId: editTripId,
-        currentSlug: slug,
-      })
-      if (result.error) {
-        toast.error(result.error)
-        return
+      try {
+        await api.reservations.passengers.update(reservation.id, {
+          seatCount: editSeatCount,
+          tripId: editTripId,
+        })
+        toast.success("Reserva actualizada")
+        router.refresh()
+      } catch (err) {
+        const message = err instanceof ApiError ? err.message : "Error al actualizar la reserva"
+        toast.error(message)
       }
-      toast.success("Reserva actualizada")
-      router.refresh()
     })
   }
 
   function handlePassengerCreated(passenger: PassengerResult) {
     setQuickSheetOpen(false)
-    startLinkTransition(async () => {
-      const result = await linkPassengerToReservation({
-        reservationId: reservation.id,
-        passengerId: passenger.id,
-        currentSlug: slug,
-      })
-      if ("error" in result) {
-        toast.error(result.error)
-        return
-      }
-      setPassengers((prev) => [...prev, result.passenger as PassengerRecord])
-      setPassengerDisplayValue("")
-      router.refresh()
-    })
+    // The quick-passenger sheet already created+linked the passenger via the
+    // nested addPassenger(mode: "create") endpoint, so just append locally.
+    setPassengers((prev) => [...prev, passenger])
+    setPassengerDisplayValue("")
+    router.refresh()
   }
 
   const proveedorName =
@@ -312,9 +310,9 @@ export function ManageReservationForm({ reservation, trips, documentTypes, count
       <QuickPassengerSheet
         open={quickSheetOpen}
         onOpenChange={setQuickSheetOpen}
+        reservationId={reservation.id}
         documentTypes={documentTypes}
         countries={countries}
-        currentSlug={slug}
         onCreated={handlePassengerCreated}
       />
     </div>

@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react"
 import { toast } from "sonner"
-import { createPassengerAction } from "@/app/actions/passenger-reservation"
+import { api, ApiError } from "@/lib/api/client"
 import {
   Sheet,
   SheetContent,
@@ -36,18 +36,18 @@ type PassengerResult = {
 type Props = {
   open: boolean
   onOpenChange: (open: boolean) => void
+  reservationId: string
   documentTypes: DocumentType[]
   countries: Country[]
-  currentSlug?: string
   onCreated: (passenger: PassengerResult) => void
 }
 
 export function QuickPassengerSheet({
   open,
   onOpenChange,
+  reservationId,
   documentTypes,
   countries,
-  currentSlug,
   onCreated,
 }: Props) {
   const [isPending, startTransition] = useTransition()
@@ -79,26 +79,33 @@ export function QuickPassengerSheet({
     e.preventDefault()
 
     startTransition(async () => {
-      const result = await createPassengerAction({
-        firstName,
-        lastName,
-        documentTypeId,
-        documentNumber,
-        countryId,
-        birthDate: birthDate || undefined,
-        phone: phone || undefined,
-        currentSlug,
-      })
-
-      if (result.error) {
-        toast.error(result.error)
-        return
-      }
-
-      if (result.passenger) {
+      try {
+        const passenger = await api.reservations.passengers.addPassenger(reservationId, {
+          mode: "create",
+          passenger: {
+            firstName,
+            lastName,
+            documentTypeId,
+            documentNumber,
+            countryId,
+            birthDate: birthDate || undefined,
+            phone: phone || undefined,
+          },
+        })
         toast.success("Pasajero creado exitosamente")
-        onCreated(result.passenger as PassengerResult)
+        onCreated({
+          id: passenger.id,
+          firstName: passenger.firstName,
+          lastName: passenger.lastName,
+          documentType: passenger.documentType,
+          documentNumber: passenger.documentNumber,
+          country: passenger.country,
+          birthDate: passenger.birthDate ? new Date(passenger.birthDate) : null,
+        })
         resetFields()
+      } catch (err) {
+        const message = err instanceof ApiError ? err.message : "Error al crear el pasajero"
+        toast.error(message)
       }
     })
   }

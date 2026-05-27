@@ -17,7 +17,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Autocomplete } from "@/components/ui/autocomplete"
-import { createQuickPassengerReservation } from "@/app/actions/passenger-reservation"
+import { api, ApiError } from "@/lib/api/client"
 import { searchProveedoresAction } from "@/app/actions/search"
 import { QuickProveedorSheet } from "./quick-proveedor-sheet"
 import type { ProveedorWithRelations } from "@/app/actions/proveedor"
@@ -132,23 +132,21 @@ export function NuevaReservaForm({ fecha, schedules, proveedorTypes, documentTyp
     if (!isFormComplete || !selectedProveedor || !fecha) return
 
     startTransition(async () => {
-      const result = await createQuickPassengerReservation({
-        scheduleId,
-        date: fecha,
-        proveedorId: selectedProveedor.id,
-        seatCount,
-        branchId,
-        currentSlug: slug,
-        isPending: asPending,
-      })
-
-      if (result.error) {
-        toast.error(result.error)
-        return
+      try {
+        await api.reservations.passengers.createQuick({
+          scheduleId,
+          date: fecha,
+          proveedorId: selectedProveedor.id,
+          seatCount,
+          branchId,
+          isPending: asPending,
+        })
+        toast.success("Reserva creada exitosamente")
+        router.push(`/reservas`)
+      } catch (err) {
+        const message = err instanceof ApiError ? err.message : "Error al crear la reserva"
+        toast.error(message)
       }
-
-      toast.success("Reserva creada exitosamente")
-      router.push(`/reservas`)
     })
   }
 

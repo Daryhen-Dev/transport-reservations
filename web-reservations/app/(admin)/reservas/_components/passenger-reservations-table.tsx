@@ -41,7 +41,7 @@ import {
 import { IconTrash, IconPencil } from "@tabler/icons-react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { deletePassengerReservation, updateReservationStatus } from "@/app/actions/passenger-reservation"
+import { api, ApiError } from "@/lib/api/client"
 import { PassengerReservationSheet } from "./passenger-reservation-sheet"
 
 function StatusBadge({ status }: { status: string }) {
@@ -96,7 +96,6 @@ export function PassengerReservationsTable({
   documentTypes,
   countries,
   proveedorTypes,
-  currentSlug,
 }: {
   data: Reservation[]
   trips: Trip[]
@@ -104,7 +103,6 @@ export function PassengerReservationsTable({
   documentTypes: DocumentType[]
   countries: Country[]
   proveedorTypes: ProveedorType[]
-  currentSlug?: string
 }) {
   const router = useRouter()
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
@@ -179,7 +177,7 @@ export function PassengerReservationsTable({
               variant="ghost"
               size="icon"
               className="h-8 w-8"
-              onClick={() => router.push(`/${currentSlug}/reservas/${reservation.id}`)}
+              onClick={() => router.push(`/reservas/${reservation.id}`)}
             >
               <IconPencil className="size-4" />
             </Button>
@@ -190,14 +188,16 @@ export function PassengerReservationsTable({
                 const prev = localStatuses[reservation.id] ?? reservation.reservationStatus.id
                 setLocalStatuses((s) => ({ ...s, [reservation.id]: val }))
                 setUpdatingStatusId(reservation.id)
-                const result = await updateReservationStatus(reservation.id, val, currentSlug ?? "")
-                setUpdatingStatusId(null)
-                if (result.error) {
-                  toast.error(result.error)
-                  setLocalStatuses((s) => ({ ...s, [reservation.id]: prev }))
-                } else {
+                try {
+                  await api.reservations.passengers.setStatus(reservation.id, { reservationStatusId: val })
                   toast.success("Estado actualizado")
                   router.refresh()
+                } catch (err) {
+                  const message = err instanceof ApiError ? err.message : "Error al actualizar el estado"
+                  toast.error(message)
+                  setLocalStatuses((s) => ({ ...s, [reservation.id]: prev }))
+                } finally {
+                  setUpdatingStatusId(null)
                 }
               }}
             >
@@ -242,15 +242,17 @@ export function PassengerReservationsTable({
   async function handleDelete() {
     if (!deletingReservation) return
     setIsDeleting(true)
-    const result = await deletePassengerReservation(deletingReservation.id, currentSlug ?? "")
-    setIsDeleting(false)
-    setDeletingReservation(null)
-    if (result.error) {
-      toast.error(result.error)
-      return
+    try {
+      await api.reservations.passengers.delete(deletingReservation.id)
+      toast.success("Reserva eliminada")
+      router.refresh()
+    } catch (err) {
+      const message = err instanceof ApiError ? err.message : "Error al eliminar la reserva"
+      toast.error(message)
+    } finally {
+      setIsDeleting(false)
+      setDeletingReservation(null)
     }
-    toast.success("Reserva eliminada")
-    router.refresh()
   }
 
   return (
@@ -269,7 +271,6 @@ export function PassengerReservationsTable({
             </SelectContent>
           </Select>
           <PassengerReservationSheet
-            currentSlug={currentSlug}
             trips={trips}
             documentTypes={documentTypes}
             countries={countries}

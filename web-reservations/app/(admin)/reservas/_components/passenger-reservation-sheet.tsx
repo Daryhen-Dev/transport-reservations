@@ -7,7 +7,8 @@ import { z } from "zod"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { IconPlus, IconTrash } from "@tabler/icons-react"
-import { createPassengerReservation } from "@/app/actions/passenger-reservation"
+import { api, ApiError } from "@/lib/api/client"
+import type { CreatePassengerReservationInput } from "@/lib/api/schemas/passenger-reservations"
 import {
   Sheet,
   SheetContent,
@@ -69,7 +70,6 @@ type ReservationStatus = { id: string; name: string }
 type ProveedorType = { id: string; name: string }
 
 type Props = {
-  currentSlug?: string
   trips: Trip[]
   documentTypes: DocumentType[]
   countries: Country[]
@@ -78,7 +78,6 @@ type Props = {
 }
 
 export function PassengerReservationSheet({
-  currentSlug = '',
   trips,
   documentTypes,
   countries,
@@ -131,7 +130,7 @@ export function PassengerReservationSheet({
       ? personaType?.id ?? ""
       : empresaType?.id ?? ""
 
-    let proveedor: Record<string, unknown>
+    let proveedor: CreatePassengerReservationInput["proveedor"]
     if (data.proveedorType === "PERSONA") {
       if (!data.firstName || !data.lastName || !data.documentTypeId || !data.documentNumber || !data.countryId) {
         toast.error("Complete todos los campos del proveedor")
@@ -159,24 +158,23 @@ export function PassengerReservationSheet({
       }
     }
 
-    const result = await createPassengerReservation({
-      tripId: data.tripId,
-      seatCount: data.seatCount,
-      proveedor,
-      passengers: data.passengers ?? [],
-      currentSlug,
-      proveedorTypeId,
-      reservationStatusId: confirmadaStatus?.id ?? "",
-    })
-
-    if (result.error) {
-      toast.error(result.error)
-      return
+    try {
+      await api.reservations.passengers.create({
+        tripId: data.tripId,
+        seatCount: data.seatCount,
+        proveedor,
+        passengers: data.passengers ?? [],
+        proveedorTypeId,
+        reservationStatusId: confirmadaStatus?.id,
+      })
+      toast.success("Reserva creada exitosamente")
+      reset({ proveedorType: "PERSONA", seatCount: 1, passengers: [] })
+      setOpen(false)
+      router.refresh()
+    } catch (err) {
+      const message = err instanceof ApiError ? err.message : "Error al crear la reserva"
+      toast.error(message)
     }
-    toast.success("Reserva creada exitosamente")
-    reset({ proveedorType: "PERSONA", seatCount: 1, passengers: [] })
-    setOpen(false)
-    router.refresh()
   }
 
   return (
