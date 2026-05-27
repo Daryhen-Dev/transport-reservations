@@ -7,7 +7,7 @@ import { z } from "zod"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { format } from "date-fns"
-import { createPassenger, updatePassenger } from "@/app/actions/passenger"
+import { api, ApiError } from "@/lib/api/client"
 import {
   Sheet,
   SheetContent,
@@ -54,7 +54,6 @@ type Props = {
   passenger: Passenger | null
   documentTypes: Array<{ id: string; name: string }>
   countries: Array<{ id: string; name: string }>
-  currentSlug?: string
 }
 
 export function PassengerSheet({
@@ -63,7 +62,6 @@ export function PassengerSheet({
   passenger,
   documentTypes,
   countries,
-  currentSlug,
 }: Props) {
   const router = useRouter()
 
@@ -98,16 +96,20 @@ export function PassengerSheet({
   const isEditing = !!passenger
 
   async function onSubmit(data: FormValues) {
-    const result = isEditing
-      ? await updatePassenger({ id: passenger.id, ...data, currentSlug})
-      : await createPassenger({ ...data, currentSlug})
-    if (result.error) {
-      toast.error(result.error)
-      return
+    try {
+      if (isEditing) {
+        await api.passengers.update(passenger.id, data)
+      } else {
+        await api.passengers.create(data)
+      }
+      toast.success(isEditing ? "Pasajero actualizado" : "Pasajero creado")
+      onOpenChange(false)
+      router.refresh()
+    } catch (err) {
+      toast.error(
+        err instanceof ApiError ? err.message : "Error al guardar el pasajero"
+      )
     }
-    toast.success(isEditing ? "Pasajero actualizado" : "Pasajero creado")
-    onOpenChange(false)
-    router.refresh()
   }
 
   return (

@@ -11,6 +11,10 @@ import type {
   UpdateCrewMemberInput,
 } from "./schemas/crew-members";
 import type {
+  CreatePassengerInput,
+  UpdatePassengerInput,
+} from "./schemas/passengers";
+import type {
   CreateTripStatusInput,
   UpdateTripStatusInput,
 } from "./schemas/trip-statuses";
@@ -105,6 +109,30 @@ export type CrewMemberSearchResult = {
   documentType: { id: string; name: string };
 };
 
+export type Passenger = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  documentNumber: string;
+  documentType: { id: string; name: string };
+  country: { id: string; name: string };
+  birthDate: string | null;
+  phone: string | null;
+  createdAt: string;
+  updatedAt: string;
+  _count?: { reservations: number };
+};
+
+export type PassengerSearchResult = {
+  id: string;
+  firstName: string;
+  lastName: string;
+  documentNumber: string;
+  documentType: { id: string; name: string };
+  country: { id: string; name: string };
+  birthDate: string | null;
+};
+
 export type { CalendarDay };
 
 export const api = {
@@ -190,5 +218,26 @@ export const api = {
       }),
     delete: (id: string) =>
       request<void>(`/crew-members/${id}`, { method: "DELETE" }),
+  },
+  passengers: {
+    list: () => request<Passenger[]>("/passengers"),
+    search: (q: string) => {
+      const params = new URLSearchParams({ q });
+      return request<PassengerSearchResult[]>(
+        `/passengers?${params.toString()}`
+      );
+    },
+    create: (data: CreatePassengerInput) =>
+      request<Passenger>("/passengers", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    update: (id: string, data: UpdatePassengerInput) =>
+      request<Passenger>(`/passengers/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }),
+    delete: (id: string) =>
+      request<void>(`/passengers/${id}`, { method: "DELETE" }),
   },
 };

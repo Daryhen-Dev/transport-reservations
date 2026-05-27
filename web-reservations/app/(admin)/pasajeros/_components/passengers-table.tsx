@@ -36,7 +36,7 @@ import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
-import { deletePassenger } from "@/app/actions/passenger"
+import { api, ApiError } from "@/lib/api/client"
 import { PassengerSheet } from "./passenger-sheet"
 
 type Passenger = {
@@ -55,10 +55,9 @@ type Props = {
   data: Passenger[]
   documentTypes: Array<{ id: string; name: string }>
   countries: Array<{ id: string; name: string }>
-  currentSlug?: string
 }
 
-export function PassengersTable({ data, documentTypes, countries, currentSlug}: Props) {
+export function PassengersTable({ data, documentTypes, countries }: Props) {
   const router = useRouter()
   const [sorting, setSorting] = useState<SortingState>([])
   const [globalFilter, setGlobalFilter] = useState("")
@@ -180,15 +179,18 @@ export function PassengersTable({ data, documentTypes, countries, currentSlug}: 
   async function handleDelete() {
     if (!deletingPassenger) return
     setIsDeleting(true)
-    const result = await deletePassenger(deletingPassenger.id, currentSlug ?? "")
-    setIsDeleting(false)
-    setDeletingPassenger(null)
-    if (result.error) {
-      toast.error(result.error)
-      return
+    try {
+      await api.passengers.delete(deletingPassenger.id)
+      toast.success("Pasajero eliminado")
+      router.refresh()
+    } catch (err) {
+      toast.error(
+        err instanceof ApiError ? err.message : "Error al eliminar el pasajero"
+      )
+    } finally {
+      setIsDeleting(false)
+      setDeletingPassenger(null)
     }
-    toast.success("Pasajero eliminado")
-    router.refresh()
   }
 
   return (
@@ -285,7 +287,6 @@ export function PassengersTable({ data, documentTypes, countries, currentSlug}: 
         passenger={editingPassenger}
         documentTypes={documentTypes}
         countries={countries}
-        currentSlug={currentSlug}
       />
 
       <AlertDialog
