@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react"
 import { toast } from "sonner"
-import { createProveedor } from "@/app/actions/proveedor"
+import { api, ApiError } from "@/lib/api/client"
 import type { ProveedorWithRelations } from "@/app/actions/proveedor"
 import {
   Sheet,
@@ -29,7 +29,6 @@ type Props = {
   proveedorTypeId: string | null
   proveedorTypeName: string | null
   documentTypes: DocumentType[]
-  currentSlug?: string
   onCreated: (proveedor: ProveedorWithRelations) => void
 }
 
@@ -39,7 +38,6 @@ export function QuickProveedorSheet({
   proveedorTypeId,
   proveedorTypeName,
   documentTypes,
-  currentSlug,
   onCreated,
 }: Props) {
   const [isPending, startTransition] = useTransition()
@@ -73,21 +71,19 @@ export function QuickProveedorSheet({
     if (!proveedorTypeId) return
 
     startTransition(async () => {
-      const payload = isPersona
-        ? { proveedorTypeId, firstName, lastName, documentTypeId, documentNumber, phone, currentSlug}
-        : { proveedorTypeId, companyName, documentTypeId, documentNumber, phone, currentSlug}
+      try {
+        const payload = isPersona
+          ? { proveedorTypeId, firstName, lastName, documentTypeId, documentNumber, phone }
+          : { proveedorTypeId, companyName, documentTypeId, documentNumber, phone }
 
-      const result = await createProveedor(payload)
-
-      if (result.error) {
-        toast.error(result.error)
-        return
-      }
-
-      if (result.proveedor) {
+        const created = await api.proveedores.create(payload)
         toast.success("Proveedor creado exitosamente")
-        onCreated(result.proveedor)
+        onCreated(created as unknown as ProveedorWithRelations)
         resetFields()
+      } catch (err) {
+        toast.error(
+          err instanceof ApiError ? err.message : "Error al crear el proveedor"
+        )
       }
     })
   }

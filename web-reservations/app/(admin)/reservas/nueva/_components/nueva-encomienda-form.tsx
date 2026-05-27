@@ -459,7 +459,6 @@ export function NuevaEncomiendaForm({
         proveedorTypeId={proveedorTypeId}
         proveedorTypeName={proveedorTypeName}
         documentTypes={documentTypes}
-        currentSlug={slug}
         onCreated={(proveedor) => {
           const display = getProveedorDisplayValue(proveedor)
           setSelectedProveedor({

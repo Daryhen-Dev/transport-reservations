@@ -7,7 +7,7 @@ import { z } from "zod"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { IconPlus } from "@tabler/icons-react"
-import { createProveedor, updateProveedor } from "@/app/actions/proveedor"
+import { api, ApiError } from "@/lib/api/client"
 import {
   Sheet,
   SheetContent,
@@ -75,7 +75,6 @@ type Proveedor = {
 }
 
 type Props = {
-  currentSlug?: string
   proveedorTypes: ProveedorType[]
   documentTypes: DocumentType[]
   proveedor?: Proveedor
@@ -91,7 +90,6 @@ function getSchemaForType(typeName: string | undefined) {
 }
 
 export function ProveedorSheet({
-  currentSlug = '',
   proveedorTypes,
   documentTypes,
   proveedor,
@@ -154,19 +152,29 @@ export function ProveedorSheet({
   }, [isOpen, proveedor, reset])
 
   async function onSubmit(data: FormValues) {
-    const payload = { ...data, currentSlug}
-    const result = proveedor
-      ? await updateProveedor(proveedor.id, payload)
-      : await createProveedor(payload)
-
-    if (result.error) {
-      toast.error(result.error)
-      return
+    try {
+      if (proveedor) {
+        await api.proveedores.update(proveedor.id, data)
+      } else {
+        await api.proveedores.create({
+          proveedorTypeId: data.proveedorTypeId,
+          firstName: data.firstName,
+          lastName: data.lastName,
+          companyName: data.companyName,
+          documentTypeId: data.documentTypeId ?? "",
+          documentNumber: data.documentNumber ?? "",
+          phone: data.phone,
+        })
+      }
+      toast.success(proveedor ? "Proveedor actualizado" : "Proveedor creado exitosamente")
+      reset()
+      setOpen(false)
+      router.refresh()
+    } catch (err) {
+      toast.error(
+        err instanceof ApiError ? err.message : "Error al guardar el proveedor"
+      )
     }
-    toast.success(proveedor ? "Proveedor actualizado" : "Proveedor creado exitosamente")
-    reset()
-    setOpen(false)
-    router.refresh()
   }
 
   return (

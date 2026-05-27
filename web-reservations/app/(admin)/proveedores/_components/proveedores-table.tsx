@@ -42,7 +42,7 @@ import { Badge } from "@/components/ui/badge"
 import { IconEdit, IconTrash } from "@tabler/icons-react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { deleteProveedor } from "@/app/actions/proveedor"
+import { api, ApiError } from "@/lib/api/client"
 import { ProveedorSheet } from "./proveedor-sheet"
 
 type ProveedorType = { id: string; name: string }
@@ -65,12 +65,10 @@ export function ProveedoresTable({
   data,
   proveedorTypes,
   documentTypes,
-  currentSlug,
 }: {
   data: Proveedor[]
   proveedorTypes: ProveedorType[]
   documentTypes: DocumentType[]
-  currentSlug?: string
 }) {
   const router = useRouter()
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
@@ -162,15 +160,18 @@ export function ProveedoresTable({
   async function handleDelete() {
     if (!deletingProveedor) return
     setIsDeleting(true)
-    const result = await deleteProveedor(deletingProveedor.id, currentSlug ?? "")
-    setIsDeleting(false)
-    setDeletingProveedor(null)
-    if (result.error) {
-      toast.error(result.error)
-      return
+    try {
+      await api.proveedores.delete(deletingProveedor.id)
+      toast.success("Proveedor eliminado")
+      router.refresh()
+    } catch (err) {
+      toast.error(
+        err instanceof ApiError ? err.message : "Error al eliminar el proveedor"
+      )
+    } finally {
+      setIsDeleting(false)
+      setDeletingProveedor(null)
     }
-    toast.success("Proveedor eliminado")
-    router.refresh()
   }
 
   const deletingName = deletingProveedor ? getDisplayName(deletingProveedor) : ""
@@ -193,7 +194,6 @@ export function ProveedoresTable({
             </SelectContent>
           </Select>
           <ProveedorSheet
-            currentSlug={currentSlug}
             proveedorTypes={proveedorTypes}
             documentTypes={documentTypes}
           />
@@ -264,7 +264,6 @@ export function ProveedoresTable({
 
       {editingProveedor && (
         <ProveedorSheet
-          currentSlug={currentSlug}
           proveedorTypes={proveedorTypes}
           documentTypes={documentTypes}
           proveedor={editingProveedor}

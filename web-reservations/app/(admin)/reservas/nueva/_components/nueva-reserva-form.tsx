@@ -276,7 +276,6 @@ export function NuevaReservaForm({ fecha, schedules, proveedorTypes, documentTyp
         proveedorTypeId={proveedorTypeId}
         proveedorTypeName={proveedorTypeName}
         documentTypes={documentTypes}
-        currentSlug={slug}
         onCreated={(proveedor) => {
           const display = getProveedorDisplayValue(proveedor)
           setSelectedProveedor({

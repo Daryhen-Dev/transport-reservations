@@ -15,6 +15,10 @@ import type {
   UpdatePassengerInput,
 } from "./schemas/passengers";
 import type {
+  CreateProveedorInput,
+  UpdateProveedorInput,
+} from "./schemas/proveedores";
+import type {
   CreateTripStatusInput,
   UpdateTripStatusInput,
 } from "./schemas/trip-statuses";
@@ -133,6 +137,26 @@ export type PassengerSearchResult = {
   birthDate: string | null;
 };
 
+export type Proveedor = {
+  id: string;
+  proveedorTypeId: string;
+  proveedorType: { id: string; name: string };
+  firstName: string | null;
+  lastName: string | null;
+  companyName: string | null;
+  taxId: string | null;
+  contactName: string | null;
+  documentTypeId: string | null;
+  documentType: { id: string; name: string } | null;
+  documentNumber: string | null;
+  countryId: string | null;
+  country: { id: string; name: string } | null;
+  birthDate: string | null;
+  phone: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type { CalendarDay };
 
 export const api = {
@@ -239,5 +263,30 @@ export const api = {
       }),
     delete: (id: string) =>
       request<void>(`/passengers/${id}`, { method: "DELETE" }),
+  },
+  proveedores: {
+    list: (params?: { typeId?: string }) => {
+      const q = new URLSearchParams();
+      if (params?.typeId) q.set("typeId", params.typeId);
+      const qs = q.toString();
+      return request<Proveedor[]>(`/proveedores${qs ? `?${qs}` : ""}`);
+    },
+    search: (q: string, typeId?: string) => {
+      const params = new URLSearchParams({ q });
+      if (typeId) params.set("typeId", typeId);
+      return request<Proveedor[]>(`/proveedores?${params.toString()}`);
+    },
+    create: (data: CreateProveedorInput) =>
+      request<Proveedor>("/proveedores", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    update: (id: string, data: UpdateProveedorInput) =>
+      request<Proveedor>(`/proveedores/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }),
+    delete: (id: string) =>
+      request<void>(`/proveedores/${id}`, { method: "DELETE" }),
   },
 };
