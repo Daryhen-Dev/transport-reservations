@@ -5,13 +5,17 @@ const departureAtSchema = z.coerce.date({
   error: "Fecha y hora de salida inválida",
 });
 
+// statusId accepts non-CUID stable IDs from the seed (e.g. "tripstatus_abierto"),
+// so it's just a non-empty string. Other FK fields are CUIDs from Prisma defaults.
+const statusIdSchema = z.string().min(1, "statusId requerido");
+
 export const createTripSchema = z.object({
   departureAt: departureAtSchema,
   routeId: cuidSchema,
   branchId: cuidSchema,
   scheduleId: cuidSchema.nullable().optional(),
   // statusId is optional — when absent, the API defaults to the ABIERTO status.
-  statusId: cuidSchema.optional(),
+  statusId: statusIdSchema.optional(),
 });
 
 export const updateTripSchema = z.object({
@@ -19,7 +23,7 @@ export const updateTripSchema = z.object({
   routeId: cuidSchema.optional(),
   branchId: cuidSchema.optional(),
   scheduleId: cuidSchema.nullable().optional(),
-  statusId: cuidSchema.optional(),
+  statusId: statusIdSchema.optional(),
 });
 
 export const assignCrewSchema = z.object({
