@@ -83,7 +83,10 @@ export async function PATCH(
     );
   }
 
-  const existing = await prisma.trip.findUnique({ where: { id } });
+  const existing = await prisma.trip.findUnique({
+    where: { id },
+    include: { status: { select: { name: true } } },
+  });
   if (!existing) {
     return NextResponse.json(
       { error: { code: "NOT_FOUND", message: "Viaje no encontrado" } },
@@ -93,6 +96,20 @@ export async function PATCH(
 
   const gate = await requireBranchAccess(req, existing.branchId);
   if (gate instanceof NextResponse) return gate;
+
+  // Closed trips are immutable. Use the dedicated /open endpoint to reopen.
+  if (existing.status.name === "CERRADO") {
+    return NextResponse.json(
+      {
+        error: {
+          code: "CONFLICT",
+          message:
+            "No se puede modificar un viaje cerrado. Reabralo primero con /open.",
+        },
+      },
+      { status: 409 }
+    );
+  }
 
   const { departureAt, routeId, branchId, scheduleId, statusId } = parsed.data;
 
