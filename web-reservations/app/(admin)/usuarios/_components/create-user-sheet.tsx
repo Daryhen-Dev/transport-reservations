@@ -7,7 +7,7 @@ import { z } from "zod";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
 import { IconPlus } from "@tabler/icons-react";
-import { createUser } from "@/app/actions/user";
+import { api, ApiError } from "@/lib/api/client";
 import {
   Sheet,
   SheetContent,
@@ -43,13 +43,7 @@ type FormValues = z.infer<typeof schema>;
 
 type Branch = { id: string; name: string };
 
-export function CreateUserSheet({
-  currentSlug = '',
-  branches,
-}: {
-  currentSlug?: string;
-  branches: Branch[];
-}) {
+export function CreateUserSheet({ branches }: { branches: Branch[] }) {
   const [open, setOpen] = useState(false);
   const router = useRouter();
   const {
@@ -63,15 +57,17 @@ export function CreateUserSheet({
   });
 
   async function onSubmit(data: FormValues) {
-    const result = await createUser({ ...data, currentSlug});
-    if (result.error) {
-      toast.error(result.error);
-      return;
+    const { confirmPassword: _ignored, ...payload } = data;
+    void _ignored;
+    try {
+      await api.users.create(payload);
+      toast.success("Usuario creado exitosamente");
+      reset();
+      setOpen(false);
+      router.refresh();
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Error al crear el usuario");
     }
-    toast.success("Usuario creado exitosamente");
-    reset();
-    setOpen(false);
-    router.refresh();
   }
 
   return (

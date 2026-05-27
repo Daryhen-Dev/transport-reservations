@@ -63,11 +63,9 @@ const columns: ColumnDef<UserRow>[] = [
 
 export function UsersTable({
   data,
-  currentSlug,
   branches,
 }: {
   data: UserRow[];
-  currentSlug?: string;
   branches: Branch[];
 }) {
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
@@ -97,7 +95,7 @@ export function UsersTable({
           }
           className="max-w-sm"
         />
-        <CreateUserSheet currentSlug={currentSlug} branches={branches} />
+        <CreateUserSheet branches={branches} />
       </div>
 
       <div className="rounded-md border">

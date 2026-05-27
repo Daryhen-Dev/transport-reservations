@@ -30,6 +30,10 @@ import type {
   CreateTripStatusInput,
   UpdateTripStatusInput,
 } from "./schemas/trip-statuses";
+import type {
+  CreateUserInput,
+  UpdateUserInput,
+} from "./schemas/users";
 import type { CalendarDay } from "@/lib/services/calendar.service";
 
 const BASE = "/api/v1";
@@ -191,6 +195,17 @@ export type TripSchedule = {
 };
 
 export type { CalendarDay };
+
+export type User = {
+  id: string;
+  name: string;
+  email: string;
+  branchId: string | null;
+  createdAt: string;
+  updatedAt: string;
+  branch: { id: string; name: string; slug: string } | null;
+  role: { id: string; name: string };
+};
 
 export type ManifestLookupResult = {
   id: string;
@@ -433,5 +448,21 @@ export const api = {
         `/trips/${tripId}/manifest`,
         { method: "POST" }
       ),
+  },
+  users: {
+    list: () => request<User[]>("/users"),
+    get: (id: string) => request<User>(`/users/${id}`),
+    create: (data: CreateUserInput) =>
+      request<User>("/users", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    update: (id: string, data: UpdateUserInput) =>
+      request<User>(`/users/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }),
+    delete: (id: string) =>
+      request<void>(`/users/${id}`, { method: "DELETE" }),
   },
 };
