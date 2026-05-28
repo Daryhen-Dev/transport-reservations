@@ -722,4 +722,49 @@ export const api = {
         ),
     },
   },
+  search: {
+    global: (q: string, branchId?: string) => {
+      const params = new URLSearchParams({ q });
+      if (branchId) params.set("branchId", branchId);
+      return request<GlobalSearchResults>(`/search?${params.toString()}`);
+    },
+  },
+};
+
+export type GlobalSearchResults = {
+  reservations: Array<{
+    id: string;
+    code: string;
+    proveedorName: string;
+    tripRoute: string;
+    tripDate: string;
+    branchName: string;
+    seatCount: number;
+    status: string;
+  }>;
+  passengers: Array<{
+    id: string;
+    name: string;
+    document: string;
+    country: string;
+  }>;
+  proveedores: Array<{
+    id: string;
+    name: string;
+    type: string;
+    document: string | null;
+  }>;
+  manifests: Array<{
+    code: string;
+    tripRoute: string;
+    tripDate: string;
+    branchName: string;
+  }>;
+  trips: Array<{
+    id: string;
+    route: string;
+    departureAt: string;
+    branchName: string;
+    status: string;
+  }>;
 };

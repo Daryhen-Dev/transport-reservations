@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation"
 
 import { Separator } from "@/components/ui/separator"
 import { SidebarTrigger } from "@/components/ui/sidebar"
+import { GlobalSearch } from "@/components/global-search"
 
 const SECTION_TITLES: Record<string, string> = {
   dashboard: "Dashboard",
@@ -31,9 +32,10 @@ function sectionFromPath(pathname: string): string {
 type Props = {
   userName: string
   branchName: string
+  branchId: string
 }
 
-export function SiteHeader({ userName, branchName }: Props) {
+export function SiteHeader({ userName, branchName, branchId }: Props) {
   const pathname = usePathname()
   const title = sectionFromPath(pathname)
 
@@ -46,7 +48,12 @@ export function SiteHeader({ userName, branchName }: Props) {
           className="mx-1 data-[orientation=vertical]:h-4"
         />
         <h1 className="text-base font-medium">{title}</h1>
-        <div className="ml-auto flex items-center gap-2 text-sm">
+        <div className="ml-auto flex items-center gap-3 text-sm">
+          <GlobalSearch activeBranchId={branchId} />
+          <Separator
+            orientation="vertical"
+            className="data-[orientation=vertical]:h-4"
+          />
           <span className="font-medium">{userName}</span>
           <Separator
             orientation="vertical"

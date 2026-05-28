@@ -54,7 +54,7 @@ export default async function AdminLayout({
         switcherDisabled={!isOwner}
       />
       <SidebarInset>
-        <SiteHeader userName={user.name} branchName={branch.name} />
+        <SiteHeader userName={user.name} branchName={branch.name} branchId={branch.id} />
         <div className="flex flex-1 flex-col">
           <div className="@container/main flex flex-1 flex-col gap-2">
             {children}
