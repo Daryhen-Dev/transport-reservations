@@ -66,6 +66,11 @@ model Branch {
   receivedManifests              TripManifest[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  // Audit
+  createdById String?
+  createdBy   User?    @relation("BranchCreatedBy", fields: [createdById], references: [id])
+  updatedById String?
+  updatedBy   User?    @relation("BranchUpdatedBy", fields: [updatedById], references: [id])
 
   @@map("sucursal")
 }
@@ -87,6 +92,28 @@ model User {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  // Audit — who created this user (self-relation, optional)
+  createdById   String?
+  createdBy     User?    @relation("UserCreatedBy", fields: [createdById], references: [id])
+  usersCreated  User[]   @relation("UserCreatedBy")
+
+  // Audit inverse relations — generated for the createdBy/updatedBy fields
+  // on operational entities. We never read these directly; Prisma requires
+  // the inverse side declared for named relations.
+  branchesCreated              Branch[]               @relation("BranchCreatedBy")
+  branchesUpdated              Branch[]               @relation("BranchUpdatedBy")
+  routesCreated                Route[]                @relation("RouteCreatedBy")
+  routesUpdated                Route[]                @relation("RouteUpdatedBy")
+  tripSchedulesCreated         TripSchedule[]         @relation("TripScheduleCreatedBy")
+  tripSchedulesUpdated         TripSchedule[]         @relation("TripScheduleUpdatedBy")
+  tripsCreated                 Trip[]                 @relation("TripCreatedBy")
+  tripsUpdated                 Trip[]                 @relation("TripUpdatedBy")
+  tripManifestsCreated         TripManifest[]         @relation("TripManifestCreatedBy")
+  passengerReservationsCreated PassengerReservation[] @relation("PassengerReservationCreatedBy")
+  passengerReservationsUpdated PassengerReservation[] @relation("PassengerReservationUpdatedBy")
+  cargoReservationsCreated     CargoReservation[]     @relation("CargoReservationCreatedBy")
+  cargoReservationsUpdated     CargoReservation[]     @relation("CargoReservationUpdatedBy")
 
   @@map("usuario")
 }
@@ -114,6 +141,11 @@ model Route {
   schedules   TripSchedule[]
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
+  // Audit
+  createdById String?
+  createdBy   User?         @relation("RouteCreatedBy", fields: [createdById], references: [id])
+  updatedById String?
+  updatedBy   User?         @relation("RouteUpdatedBy", fields: [updatedById], references: [id])
 
   @@map("ruta")
 }
@@ -127,6 +159,11 @@ model TripSchedule {
   trips     Trip[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  // Audit
+  createdById String?
+  createdBy   User?    @relation("TripScheduleCreatedBy", fields: [createdById], references: [id])
+  updatedById String?
+  updatedBy   User?    @relation("TripScheduleUpdatedBy", fields: [updatedById], references: [id])
 
   @@unique([routeId, time])
   @@map("horario_viaje")
@@ -159,6 +196,11 @@ model Trip {
   manifest              TripManifest?
   createdAt             DateTime               @default(now())
   updatedAt             DateTime               @updatedAt
+  // Audit
+  createdById           String?
+  createdBy             User?                  @relation("TripCreatedBy", fields: [createdById], references: [id])
+  updatedById           String?
+  updatedBy             User?                  @relation("TripUpdatedBy", fields: [updatedById], references: [id])
 
   @@map("viaje")
 }
@@ -173,6 +215,9 @@ model TripManifest {
   receivedAt         DateTime?
   createdAt          DateTime  @default(now())
   updatedAt          DateTime  @updatedAt
+  // Audit — only createdBy (manifests are immutable once generated)
+  createdById        String?
+  createdBy          User?     @relation("TripManifestCreatedBy", fields: [createdById], references: [id])
 
   @@map("manifiesto_viaje")
 }
@@ -219,6 +264,11 @@ model PassengerReservation {
   passengers          ReservationPassenger[]
   createdAt           DateTime               @default(now())
   updatedAt           DateTime               @updatedAt
+  // Audit
+  createdById         String?
+  createdBy           User?                  @relation("PassengerReservationCreatedBy", fields: [createdById], references: [id])
+  updatedById         String?
+  updatedBy           User?                  @relation("PassengerReservationUpdatedBy", fields: [updatedById], references: [id])
 
   @@map("reserva_pasajero")
 }
@@ -314,6 +364,11 @@ model CargoReservation {
   cargoStatus         CargoStatus?      @relation(fields: [cargoStatusId], references: [id])
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt
+  // Audit
+  createdById         String?
+  createdBy           User?             @relation("CargoReservationCreatedBy", fields: [createdById], references: [id])
+  updatedById         String?
+  updatedBy           User?             @relation("CargoReservationUpdatedBy", fields: [updatedById], references: [id])
 
   @@map("reserva_encomienda")
 }
