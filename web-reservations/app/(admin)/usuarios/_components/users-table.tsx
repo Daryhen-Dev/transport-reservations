@@ -30,9 +30,15 @@ type UserRow = {
   email: string;
   createdAt: Date;
   branch: { name: string } | null;
+  role: { name: string } | null;
 };
 
 type Branch = { id: string; name: string };
+
+const ROLE_LABELS: Record<string, string> = {
+  OWNER: "Owner",
+  SUCURSAL_USER: "Sucursal",
+};
 
 const columns: ColumnDef<UserRow>[] = [
   {
@@ -43,6 +49,14 @@ const columns: ColumnDef<UserRow>[] = [
   {
     accessorKey: "email",
     header: "Email",
+  },
+  {
+    id: "role",
+    header: "Rol",
+    cell: ({ row }) => {
+      const roleName = row.original.role?.name ?? "";
+      return ROLE_LABELS[roleName] ?? roleName ?? "—";
+    },
   },
   {
     id: "branch",

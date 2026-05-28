@@ -60,25 +60,35 @@ export const POST = withAuth(
       );
     }
 
-    const sucursalRole = await prisma.role.findUnique({
-      where: { name: "SUCURSAL_USER" },
+    const role = await prisma.role.findUnique({
+      where: { name: parsed.data.roleName },
     });
-    if (!sucursalRole) {
+    if (!role) {
       return NextResponse.json(
-        { error: { code: "INTERNAL", message: "Rol SUCURSAL_USER no encontrado" } },
+        {
+          error: {
+            code: "INTERNAL",
+            message: `Rol ${parsed.data.roleName} no encontrado`,
+          },
+        },
         { status: 500 }
       );
     }
 
-    const branch = await prisma.branch.findUnique({
-      where: { id: parsed.data.branchId },
-      select: { id: true },
-    });
-    if (!branch) {
-      return NextResponse.json(
-        { error: { code: "NOT_FOUND", message: "Sucursal no encontrada" } },
-        { status: 404 }
-      );
+    // OWNER ignora branchId; SUCURSAL_USER requiere uno válido.
+    let branchId: string | null = null;
+    if (parsed.data.roleName === "SUCURSAL_USER") {
+      const branch = await prisma.branch.findUnique({
+        where: { id: parsed.data.branchId! },
+        select: { id: true },
+      });
+      if (!branch) {
+        return NextResponse.json(
+          { error: { code: "NOT_FOUND", message: "Sucursal no encontrada" } },
+          { status: 404 }
+        );
+      }
+      branchId = branch.id;
     }
 
     const user = await prisma.user.create({
@@ -86,8 +96,8 @@ export const POST = withAuth(
         name: parsed.data.name,
         email: parsed.data.email,
         password: await bcrypt.hash(parsed.data.password, 12),
-        roleId: sucursalRole.id,
-        branchId: parsed.data.branchId,
+        roleId: role.id,
+        branchId,
       },
       select: SAFE_USER_SELECT,
     });

@@ -32,12 +32,22 @@ const schema = z
     email: z.string().email("Email inválido"),
     password: z.string().min(8, "Mínimo 8 caracteres"),
     confirmPassword: z.string(),
-    branchId: z.string().min(1, "Debe seleccionar una sucursal"),
+    roleName: z.enum(["OWNER", "SUCURSAL_USER"]),
+    branchId: z.string().optional(),
   })
   .refine((data) => data.password === data.confirmPassword, {
     message: "Las contraseñas no coinciden",
     path: ["confirmPassword"],
-  });
+  })
+  .refine(
+    (data) =>
+      data.roleName === "OWNER" ||
+      (typeof data.branchId === "string" && data.branchId.length > 0),
+    {
+      message: "Debe seleccionar una sucursal",
+      path: ["branchId"],
+    }
+  );
 
 type FormValues = z.infer<typeof schema>;
 
@@ -50,19 +60,31 @@ export function CreateUserSheet({ branches }: { branches: Branch[] }) {
     register,
     handleSubmit,
     setValue,
+    watch,
     reset,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
+    defaultValues: { roleName: "SUCURSAL_USER" },
   });
 
+  const roleName = watch("roleName");
+  const isOwner = roleName === "OWNER";
+
   async function onSubmit(data: FormValues) {
-    const { confirmPassword: _ignored, ...payload } = data;
+    const { confirmPassword: _ignored, ...rest } = data;
     void _ignored;
+    const payload = {
+      name: rest.name,
+      email: rest.email,
+      password: rest.password,
+      roleName: rest.roleName,
+      branchId: rest.roleName === "OWNER" ? null : rest.branchId!,
+    };
     try {
       await api.users.create(payload);
       toast.success("Usuario creado exitosamente");
-      reset();
+      reset({ roleName: "SUCURSAL_USER" });
       setOpen(false);
       router.refresh();
     } catch (err) {
@@ -138,25 +160,56 @@ export function CreateUserSheet({ branches }: { branches: Branch[] }) {
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="branchId">Sucursal</Label>
-            <Select onValueChange={(val) => setValue("branchId", val)}>
-              <SelectTrigger id="branchId" className="w-full">
-                <SelectValue placeholder="Seleccionar sucursal" />
+            <Label htmlFor="roleName">Rol</Label>
+            <Select
+              defaultValue="SUCURSAL_USER"
+              onValueChange={(val) => {
+                setValue("roleName", val as "OWNER" | "SUCURSAL_USER", {
+                  shouldValidate: true,
+                });
+                if (val === "OWNER") {
+                  setValue("branchId", undefined, { shouldValidate: true });
+                }
+              }}
+            >
+              <SelectTrigger id="roleName" className="w-full">
+                <SelectValue placeholder="Seleccionar rol" />
               </SelectTrigger>
               <SelectContent>
-                {branches.map((branch) => (
-                  <SelectItem key={branch.id} value={branch.id}>
-                    {branch.name}
-                  </SelectItem>
-                ))}
+                <SelectItem value="OWNER">Owner (acceso total)</SelectItem>
+                <SelectItem value="SUCURSAL_USER">
+                  Sucursal (acceso a su sucursal)
+                </SelectItem>
               </SelectContent>
             </Select>
-            {errors.branchId && (
-              <p className="text-sm text-destructive">
-                {errors.branchId.message}
-              </p>
-            )}
           </div>
+
+          {!isOwner && (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="branchId">Sucursal</Label>
+              <Select
+                onValueChange={(val) =>
+                  setValue("branchId", val, { shouldValidate: true })
+                }
+              >
+                <SelectTrigger id="branchId" className="w-full">
+                  <SelectValue placeholder="Seleccionar sucursal" />
+                </SelectTrigger>
+                <SelectContent>
+                  {branches.map((branch) => (
+                    <SelectItem key={branch.id} value={branch.id}>
+                      {branch.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {errors.branchId && (
+                <p className="text-sm text-destructive">
+                  {errors.branchId.message}
+                </p>
+              )}
+            </div>
+          )}
 
           <Button type="submit" disabled={isSubmitting}>
             {isSubmitting ? "Creando..." : "Crear usuario"}

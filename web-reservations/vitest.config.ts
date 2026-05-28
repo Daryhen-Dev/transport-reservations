@@ -1,4 +1,5 @@
-import { defineConfig, loadEnv } from "vitest/config";
+import { defineConfig } from "vitest/config";
+import { loadEnv } from "vite";
 import { fileURLToPath } from "node:url";
 
 // Load .env.test (falls back to .env if absent) so tests importing `@/lib/db`
