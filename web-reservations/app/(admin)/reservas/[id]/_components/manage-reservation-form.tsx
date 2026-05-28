@@ -82,6 +82,10 @@ type Props = {
     }
     reservationStatus: { id: string; name: string }
     passengers: PassengerRecord[]
+    createdAt: Date
+    updatedAt: Date
+    createdBy: { id: string; name: string } | null
+    updatedBy: { id: string; name: string } | null
   }
   trips: Array<{
     id: string
@@ -450,6 +454,28 @@ export function ManageReservationForm({
             </div>
           )}
         </div>
+      </div>
+
+      {/* Audit footer */}
+      <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t pt-3 text-xs text-muted-foreground">
+        <span>
+          Creado el{" "}
+          {new Date(reservation.createdAt).toLocaleDateString("es-AR", {
+            year: "numeric",
+            month: "short",
+            day: "2-digit",
+          })}
+          {reservation.createdBy ? ` por ${reservation.createdBy.name}` : ""}
+        </span>
+        <span>
+          Última modificación:{" "}
+          {new Date(reservation.updatedAt).toLocaleDateString("es-AR", {
+            year: "numeric",
+            month: "short",
+            day: "2-digit",
+          })}
+          {reservation.updatedBy ? ` por ${reservation.updatedBy.name}` : ""}
+        </span>
       </div>
 
       <QuickPassengerSheet

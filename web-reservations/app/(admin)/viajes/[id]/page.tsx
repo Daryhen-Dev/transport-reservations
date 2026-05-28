@@ -328,8 +328,14 @@ export default async function TripDetailPage({
       {/* Bottom metadata */}
       <Separator />
       <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-        <span>Creado: {formatDate(trip.createdAt)}</span>
-        <span>Última actualización: {formatDate(trip.updatedAt)}</span>
+        <span>
+          Creado el {formatDate(trip.createdAt)}
+          {trip.createdBy ? ` por ${trip.createdBy.name}` : ""}
+        </span>
+        <span>
+          Última modificación: {formatDate(trip.updatedAt)}
+          {trip.updatedBy ? ` por ${trip.updatedBy.name}` : ""}
+        </span>
       </div>
     </div>
   );

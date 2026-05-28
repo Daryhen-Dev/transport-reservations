@@ -66,6 +66,8 @@ export async function getTripDetail(id: string) {
         orderBy: { crewRole: { name: "asc" } },
       },
       manifest: { select: { id: true, code: true, createdAt: true } },
+      createdBy: { select: { id: true, name: true } },
+      updatedBy: { select: { id: true, name: true } },
       passengerReservations: {
         include: {
           proveedor: {
