@@ -43,6 +43,7 @@ import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { api, ApiError } from "@/lib/api/client"
 import { CargoReservationSheet } from "./cargo-reservation-sheet"
+import { ExportCsvButton } from "@/components/export-csv-button"
 
 function StatusBadge({ status }: { status: string }) {
   const colors: Record<string, string> = {
@@ -306,15 +307,18 @@ export function CargoReservationsTable({
               ))}
             </SelectContent>
           </Select>
-          <CargoReservationSheet
-            trips={trips}
-            documentTypes={documentTypes}
-            countries={countries}
-            reservationStatuses={reservationStatuses}
-            proveedorTypes={proveedorTypes}
-            categorias={categorias}
-            branches={branches}
-          />
+          <div className="flex items-center gap-2">
+            <ExportCsvButton href="/api/v1/reservations/cargo/export.csv" />
+            <CargoReservationSheet
+              trips={trips}
+              documentTypes={documentTypes}
+              countries={countries}
+              reservationStatuses={reservationStatuses}
+              proveedorTypes={proveedorTypes}
+              categorias={categorias}
+              branches={branches}
+            />
+          </div>
         </div>
         <div className="rounded-md border">
           <Table>

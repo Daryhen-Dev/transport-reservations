@@ -38,6 +38,7 @@ import { format } from "date-fns"
 import { es } from "date-fns/locale"
 import { api, ApiError } from "@/lib/api/client"
 import { PassengerSheet } from "./passenger-sheet"
+import { ExportCsvButton } from "@/components/export-csv-button"
 
 type Passenger = {
   id: string
@@ -208,6 +209,7 @@ export function PassengersTable({ data, documentTypes, countries }: Props) {
               {table.getFilteredRowModel().rows.length} pasajero
               {table.getFilteredRowModel().rows.length !== 1 ? "s" : ""}
             </p>
+            <ExportCsvButton href="/api/v1/passengers/export.csv" />
             <Button size="sm" onClick={handleNewPassenger}>
               <IconPlus className="size-4" />
               Nuevo pasajero

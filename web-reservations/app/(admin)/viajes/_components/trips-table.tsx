@@ -45,6 +45,7 @@ import { toast } from "sonner"
 import { api, ApiError } from "@/lib/api/client"
 import { Badge } from "@/components/ui/badge"
 import { TripSheet } from "./trip-sheet"
+import { ExportCsvButton } from "@/components/export-csv-button"
 import { TripCrewSheet } from "./trip-crew-sheet"
 
 type Branch = { id: string; name: string }
@@ -369,7 +370,10 @@ export function TripsTable({
               ))}
             </SelectContent>
           </Select>
-          <TripSheet branches={branches} routes={routes} schedules={schedules} />
+          <div className="flex items-center gap-2">
+            <ExportCsvButton href="/api/v1/trips/export.csv" />
+            <TripSheet branches={branches} routes={routes} schedules={schedules} />
+          </div>
         </div>
         <div className="rounded-md border">
           <Table>
