@@ -38,7 +38,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { IconTrash, IconPencil } from "@tabler/icons-react"
+import { IconTrash, IconPencil, IconCheck, IconX } from "@tabler/icons-react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { api, ApiError } from "@/lib/api/client"
@@ -108,16 +108,49 @@ export function PassengerReservationsTable({
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [sorting, setSorting] = useState<SortingState>([])
   const [deletingReservation, setDeletingReservation] = useState<Reservation | null>(null)
+  const [cancelingReservation, setCancelingReservation] = useState<Reservation | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [isChangingStatus, setIsChangingStatus] = useState(false)
   const [selectedStatusId, setSelectedStatusId] = useState<string>("all")
   const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null)
-  const [localStatuses, setLocalStatuses] = useState<Record<string, string>>(
-    () => Object.fromEntries(data.map((r) => [r.id, r.reservationStatus.id]))
-  )
+
+  const statusByName = new Map(reservationStatuses.map((s) => [s.name, s]))
+  const confirmadaStatus = statusByName.get("CONFIRMADA")
+  const canceladaStatus = statusByName.get("CANCELADA")
 
   const filteredData = selectedStatusId === "all"
     ? data
     : data.filter((r) => r.reservationStatus.id === selectedStatusId)
+
+  async function changeReservationStatus(reservationId: string, statusId: string, successMsg: string) {
+    setUpdatingStatusId(reservationId)
+    try {
+      await api.reservations.passengers.setStatus(reservationId, { reservationStatusId: statusId })
+      toast.success(successMsg)
+      router.refresh()
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Error al cambiar el estado")
+    } finally {
+      setUpdatingStatusId(null)
+    }
+  }
+
+  async function handleCancelReservation() {
+    if (!cancelingReservation || !canceladaStatus) return
+    setIsChangingStatus(true)
+    try {
+      await api.reservations.passengers.setStatus(cancelingReservation.id, {
+        reservationStatusId: canceladaStatus.id,
+      })
+      toast.success("Reserva cancelada")
+      router.refresh()
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : "Error al cancelar la reserva")
+    } finally {
+      setIsChangingStatus(false)
+      setCancelingReservation(null)
+    }
+  }
 
   const columns: ColumnDef<Reservation>[] = [
     {
@@ -171,50 +204,54 @@ export function PassengerReservationsTable({
       cell: ({ row }) => {
         const reservation = row.original
         const isPendiente = reservation.reservationStatus.name === "PENDIENTE"
+        const isCancelada = reservation.reservationStatus.name === "CANCELADA"
+        const isComplete = reservation._count.passengers >= reservation.seatCount
+        const needed = Math.max(0, reservation.seatCount - reservation._count.passengers)
+        const isThisUpdating = updatingStatusId === reservation.id
+
         return (
-          <div className="flex items-center justify-end gap-2">
+          <div className="flex items-center justify-end gap-1">
             <Button
               variant="ghost"
               size="icon"
               className="h-8 w-8"
+              title="Gestionar reserva"
               onClick={() => router.push(`/reservas/${reservation.id}`)}
             >
               <IconPencil className="size-4" />
             </Button>
-            <Select
-              value={localStatuses[reservation.id] ?? reservation.reservationStatus.id}
-              disabled={updatingStatusId === reservation.id}
-              onValueChange={async (val) => {
-                const prev = localStatuses[reservation.id] ?? reservation.reservationStatus.id
-                setLocalStatuses((s) => ({ ...s, [reservation.id]: val }))
-                setUpdatingStatusId(reservation.id)
-                try {
-                  await api.reservations.passengers.setStatus(reservation.id, { reservationStatusId: val })
-                  toast.success("Estado actualizado")
-                  router.refresh()
-                } catch (err) {
-                  const message = err instanceof ApiError ? err.message : "Error al actualizar el estado"
-                  toast.error(message)
-                  setLocalStatuses((s) => ({ ...s, [reservation.id]: prev }))
-                } finally {
-                  setUpdatingStatusId(null)
+            {isPendiente && confirmadaStatus && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-green-600 hover:text-green-700 hover:bg-green-50"
+                title={isComplete ? "Confirmar reserva" : `Faltan ${needed} pasajero(s) para confirmar`}
+                disabled={!isComplete || isThisUpdating}
+                onClick={() =>
+                  changeReservationStatus(reservation.id, confirmadaStatus.id, "Reserva confirmada")
                 }
-              }}
-            >
-              <SelectTrigger className="h-8 w-[130px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {reservationStatuses.map((s) => (
-                  <SelectItem key={s.id} value={s.id}>{s.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              >
+                <IconCheck className="size-4" />
+              </Button>
+            )}
+            {!isCancelada && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                title="Cancelar reserva"
+                disabled={isThisUpdating}
+                onClick={() => setCancelingReservation(reservation)}
+              >
+                <IconX className="size-4" />
+              </Button>
+            )}
             {isPendiente && (
               <Button
                 variant="ghost"
                 size="icon"
-                className="text-destructive hover:text-destructive"
+                className="h-8 w-8 text-destructive hover:text-destructive"
+                title="Eliminar reserva"
                 onClick={() => setDeletingReservation(reservation)}
               >
                 <IconTrash className="size-4" />
@@ -358,6 +395,31 @@ export function PassengerReservationsTable({
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {isDeleting ? "Eliminando..." : "Eliminar"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!cancelingReservation} onOpenChange={(open) => { if (!open) setCancelingReservation(null) }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Cancelar reserva?</AlertDialogTitle>
+            <AlertDialogDescription>
+              La reserva quedará marcada como CANCELADA y no se tendrá en
+              cuenta para los asientos del viaje. Esta acción puede revertirse
+              cambiando el estado de nuevo.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isChangingStatus}>
+              No, dejar como está
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleCancelReservation}
+              disabled={isChangingStatus}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isChangingStatus ? "Cancelando..." : "Sí, cancelar reserva"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

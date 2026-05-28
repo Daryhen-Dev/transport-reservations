@@ -13,48 +13,51 @@ export default async function ManageReservationPage({
 }) {
   const { id } = await params
 
-  const [reservation, documentTypes, countries, trips] = await Promise.all([
-    prisma.passengerReservation.findUnique({
-      where: { id },
-      include: {
-        trip: {
-          include: {
-            route: { select: { id: true, origin: true, destination: true } },
-            branch: { select: { id: true, name: true } },
-          },
-        },
-        proveedor: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            companyName: true,
-            phone: true,
-          },
-        },
-        reservationStatus: { select: { id: true, name: true } },
-        passengers: {
-          include: {
-            passenger: {
-              select: {
-                id: true,
-                firstName: true,
-                lastName: true,
-                documentType: { select: { id: true, name: true } },
-                documentNumber: true,
-                country: { select: { id: true, name: true } },
-                birthDate: true,
-              },
+  const [reservation, documentTypes, countries, trips, reservationStatuses] =
+    await Promise.all([
+      prisma.passengerReservation.findUnique({
+        where: { id },
+        include: {
+          trip: {
+            include: {
+              route: { select: { id: true, origin: true, destination: true } },
+              branch: { select: { id: true, name: true } },
+              status: { select: { id: true, name: true } },
             },
           },
-          orderBy: { passenger: { createdAt: "asc" } },
+          proveedor: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              companyName: true,
+              phone: true,
+            },
+          },
+          reservationStatus: { select: { id: true, name: true } },
+          passengers: {
+            include: {
+              passenger: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  documentType: { select: { id: true, name: true } },
+                  documentNumber: true,
+                  country: { select: { id: true, name: true } },
+                  birthDate: true,
+                },
+              },
+            },
+            orderBy: { passenger: { createdAt: "asc" } },
+          },
         },
-      },
-    }),
-    prisma.documentType.findMany({ orderBy: { name: "asc" } }),
-    prisma.country.findMany({ orderBy: { name: "asc" } }),
-    getTrips(),
-  ])
+      }),
+      prisma.documentType.findMany({ orderBy: { name: "asc" } }),
+      prisma.country.findMany({ orderBy: { name: "asc" } }),
+      getTrips(),
+      prisma.reservationStatus.findMany({ orderBy: { name: "asc" } }),
+    ])
 
   if (!reservation) notFound()
 
@@ -80,6 +83,7 @@ export default async function ManageReservationPage({
         documentTypes={documentTypes}
         countries={countries}
         trips={trips}
+        reservationStatuses={reservationStatuses}
       />
     </div>
   )

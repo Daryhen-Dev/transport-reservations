@@ -5,7 +5,7 @@ import { format } from "date-fns"
 import { es } from "date-fns/locale"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
-import { IconTrash, IconLoader } from "@tabler/icons-react"
+import { IconTrash, IconLoader, IconCheck, IconX, IconRefresh } from "@tabler/icons-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -17,9 +17,38 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { Autocomplete } from "@/components/ui/autocomplete"
 import { api, ApiError } from "@/lib/api/client"
 import { QuickPassengerSheet } from "./quick-passenger-sheet"
+
+type ReservationStatus = { id: string; name: string }
+
+const STATUS_COLORS: Record<string, string> = {
+  PENDIENTE: "bg-yellow-100 text-yellow-800 border-yellow-200",
+  CONFIRMADA: "bg-green-100 text-green-800 border-green-200",
+  CANCELADA: "bg-red-100 text-red-800 border-red-200",
+}
+
+function StatusBadge({ name }: { name: string }) {
+  const color = STATUS_COLORS[name] ?? "bg-gray-100 text-gray-800 border-gray-200"
+  return (
+    <span
+      className={`inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium ${color}`}
+    >
+      {name}
+    </span>
+  )
+}
 
 type PassengerRecord = {
   id: string
@@ -42,6 +71,7 @@ type Props = {
       departureAt: Date
       route: { id: string; origin: string; destination: string }
       branch: { id: string; name: string }
+      status: { id: string; name: string }
     }
     proveedor: {
       id: string
@@ -61,6 +91,7 @@ type Props = {
   }>
   documentTypes: Array<{ id: string; name: string }>
   countries: Array<{ id: string; name: string }>
+  reservationStatuses: ReservationStatus[]
 }
 
 function getPassengerDisplayValue(p: PassengerResult): string {
@@ -69,7 +100,13 @@ function getPassengerDisplayValue(p: PassengerResult): string {
   return `${name}${doc}`
 }
 
-export function ManageReservationForm({ reservation, trips, documentTypes, countries }: Props) {
+export function ManageReservationForm({
+  reservation,
+  trips,
+  documentTypes,
+  countries,
+  reservationStatuses,
+}: Props) {
   const router = useRouter()
 
   // Passenger state (initialized from server data)
@@ -83,6 +120,38 @@ export function ManageReservationForm({ reservation, trips, documentTypes, count
   const [editTripId, setEditTripId] = useState(reservation.trip.id)
   const [editSeatCount, setEditSeatCount] = useState(reservation.seatCount)
   const [isSaving, startSaveTransition] = useTransition()
+
+  // Reservation status state (local, syncs to server via setStatus)
+  const [statusName, setStatusName] = useState(reservation.reservationStatus.name)
+  const [isChangingStatus, startStatusTransition] = useTransition()
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false)
+
+  const statusByName = new Map(reservationStatuses.map((s) => [s.name, s]))
+  const pendienteStatus = statusByName.get("PENDIENTE")
+  const confirmadaStatus = statusByName.get("CONFIRMADA")
+  const canceladaStatus = statusByName.get("CANCELADA")
+
+  const isPendiente = statusName === "PENDIENTE"
+  const isConfirmada = statusName === "CONFIRMADA"
+  const isCancelada = statusName === "CANCELADA"
+  const isTripClosed = reservation.trip.status.name === "CERRADO"
+
+  function changeStatus(target: ReservationStatus, successMsg: string) {
+    startStatusTransition(async () => {
+      try {
+        await api.reservations.passengers.setStatus(reservation.id, {
+          reservationStatusId: target.id,
+        })
+        setStatusName(target.name)
+        toast.success(successMsg)
+        router.refresh()
+      } catch (err) {
+        toast.error(
+          err instanceof ApiError ? err.message : "Error al cambiar el estado"
+        )
+      }
+    })
+  }
 
   function handleSelectPassenger(p: PassengerResult | null) {
     if (!p) return
@@ -162,6 +231,12 @@ export function ManageReservationForm({ reservation, trips, documentTypes, count
 
   const isFull = passengers.length >= editSeatCount
 
+  const cancelReservation = () => {
+    if (!canceladaStatus) return
+    setCancelDialogOpen(false)
+    changeStatus(canceladaStatus, "Reserva cancelada")
+  }
+
   return (
     <div className="px-4 lg:px-6">
       <div className="grid gap-6 lg:grid-cols-2">
@@ -179,9 +254,68 @@ export function ManageReservationForm({ reservation, trips, documentTypes, count
             )}
           </div>
 
-          <div className="flex flex-col gap-0.5">
+          <div className="flex flex-col gap-2">
             <span className="text-xs text-muted-foreground">Estado</span>
-            <span className="text-sm font-medium">{reservation.reservationStatus.name}</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <StatusBadge name={statusName} />
+              {isPendiente && confirmadaStatus && (
+                <Button
+                  size="sm"
+                  className="bg-green-600 text-white hover:bg-green-700"
+                  disabled={!isFull || isChangingStatus || isTripClosed}
+                  title={
+                    isTripClosed
+                      ? "El viaje está cerrado"
+                      : !isFull
+                        ? `Faltan ${Math.max(0, editSeatCount - passengers.length)} pasajero(s)`
+                        : "Confirmar reserva"
+                  }
+                  onClick={() =>
+                    changeStatus(confirmadaStatus, "Reserva confirmada")
+                  }
+                >
+                  <IconCheck className="size-4 mr-1" />
+                  Confirmar reserva
+                </Button>
+              )}
+              {isConfirmada && pendienteStatus && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={isChangingStatus || isTripClosed}
+                  title={isTripClosed ? "El viaje está cerrado" : "Volver a pendiente"}
+                  onClick={() =>
+                    changeStatus(pendienteStatus, "Reserva marcada como pendiente")
+                  }
+                >
+                  <IconRefresh className="size-4 mr-1" />
+                  Marcar pendiente
+                </Button>
+              )}
+              {!isCancelada && canceladaStatus && (
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                  disabled={isChangingStatus || isTripClosed}
+                  title={isTripClosed ? "El viaje está cerrado" : "Cancelar reserva"}
+                  onClick={() => setCancelDialogOpen(true)}
+                >
+                  <IconX className="size-4 mr-1" />
+                  Cancelar reserva
+                </Button>
+              )}
+            </div>
+            {isPendiente && !isFull && (
+              <p className="text-xs text-muted-foreground">
+                Asigná todos los pasajeros para poder confirmar la reserva.
+              </p>
+            )}
+            {isTripClosed && (
+              <p className="text-xs text-muted-foreground">
+                El viaje está cerrado, no se puede cambiar el estado de la reserva.
+              </p>
+            )}
           </div>
 
           <Separator />
@@ -326,6 +460,31 @@ export function ManageReservationForm({ reservation, trips, documentTypes, count
         countries={countries}
         onCreated={handlePassengerCreated}
       />
+
+      <AlertDialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>¿Cancelar reserva?</AlertDialogTitle>
+            <AlertDialogDescription>
+              La reserva quedará marcada como CANCELADA y no se tendrá en
+              cuenta para los asientos del viaje. Esta acción puede revertirse
+              cambiando el estado de nuevo.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isChangingStatus}>
+              No, dejar como está
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={cancelReservation}
+              disabled={isChangingStatus}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Sí, cancelar reserva
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
