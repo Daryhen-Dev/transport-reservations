@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireAuth, requireBranchAccess } from "@/lib/api/auth";
+import { auditUpdate } from "@/lib/api/audit";
 
 export async function PATCH(
   req: NextRequest,
@@ -29,7 +30,7 @@ export async function PATCH(
   try {
     const updated = await prisma.tripSchedule.update({
       where: { id },
-      data: { isActive: !existing.isActive },
+      data: { isActive: !existing.isActive, ...auditUpdate(authOrError.userId) },
       include: {
         route: {
           select: {

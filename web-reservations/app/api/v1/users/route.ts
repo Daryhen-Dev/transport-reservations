@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/db";
 import { withAuth } from "@/lib/api/with-auth";
 import { createUserSchema } from "@/lib/api/schemas/users";
+import { auditCreateOnly } from "@/lib/api/audit";
 
 const SAFE_USER_SELECT = {
   id: true,
@@ -27,7 +28,7 @@ export const GET = withAuth(
 );
 
 export const POST = withAuth(
-  async (req) => {
+  async (req, { auth }) => {
     let body: unknown;
     try {
       body = await req.json();
@@ -97,6 +98,7 @@ export const POST = withAuth(
         email: parsed.data.email,
         password: await bcrypt.hash(parsed.data.password, 12),
         roleId: role.id,
+        ...auditCreateOnly(auth.userId),
         branchId,
       },
       select: SAFE_USER_SELECT,

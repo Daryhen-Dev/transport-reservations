@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireAuth, requireBranchAccess } from "@/lib/api/auth";
 import { createCargoReservationSchema } from "@/lib/api/schemas/cargo-reservations";
+import { auditCreate } from "@/lib/api/audit";
 
 const CARGO_INCLUDE = {
   trip: {
@@ -177,6 +178,7 @@ export async function POST(req: NextRequest) {
           heightCm,
           lengthCm,
           reservationStatusId,
+          ...auditCreate(authOrError.userId),
         },
         include: CARGO_INCLUDE,
       });

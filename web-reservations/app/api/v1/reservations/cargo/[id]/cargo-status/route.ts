@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireAuth, requireBranchAccess } from "@/lib/api/auth";
 import { updateCargoStatusSchema } from "@/lib/api/schemas/cargo-reservations";
+import { auditUpdate } from "@/lib/api/audit";
 
 const CARGO_INCLUDE = {
   trip: {
@@ -98,7 +99,10 @@ export async function PATCH(
   try {
     const updated = await prisma.cargoReservation.update({
       where: { id },
-      data: { cargoStatusId: parsed.data.cargoStatusId },
+      data: {
+        cargoStatusId: parsed.data.cargoStatusId,
+        ...auditUpdate(authOrError.userId),
+      },
       include: CARGO_INCLUDE,
     });
     return NextResponse.json({ data: updated });

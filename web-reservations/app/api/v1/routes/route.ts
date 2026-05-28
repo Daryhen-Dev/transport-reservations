@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { withAuth } from "@/lib/api/with-auth";
 import { createRouteSchema } from "@/lib/api/schemas/routes";
+import { auditCreate } from "@/lib/api/audit";
 
 export const GET = withAuth(
   async (req) => {
@@ -21,7 +22,7 @@ export const GET = withAuth(
 );
 
 export const POST = withAuth(
-  async (req) => {
+  async (req, { auth }) => {
     let body: unknown;
     try {
       body = await req.json();
@@ -57,7 +58,7 @@ export const POST = withAuth(
 
     try {
       const created = await prisma.route.create({
-        data: { origin, destination, branchId },
+        data: { origin, destination, branchId, ...auditCreate(auth.userId) },
         include: {
           branch: { select: { id: true, name: true, slug: true } },
         },

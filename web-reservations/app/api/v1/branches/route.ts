@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { withAuth } from "@/lib/api/with-auth";
 import { createBranchSchema } from "@/lib/api/schemas/branches";
+import { auditCreate } from "@/lib/api/audit";
 
 export const GET = withAuth(async () => {
   const branches = await prisma.branch.findMany({
@@ -11,7 +12,7 @@ export const GET = withAuth(async () => {
 });
 
 export const POST = withAuth(
-  async (req) => {
+  async (req, { auth }) => {
     let body: unknown;
     try {
       body = await req.json();
@@ -46,7 +47,9 @@ export const POST = withAuth(
       );
     }
 
-    const branch = await prisma.branch.create({ data: parsed.data });
+    const branch = await prisma.branch.create({
+      data: { ...parsed.data, ...auditCreate(auth.userId) },
+    });
     return NextResponse.json({ data: branch }, { status: 201 });
   },
   { ownerOnly: true }

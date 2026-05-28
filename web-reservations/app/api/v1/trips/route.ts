@@ -4,6 +4,7 @@ import { startOfDay, endOfDay, startOfMonth, endOfMonth, parse } from "date-fns"
 import { prisma } from "@/lib/db";
 import { requireAuth, requireBranchAccess } from "@/lib/api/auth";
 import { createTripSchema } from "@/lib/api/schemas/trips";
+import { auditCreate } from "@/lib/api/audit";
 
 const TRIP_INCLUDE = {
   route: { select: { id: true, origin: true, destination: true, branchId: true } },
@@ -203,6 +204,7 @@ export async function POST(req: NextRequest) {
         branchId,
         scheduleId: scheduleId ?? null,
         statusId,
+        ...auditCreate(authOrError.userId),
       },
       include: TRIP_INCLUDE,
     });

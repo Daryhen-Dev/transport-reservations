@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { withAuth } from "@/lib/api/with-auth";
 import { updateBranchSchema } from "@/lib/api/schemas/branches";
+import { auditUpdate } from "@/lib/api/audit";
 
 export const GET = withAuth<{ id: string }>(async (_req, { params }) => {
   const branch = await prisma.branch.findUnique({ where: { id: params.id } });
@@ -15,7 +16,7 @@ export const GET = withAuth<{ id: string }>(async (_req, { params }) => {
 });
 
 export const PATCH = withAuth<{ id: string }>(
-  async (req, { params }) => {
+  async (req, { params, auth }) => {
     let body: unknown;
     try {
       body = await req.json();
@@ -54,7 +55,7 @@ export const PATCH = withAuth<{ id: string }>(
     try {
       const branch = await prisma.branch.update({
         where: { id: params.id },
-        data: parsed.data,
+        data: { ...parsed.data, ...auditUpdate(auth.userId) },
       });
       return NextResponse.json({ data: branch });
     } catch {

@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireAuth, requireBranchAccess } from "@/lib/api/auth";
 import { updatePassengerReservationSchema } from "@/lib/api/schemas/passenger-reservations";
+import { auditUpdate } from "@/lib/api/audit";
 
 const RESERVATION_DETAIL_INCLUDE = {
   trip: {
@@ -163,6 +164,7 @@ export async function PATCH(
       data: {
         seatCount,
         tripId,
+        ...auditUpdate(authOrError.userId),
       },
       include: RESERVATION_DETAIL_INCLUDE,
     });

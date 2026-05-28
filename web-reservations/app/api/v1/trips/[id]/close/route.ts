@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireAuth, requireBranchAccess } from "@/lib/api/auth";
+import { auditUpdate } from "@/lib/api/audit";
 
 const TRIP_INCLUDE = {
   route: { select: { id: true, origin: true, destination: true, branchId: true } },
@@ -116,7 +117,7 @@ export async function POST(
   try {
     const updated = await prisma.trip.update({
       where: { id },
-      data: { statusId: cerrado.id },
+      data: { statusId: cerrado.id, ...auditUpdate(authOrError.userId) },
       include: TRIP_INCLUDE,
     });
     return NextResponse.json({ data: updated });

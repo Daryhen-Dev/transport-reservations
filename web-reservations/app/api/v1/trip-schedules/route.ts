@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireAuth, requireBranchAccess } from "@/lib/api/auth";
 import { createTripScheduleSchema } from "@/lib/api/schemas/trip-schedules";
+import { auditCreate } from "@/lib/api/audit";
 
 export async function GET(req: NextRequest) {
   const authOrError = await requireAuth(req);
@@ -128,7 +129,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const created = await prisma.tripSchedule.create({
-      data: { routeId, time, isActive },
+      data: { routeId, time, isActive, ...auditCreate(authOrError.userId) },
       include: {
         route: {
           select: {

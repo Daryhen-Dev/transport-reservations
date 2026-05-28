@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { startOfDay, endOfDay } from "date-fns";
 import { prisma } from "@/lib/db";
 import { requireAuth, requireBranchAccess } from "@/lib/api/auth";
+import { auditCreate } from "@/lib/api/audit";
 import { createQuickPassengerReservationSchema } from "@/lib/api/schemas/passenger-reservations";
 
 const RESERVATION_INCLUDE = {
@@ -149,6 +150,7 @@ export async function POST(req: NextRequest) {
         proveedorId,
         seatCount,
         reservationStatusId: reservationStatus.id,
+        ...auditCreate(authOrError.userId),
       },
       include: RESERVATION_INCLUDE,
     });

@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireAuth, requireBranchAccess } from "@/lib/api/auth";
 import { createPassengerReservationSchema } from "@/lib/api/schemas/passenger-reservations";
+import { auditCreate } from "@/lib/api/audit";
 
 const RESERVATION_INCLUDE = {
   trip: {
@@ -158,6 +159,7 @@ export async function POST(req: NextRequest) {
           proveedorId: newProveedor.id,
           seatCount,
           reservationStatusId: reservationStatusId!,
+          ...auditCreate(authOrError.userId),
         },
       });
 

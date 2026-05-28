@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireAuth, requireBranchAccess } from "@/lib/api/auth";
 import { updateRouteSchema } from "@/lib/api/schemas/routes";
+import { auditUpdate } from "@/lib/api/audit";
 
 export async function GET(
   req: NextRequest,
@@ -99,6 +100,7 @@ export async function PATCH(
         origin,
         destination,
         branchId,
+        ...auditUpdate(authOrError.userId),
       },
       include: {
         branch: { select: { id: true, name: true, slug: true } },

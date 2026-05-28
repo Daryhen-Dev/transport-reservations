@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { randomBytes } from "crypto";
 import { prisma } from "@/lib/db";
 import { requireBranchAccess } from "@/lib/api/auth";
+import { auditCreateOnly } from "@/lib/api/audit";
 
 function generateCode(
   branchName: string,
@@ -50,6 +51,7 @@ export async function POST(
 
   const access = await requireBranchAccess(req, trip.branchId);
   if (access instanceof NextResponse) return access;
+  const auth = access;
 
   if (trip.status.name !== "CERRADO") {
     return NextResponse.json(
@@ -73,7 +75,7 @@ export async function POST(
   const code = generateCode(trip.branch.name, trip.departureAt, trip.route.destination);
 
   const manifest = await prisma.tripManifest.create({
-    data: { code, tripId },
+    data: { code, tripId, ...auditCreateOnly(auth.userId) },
     select: { id: true, code: true, tripId: true, createdAt: true },
   });
 

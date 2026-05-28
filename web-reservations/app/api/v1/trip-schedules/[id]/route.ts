@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireAuth, requireBranchAccess } from "@/lib/api/auth";
 import { updateTripScheduleSchema } from "@/lib/api/schemas/trip-schedules";
+import { auditUpdate } from "@/lib/api/audit";
 
 export async function PATCH(
   req: NextRequest,
@@ -77,6 +78,7 @@ export async function PATCH(
       data: {
         time,
         isActive,
+        ...auditUpdate(authOrError.userId),
       },
       include: {
         route: {

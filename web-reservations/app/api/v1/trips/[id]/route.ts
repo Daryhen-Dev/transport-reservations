@@ -4,6 +4,7 @@ import { startOfDay, endOfDay } from "date-fns";
 import { prisma } from "@/lib/db";
 import { requireAuth, requireBranchAccess } from "@/lib/api/auth";
 import { updateTripSchema } from "@/lib/api/schemas/trips";
+import { auditUpdate } from "@/lib/api/audit";
 
 const TRIP_INCLUDE = {
   route: { select: { id: true, origin: true, destination: true, branchId: true } },
@@ -203,6 +204,7 @@ export async function PATCH(
         branchId,
         scheduleId: scheduleId === undefined ? undefined : scheduleId,
         statusId,
+        ...auditUpdate(authOrError.userId),
       },
       include: TRIP_INCLUDE,
     });

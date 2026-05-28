@@ -4,6 +4,7 @@ import { startOfDay, endOfDay } from "date-fns";
 import { prisma } from "@/lib/db";
 import { requireAuth, requireBranchAccess } from "@/lib/api/auth";
 import { createQuickCargoReservationSchema } from "@/lib/api/schemas/cargo-reservations";
+import { auditCreate } from "@/lib/api/audit";
 
 const CARGO_INCLUDE = {
   trip: {
@@ -187,6 +188,7 @@ export async function POST(req: NextRequest) {
           heightCm,
           lengthCm,
           reservationStatusId: confirmadaStatus.id,
+          ...auditCreate(authOrError.userId),
         },
         include: CARGO_INCLUDE,
       });
