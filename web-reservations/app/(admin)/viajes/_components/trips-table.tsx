@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import {
   useReactTable,
   getCoreRowModel,
@@ -71,6 +71,13 @@ type CrewAssignment = {
   crewRole: { id: string; name: string }
 }
 
+type PassengerReservationSummary = {
+  id: string
+  seatCount: number
+  _count: { passengers: number }
+  reservationStatus: { name: string }
+}
+
 type Trip = {
   id: string
   departureAt: Date
@@ -82,6 +89,13 @@ type Trip = {
   crew: CrewAssignment[]
   status: { id: string; name: string }
   manifest: { code: string } | null
+  passengerReservations: PassengerReservationSummary[]
+}
+
+function allPassengersAssigned(trip: Trip): boolean {
+  return trip.passengerReservations.every(
+    (r) => r._count.passengers >= r.seatCount
+  )
 }
 
 type CrewRole = { id: string; name: string }
@@ -115,6 +129,15 @@ export function TripsTable({
   const filteredData = selectedBranchId === "all"
     ? data
     : data.filter((t) => t.branchId === selectedBranchId)
+
+  // Keep the open crew sheet in sync with fresh server data after each
+  // assign/remove (router.refresh() re-renders this component but the
+  // crewTrip state would otherwise point to the stale snapshot).
+  useEffect(() => {
+    if (!crewTrip) return
+    const fresh = data.find((t) => t.id === crewTrip.id)
+    if (fresh && fresh !== crewTrip) setCrewTrip(fresh)
+  }, [data, crewTrip])
 
   const columns: ColumnDef<Trip>[] = [
     {

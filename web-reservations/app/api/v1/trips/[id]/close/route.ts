@@ -69,6 +69,34 @@ export async function POST(
     );
   }
 
+  // Even non-pending reservations may have seats without a passenger linked.
+  const reservationsForCheck = await prisma.passengerReservation.findMany({
+    where: {
+      tripId: id,
+      NOT: { reservationStatus: { name: "CANCELADA" } },
+    },
+    select: {
+      id: true,
+      seatCount: true,
+      _count: { select: { passengers: true } },
+    },
+  });
+  const incompleteSeats = reservationsForCheck.reduce(
+    (sum, r) => sum + Math.max(0, r.seatCount - r._count.passengers),
+    0
+  );
+  if (incompleteSeats > 0) {
+    return NextResponse.json(
+      {
+        error: {
+          code: "CONFLICT",
+          message: `No se puede cerrar el viaje: hay ${incompleteSeats} asiento(s) reservado(s) sin pasajero asignado`,
+        },
+      },
+      { status: 409 }
+    );
+  }
+
   const cerrado = await prisma.tripStatus.findUnique({
     where: { name: "CERRADO" },
     select: { id: true },

@@ -15,6 +15,16 @@ export async function getTrips(branchId?: string) {
         },
       },
       manifest: { select: { code: true } },
+      // Just enough to compute "are all reserved seats linked to passengers?"
+      passengerReservations: {
+        where: { NOT: { reservationStatus: { name: "CANCELADA" } } },
+        select: {
+          id: true,
+          seatCount: true,
+          _count: { select: { passengers: true } },
+          reservationStatus: { select: { name: true } },
+        },
+      },
     },
     orderBy: { departureAt: "desc" },
   });

@@ -45,11 +45,25 @@ type CrewAssignment = {
 
 type CrewRole = { id: string; name: string }
 
+type PassengerReservationSummary = {
+  id: string
+  seatCount: number
+  _count: { passengers: number }
+  reservationStatus: { name: string }
+}
+
 type Trip = {
   id: string
   departureAt: Date
   route: { origin: string; destination: string }
   crew: CrewAssignment[]
+  passengerReservations: PassengerReservationSummary[]
+}
+
+function allPassengersAssigned(trip: Trip): boolean {
+  return trip.passengerReservations.every(
+    (r) => r._count.passengers >= r.seatCount
+  )
 }
 
 type Props = {
@@ -107,7 +121,9 @@ export function TripCrewSheet({
       setPendingDisplay((prev) => ({ ...prev, [roleId]: "" }))
       router.refresh()
 
-      if (result.allCrewAssigned) {
+      // Only offer to close the trip if BOTH crew is complete AND every
+      // reserved seat already has a passenger linked.
+      if (result.allCrewAssigned && allPassengersAssigned(trip!)) {
         setCloseDialogOpen(true)
       }
     } catch (err) {
@@ -238,9 +254,11 @@ export function TripCrewSheet({
       <AlertDialog open={closeDialogOpen} onOpenChange={setCloseDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Tripulación completa</AlertDialogTitle>
+            <AlertDialogTitle>Listo para cerrar</AlertDialogTitle>
             <AlertDialogDescription>
-              Los 3 roles han sido asignados. ¿Deseas cerrar el viaje para nuevas reservas?
+              Los 3 roles han sido asignados y todos los asientos
+              reservados ya tienen pasajero. ¿Deseas cerrar el viaje
+              para no aceptar más reservas?
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
