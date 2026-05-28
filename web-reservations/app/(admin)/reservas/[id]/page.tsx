@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db"
 import { getTrips } from "@/lib/services/trip.service"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
-import { IconArrowLeft } from "@tabler/icons-react"
+import { IconArrowLeft, IconReceipt } from "@tabler/icons-react"
 import { ManageReservationForm } from "./_components/manage-reservation-form"
 
 export default async function ManageReservationPage({
@@ -73,12 +73,24 @@ export default async function ManageReservationPage({
     <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
       <div className="flex items-center justify-between px-4 lg:px-6">
         <h1 className="text-xl font-semibold">Gestionar Reserva</h1>
-        <Button variant="outline" size="sm" asChild>
-          <Link href="/reservas">
-            <IconArrowLeft className="size-4" />
-            Volver a reservas
-          </Link>
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" asChild>
+            <a
+              href={`/api/v1/reservations/passengers/${id}/receipt`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              <IconReceipt className="size-4" />
+              Descargar recibo
+            </a>
+          </Button>
+          <Button variant="outline" size="sm" asChild>
+            <Link href="/reservas">
+              <IconArrowLeft className="size-4" />
+              Volver a reservas
+            </Link>
+          </Button>
+        </div>
       </div>
       <ManageReservationForm
         reservation={reservationWithPassengers}

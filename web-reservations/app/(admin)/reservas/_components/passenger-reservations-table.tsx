@@ -38,7 +38,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { IconTrash, IconPencil, IconCheck, IconX } from "@tabler/icons-react"
+import { IconTrash, IconPencil, IconCheck, IconX, IconReceipt } from "@tabler/icons-react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { api, ApiError } from "@/lib/api/client"
@@ -211,6 +211,21 @@ export function PassengerReservationsTable({
 
         return (
           <div className="flex items-center justify-end gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8"
+              title="Descargar recibo"
+              asChild
+            >
+              <a
+                href={api.reservations.passengers.receiptUrl(reservation.id)}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <IconReceipt className="size-4" />
+              </a>
+            </Button>
             <Button
               variant="ghost"
               size="icon"

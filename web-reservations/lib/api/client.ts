@@ -694,6 +694,7 @@ export const api = {
         }),
       delete: (id: string) =>
         request<void>(`/reservations/passengers/${id}`, { method: "DELETE" }),
+      receiptUrl: (id: string) => `${BASE}/reservations/passengers/${id}/receipt`,
       setStatus: (id: string, data: UpdatePassengerReservationStatusInput) =>
         request<PassengerReservation>(`/reservations/passengers/${id}/status`, {
           method: "PATCH",
