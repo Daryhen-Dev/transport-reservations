@@ -100,25 +100,35 @@ export function CrewMembersTable({
     {
       id: "actions",
       header: "",
-      cell: ({ row }) => (
-        <div className="flex items-center justify-end gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setEditingMember(row.original)}
-          >
-            <IconEdit className="size-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-destructive hover:text-destructive"
-            onClick={() => setDeletingMember(row.original)}
-          >
-            <IconTrash className="size-4" />
-          </Button>
-        </div>
-      ),
+      cell: ({ row }) => {
+        const hasTrips = row.original._count.trips > 0
+        return (
+          <div className="flex items-center justify-end gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              title="Editar"
+              onClick={() => setEditingMember(row.original)}
+            >
+              <IconEdit className="size-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-destructive hover:text-destructive"
+              disabled={hasTrips}
+              title={
+                hasTrips
+                  ? "No se puede eliminar: el tripulante está asignado a viajes"
+                  : "Eliminar"
+              }
+              onClick={() => setDeletingMember(row.original)}
+            >
+              <IconTrash className="size-4" />
+            </Button>
+          </div>
+        )
+      },
     },
   ]
 
