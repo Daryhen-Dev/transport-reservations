@@ -38,7 +38,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { IconEdit, IconTrash, IconAnchor, IconLock, IconLockOpen, IconFileCheck, IconFileText } from "@tabler/icons-react"
+import { IconEdit, IconEye, IconTrash, IconAnchor, IconLock, IconLockOpen, IconFileCheck, IconFileText } from "@tabler/icons-react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { api, ApiError } from "@/lib/api/client"
@@ -270,6 +271,17 @@ export function TripsTable({
             <Button
               variant="ghost"
               size="icon"
+              title="Ver detalles"
+              asChild
+            >
+              <Link href={`/viajes/${row.original.id}`}>
+                <IconEye className="size-4" />
+              </Link>
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              title="Editar"
               onClick={() => setEditingTrip(row.original)}
             >
               <IconEdit className="size-4" />
@@ -278,6 +290,7 @@ export function TripsTable({
               variant="ghost"
               size="icon"
               className="text-destructive hover:text-destructive"
+              title="Eliminar"
               onClick={() => setDeletingTrip(row.original)}
             >
               <IconTrash className="size-4" />

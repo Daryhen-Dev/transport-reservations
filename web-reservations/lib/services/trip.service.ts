@@ -31,6 +31,90 @@ export async function getTripsByBranch(branchId: string) {
   });
 }
 
+export async function getTripDetail(id: string) {
+  return prisma.trip.findUnique({
+    where: { id },
+    include: {
+      route: { select: { id: true, origin: true, destination: true } },
+      branch: { select: { id: true, name: true, slug: true } },
+      status: { select: { id: true, name: true } },
+      schedule: { select: { id: true, time: true, isActive: true } },
+      crew: {
+        include: {
+          crewMember: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              documentNumber: true,
+              phone: true,
+              documentType: { select: { name: true } },
+            },
+          },
+          crewRole: { select: { id: true, name: true } },
+        },
+        orderBy: { crewRole: { name: "asc" } },
+      },
+      manifest: { select: { id: true, code: true, createdAt: true } },
+      passengerReservations: {
+        include: {
+          proveedor: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              companyName: true,
+              phone: true,
+              proveedorType: { select: { name: true } },
+            },
+          },
+          reservationStatus: { select: { id: true, name: true } },
+          passengers: {
+            include: {
+              passenger: {
+                select: {
+                  id: true,
+                  firstName: true,
+                  lastName: true,
+                  documentNumber: true,
+                  documentType: { select: { name: true } },
+                  country: { select: { nationality: true } },
+                },
+              },
+            },
+          },
+        },
+        orderBy: { createdAt: "asc" },
+      },
+      cargoReservations: {
+        include: {
+          proveedor: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              companyName: true,
+            },
+          },
+          categoria: { select: { id: true, name: true } },
+          destinatario: {
+            select: {
+              id: true,
+              firstName: true,
+              lastName: true,
+              phone: true,
+            },
+          },
+          destinationBranch: { select: { id: true, name: true } },
+          reservationStatus: { select: { id: true, name: true } },
+          cargoStatus: { select: { id: true, name: true } },
+        },
+        orderBy: { createdAt: "asc" },
+      },
+    },
+  });
+}
+
 export async function getTripsByDate(date: string, branchId: string) {
   const day = new Date(date + "T00:00:00")
   const start = startOfDay(day)
