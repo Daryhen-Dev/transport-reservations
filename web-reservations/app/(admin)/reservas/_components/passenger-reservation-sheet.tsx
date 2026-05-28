@@ -252,40 +252,60 @@ export function PassengerReservationSheet({
                   <Input id="lastName" placeholder="Pérez" {...register("lastName")} />
                 </div>
               </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="documentTypeId">Tipo de documento</Label>
-                <Select onValueChange={(val) => setValue("documentTypeId", val)}>
-                  <SelectTrigger id="documentTypeId" className="w-full">
-                    <SelectValue placeholder="Seleccionar tipo" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {documentTypes.map((dt) => (
-                      <SelectItem key={dt.id} value={dt.id}>{dt.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+
+              {/* Tipo de documento + Número de documento */}
+              <div className="flex gap-2">
+                <div className="flex flex-col gap-1.5 flex-1">
+                  <Label htmlFor="documentTypeId">Tipo de documento</Label>
+                  <Select onValueChange={(val) => setValue("documentTypeId", val)}>
+                    <SelectTrigger id="documentTypeId" className="w-full">
+                      <SelectValue placeholder="Seleccionar tipo" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {documentTypes.map((dt) => (
+                        <SelectItem key={dt.id} value={dt.id}>{dt.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex flex-col gap-1.5 flex-1">
+                  <Label htmlFor="documentNumber">Número de documento</Label>
+                  <Input id="documentNumber" placeholder="V-12345678" {...register("documentNumber")} />
+                </div>
               </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="documentNumber">Número de documento</Label>
-                <Input id="documentNumber" placeholder="V-12345678" {...register("documentNumber")} />
+
+              {/* País + Fecha de nacimiento + Cantidad */}
+              <div className="flex gap-2">
+                <div className="flex flex-col gap-1.5 flex-1">
+                  <Label htmlFor="countryId">País</Label>
+                  <Select onValueChange={(val) => setValue("countryId", val)}>
+                    <SelectTrigger id="countryId" className="w-full">
+                      <SelectValue placeholder="Seleccionar" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {countries.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex flex-col gap-1.5 flex-1">
+                  <Label htmlFor="birthDate">Nacimiento</Label>
+                  <Input id="birthDate" type="date" {...register("birthDate")} />
+                </div>
+                <div className="flex flex-col gap-1.5 w-24">
+                  <Label htmlFor="seatCount">Asientos</Label>
+                  <Input
+                    id="seatCount"
+                    type="number"
+                    min={1}
+                    {...register("seatCount", { valueAsNumber: true })}
+                  />
+                </div>
               </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="countryId">País</Label>
-                <Select onValueChange={(val) => setValue("countryId", val)}>
-                  <SelectTrigger id="countryId" className="w-full">
-                    <SelectValue placeholder="Seleccionar país" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {countries.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="birthDate">Fecha de nacimiento (opcional)</Label>
-                <Input id="birthDate" type="date" {...register("birthDate")} />
-              </div>
+              {errors.seatCount && (
+                <p className="text-sm text-destructive">{errors.seatCount.message}</p>
+              )}
             </>
           ) : (
             <>
@@ -301,22 +321,21 @@ export function PassengerReservationSheet({
                 <Label htmlFor="contactName">Persona de contacto (opcional)</Label>
                 <Input id="contactName" placeholder="Juan Pérez" {...register("contactName")} />
               </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="seatCount">Cantidad de asientos</Label>
+                <Input
+                  id="seatCount"
+                  type="number"
+                  min={1}
+                  className="w-32"
+                  {...register("seatCount", { valueAsNumber: true })}
+                />
+                {errors.seatCount && (
+                  <p className="text-sm text-destructive">{errors.seatCount.message}</p>
+                )}
+              </div>
             </>
           )}
-
-          {/* Seat count */}
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="seatCount">Cantidad de asientos</Label>
-            <Input
-              id="seatCount"
-              type="number"
-              min={1}
-              {...register("seatCount", { valueAsNumber: true })}
-            />
-            {errors.seatCount && (
-              <p className="text-sm text-destructive">{errors.seatCount.message}</p>
-            )}
-          </div>
 
           {/* Passengers */}
           <div className="flex flex-col gap-2">
