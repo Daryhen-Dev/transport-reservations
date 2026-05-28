@@ -185,7 +185,7 @@ export function PassengerReservationSheet({
           Nueva reserva
         </Button>
       </SheetTrigger>
-      <SheetContent className="overflow-y-auto w-full sm:max-w-xl md:max-w-2xl lg:max-w-[45vw]">
+      <SheetContent className="overflow-y-auto w-full! sm:max-w-xl! md:max-w-2xl! lg:max-w-[45vw]!">
         <SheetHeader>
           <SheetTitle>Nueva reserva de pasajeros</SheetTitle>
         </SheetHeader>
