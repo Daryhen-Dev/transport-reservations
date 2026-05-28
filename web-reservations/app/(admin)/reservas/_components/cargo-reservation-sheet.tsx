@@ -208,7 +208,7 @@ export function CargoReservationSheet({
           Nueva encomienda
         </Button>
       </SheetTrigger>
-      <SheetContent className="overflow-y-auto w-full sm:max-w-lg">
+      <SheetContent className="overflow-y-auto w-full sm:max-w-xl md:max-w-2xl lg:max-w-[45vw]">
         <SheetHeader>
           <SheetTitle>Nueva reserva de encomienda</SheetTitle>
         </SheetHeader>
