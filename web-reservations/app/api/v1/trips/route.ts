@@ -118,6 +118,20 @@ export async function POST(req: NextRequest) {
 
   const { departureAt, routeId, branchId, scheduleId } = parsed.data;
 
+  // V3 — no crear viajes en el pasado. PATCH sigue permitiendo correcciones
+  // de viajes ya creados (para ajustes administrativos sobre históricos).
+  if (departureAt.getTime() < Date.now()) {
+    return NextResponse.json(
+      {
+        error: {
+          code: "BAD_REQUEST",
+          message: "La fecha de salida no puede ser anterior al momento actual",
+        },
+      },
+      { status: 400 }
+    );
+  }
+
   const gate = await requireBranchAccess(req, branchId);
   if (gate instanceof NextResponse) return gate;
 

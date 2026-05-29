@@ -81,6 +81,7 @@ export async function POST(
     where: { id: reservationId },
     select: {
       id: true,
+      tripId: true,
       trip: { select: { branchId: true, status: { select: { name: true } } } },
     },
   });
@@ -119,6 +120,26 @@ export async function POST(
           error: {
             code: "CONFLICT",
             message: "El pasajero ya está en esta reserva",
+          },
+        },
+        { status: 409 }
+      );
+    }
+
+    // V2 — el mismo pasajero no puede estar vinculado a 2 reservas del mismo viaje.
+    const tripDuplicate = await prisma.reservationPassenger.findFirst({
+      where: {
+        passengerId,
+        reservation: { tripId: reservation.tripId },
+      },
+      select: { reservationId: true },
+    });
+    if (tripDuplicate) {
+      return NextResponse.json(
+        {
+          error: {
+            code: "CONFLICT",
+            message: "Este pasajero ya está en otra reserva de este viaje",
           },
         },
         { status: 409 }

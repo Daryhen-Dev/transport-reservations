@@ -49,7 +49,12 @@ export async function PUT(
 
   const trip = await prisma.trip.findUnique({
     where: { id: tripId },
-    select: { id: true, branchId: true },
+    select: {
+      id: true,
+      branchId: true,
+      departureAt: true,
+      status: { select: { name: true } },
+    },
   });
   if (!trip) {
     return NextResponse.json(
@@ -60,6 +65,19 @@ export async function PUT(
 
   const gate = await requireBranchAccess(req, trip.branchId);
   if (gate instanceof NextResponse) return gate;
+
+  // V4 — no tocar tripulación de un viaje cerrado.
+  if (trip.status.name === "CERRADO") {
+    return NextResponse.json(
+      {
+        error: {
+          code: "CONFLICT",
+          message: "No se puede modificar la tripulación de un viaje cerrado",
+        },
+      },
+      { status: 409 }
+    );
+  }
 
   // Validate crew member exists.
   const crewMember = await prisma.crewMember.findUnique({
@@ -117,6 +135,44 @@ export async function PUT(
     );
   }
 
+  // V1 — overlap temporal: no asignar el mismo tripulante a otro viaje que
+  // salga dentro de ±4 horas del viaje target.
+  const FOUR_HOURS_MS = 4 * 60 * 60 * 1000;
+  const lowerBound = new Date(trip.departureAt.getTime() - FOUR_HOURS_MS);
+  const upperBound = new Date(trip.departureAt.getTime() + FOUR_HOURS_MS);
+  const overlap = await prisma.tripCrew.findFirst({
+    where: {
+      crewMemberId,
+      NOT: { tripId },
+      trip: { departureAt: { gte: lowerBound, lte: upperBound } },
+    },
+    select: {
+      trip: {
+        select: {
+          departureAt: true,
+          route: { select: { origin: true, destination: true } },
+        },
+      },
+    },
+  });
+  if (overlap) {
+    const when = overlap.trip.departureAt.toLocaleString("es-AR", {
+      day: "2-digit",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    return NextResponse.json(
+      {
+        error: {
+          code: "CONFLICT",
+          message: `Este tripulante ya está en otro viaje cercano: ${overlap.trip.route.origin} → ${overlap.trip.route.destination} (${when}). Ventana mínima de 4 h entre viajes.`,
+        },
+      },
+      { status: 409 }
+    );
+  }
+
   try {
     const assignment = await prisma.tripCrew.upsert({
       where: { tripId_crewMemberId: { tripId, crewMemberId } },
@@ -151,7 +207,11 @@ export async function DELETE(
 
   const trip = await prisma.trip.findUnique({
     where: { id: tripId },
-    select: { id: true, branchId: true },
+    select: {
+      id: true,
+      branchId: true,
+      status: { select: { name: true } },
+    },
   });
   if (!trip) {
     return NextResponse.json(
@@ -162,6 +222,19 @@ export async function DELETE(
 
   const gate = await requireBranchAccess(req, trip.branchId);
   if (gate instanceof NextResponse) return gate;
+
+  // V4 — no tocar tripulación de un viaje cerrado.
+  if (trip.status.name === "CERRADO") {
+    return NextResponse.json(
+      {
+        error: {
+          code: "CONFLICT",
+          message: "No se puede modificar la tripulación de un viaje cerrado",
+        },
+      },
+      { status: 409 }
+    );
+  }
 
   try {
     await prisma.tripCrew.delete({
