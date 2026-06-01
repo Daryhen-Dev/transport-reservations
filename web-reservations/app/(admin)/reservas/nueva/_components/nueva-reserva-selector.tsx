@@ -3,11 +3,8 @@
 import { useState } from "react"
 import { IconUserCheck, IconPackage } from "@tabler/icons-react"
 import { Button } from "@/components/ui/button"
-import { NuevaReservaForm } from "./nueva-reserva-form"
+import { NuevaReservaForm, type TripScheduleWithRoute } from "./nueva-reserva-form"
 import { NuevaEncomiendaForm } from "./nueva-encomienda-form"
-import type { TripSchedule, Route } from "@/lib/generated/prisma/client"
-
-type TripScheduleWithRoute = TripSchedule & { route: Route }
 
 type Agency = {
   id: string

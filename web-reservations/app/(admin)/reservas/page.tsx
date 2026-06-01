@@ -8,6 +8,7 @@ import { PassengerReservationsTable } from "./_components/passenger-reservations
 import { CargoReservationsTable } from "./_components/cargo-reservations-table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { prisma } from "@/lib/db";
+import { serializeTrip } from "@/lib/serialize";
 
 export default async function ReservasPage() {
   const branch = await requireActiveBranch();
@@ -46,6 +47,9 @@ export default async function ReservasPage() {
     }),
   ]);
 
+  // Decimals on route must be serialized before they cross to client components.
+  const serializedTrips = trips.map(serializeTrip)
+
   return (
     <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
       <div className="px-4 lg:px-6">
@@ -78,7 +82,7 @@ export default async function ReservasPage() {
         <TabsContent value="pasajeros" className="mt-4">
           <PassengerReservationsTable
             data={passengerReservations}
-            trips={trips}
+            trips={serializedTrips}
             reservationStatuses={reservationStatuses}
             documentTypes={documentTypes}
             countries={countries}
@@ -89,7 +93,7 @@ export default async function ReservasPage() {
         <TabsContent value="encomiendas" className="mt-4">
           <CargoReservationsTable
             data={cargoReservations}
-            trips={trips}
+            trips={serializedTrips}
             reservationStatuses={reservationStatuses}
             documentTypes={documentTypes}
             countries={countries}

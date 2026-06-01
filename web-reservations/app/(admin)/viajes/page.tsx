@@ -4,6 +4,7 @@ import { getBranches } from "@/lib/services/branch.service";
 import { getRoutes } from "@/lib/services/route.service";
 import { getTripSchedules } from "@/lib/services/trip-schedule.service";
 import { prisma } from "@/lib/db";
+import { serializeRoute, serializeTrip } from "@/lib/serialize";
 import { TripsTable } from "./_components/trips-table";
 
 export default async function ViajesPage() {
@@ -22,9 +23,9 @@ export default async function ViajesPage() {
   return (
     <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
       <TripsTable
-        data={trips}
+        data={trips.map(serializeTrip)}
         branches={branches}
-        routes={routes}
+        routes={routes.map(serializeRoute)}
         schedules={schedules}
         crewRoles={crewRoles}
         documentTypes={documentTypes}

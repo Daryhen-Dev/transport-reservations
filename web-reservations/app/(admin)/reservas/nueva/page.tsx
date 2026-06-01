@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db"
 import { requireActiveBranch } from "@/lib/branch-context"
 import { getTripSchedulesByBranch } from "@/lib/services/trip-schedule.service"
+import { serializeRoute } from "@/lib/serialize"
 import { getProveedorTypes, getDocumentTypes } from "@/lib/services/proveedor.service"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
@@ -47,7 +48,13 @@ export default async function NuevaReservaPasajeroPage({
       </div>
       <NuevaReservaSelector
         fecha={fecha ?? null}
-        schedules={schedules}
+        schedules={schedules.map((s) => ({
+          id: s.id,
+          routeId: s.routeId,
+          time: s.time,
+          isActive: s.isActive,
+          route: serializeRoute(s.route),
+        }))}
         proveedorTypes={proveedorTypes}
         documentTypes={documentTypes}
         branchId={branch.id}

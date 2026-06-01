@@ -20,9 +20,22 @@ import { Autocomplete } from "@/components/ui/autocomplete"
 import { api, ApiError, type Proveedor as ProveedorWithRelations } from "@/lib/api/client"
 import { QuickProveedorSheet } from "./quick-proveedor-sheet"
 
-import type { TripSchedule, Route } from "@/lib/generated/prisma/client"
-
-type TripScheduleWithRoute = TripSchedule & { route: Route }
+export type TripScheduleWithRoute = {
+  id: string
+  routeId: string
+  time: string
+  isActive: boolean
+  route: {
+    id: string
+    origin: string
+    destination: string
+    branchId: string
+    directPriceAmount: string | null
+    incomingAgencyPriceAmount: string | null
+    outgoingCommissionAmount: string | null
+    minPrice: string | null
+  }
+}
 
 type ProveedorType = {
   id: string

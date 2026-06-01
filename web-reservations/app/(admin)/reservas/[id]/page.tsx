@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation"
 import { prisma } from "@/lib/db"
 import { getTrips } from "@/lib/services/trip.service"
+import { serializeTrip } from "@/lib/serialize"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { IconArrowLeft, IconReceipt } from "@tabler/icons-react"
@@ -96,7 +97,7 @@ export default async function ManageReservationPage({
         reservation={reservationWithPassengers}
         documentTypes={documentTypes}
         countries={countries}
-        trips={trips}
+        trips={trips.map(serializeTrip)}
         reservationStatuses={reservationStatuses}
       />
     </div>
