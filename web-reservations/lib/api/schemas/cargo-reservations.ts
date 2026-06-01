@@ -36,11 +36,9 @@ export const destinatarioInputSchema = z.object({
 export const createCargoReservationSchema = z.object({
   tripId: cuidSchema,
   weightKg: z.number().positive("El peso debe ser mayor a 0"),
-  diameterCm: z.number().positive().optional(),
-  widthCm: z.number().positive().optional(),
-  heightCm: z.number().positive().optional(),
-  lengthCm: z.number().positive().optional(),
-  categoriaId: cuidSchema.optional(),
+  priceAmount: z.number().positive("El precio debe ser mayor a 0"),
+  cobrarEnDestino: z.boolean().optional(),
+  categoriaId: cuidSchema,
   description: z.string().optional(),
   destinationBranchId: cuidSchema.optional(),
   externalDestination: z.string().optional(),
@@ -58,16 +56,14 @@ export const createQuickCargoReservationSchema = z.object({
   date: z.string().min(1, "La fecha es requerida"),
   branchId: cuidSchema,
   proveedorId: cuidSchema,
-  categoriaId: cuidSchema.optional(),
+  categoriaId: cuidSchema,
   destinatario: destinatarioInputSchema,
   description: z.string().optional(),
   weightKg: z.number().positive("El peso debe ser mayor a 0"),
+  priceAmount: z.number().positive("El precio debe ser mayor a 0"),
+  cobrarEnDestino: z.boolean().optional(),
   destinationBranchId: cuidSchema.optional(),
   externalDestination: z.string().optional(),
-  diameterCm: z.number().positive().optional(),
-  widthCm: z.number().positive().optional(),
-  heightCm: z.number().positive().optional(),
-  lengthCm: z.number().positive().optional(),
 });
 
 export const updateReservationStatusSchema = z.object({
@@ -79,15 +75,13 @@ export const updateCargoStatusSchema = z.object({
 });
 
 export const updateCargoReservationSchema = z.object({
-  categoriaId: cuidSchema.nullable().optional(),
+  categoriaId: cuidSchema.optional(),
   description: z.string().nullable().optional(),
   weightKg: z.number().positive().optional(),
+  priceAmount: z.number().positive().optional(),
+  cobrarEnDestino: z.boolean().optional(),
   destinationBranchId: cuidSchema.nullable().optional(),
   externalDestination: z.string().nullable().optional(),
-  diameterCm: z.number().positive().nullable().optional(),
-  widthCm: z.number().positive().nullable().optional(),
-  heightCm: z.number().positive().nullable().optional(),
-  lengthCm: z.number().positive().nullable().optional(),
 });
 
 export type CreateCargoReservationInput = z.infer<

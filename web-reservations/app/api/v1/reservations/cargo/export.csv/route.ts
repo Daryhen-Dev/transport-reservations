@@ -6,6 +6,8 @@ type Row = {
   id: string;
   description: string | null;
   weightKg: number;
+  priceAmount: unknown; // Prisma Decimal
+  cobrarEnDestino: boolean;
   trip: {
     departureAt: Date;
     route: { origin: string; destination: string };
@@ -65,6 +67,14 @@ const columns: CsvColumn<Row>[] = [
   },
   { header: "Descripción", accessor: (r) => r.description ?? "" },
   { header: "Peso (kg)", accessor: (r) => r.weightKg },
+  {
+    header: "Precio",
+    accessor: (r) => Number(String(r.priceAmount ?? 0)).toFixed(2),
+  },
+  {
+    header: "Cobrar en destino",
+    accessor: (r) => (r.cobrarEnDestino ? "sí" : "no"),
+  },
   { header: "Categoría", accessor: (r) => r.categoria?.name ?? "" },
   { header: "Estado reserva", accessor: (r) => r.reservationStatus.name },
   { header: "Estado encomienda", accessor: (r) => r.cargoStatus?.name ?? "" },
@@ -86,6 +96,8 @@ export const GET = withAuth(async (req, { auth }) => {
       id: true,
       description: true,
       weightKg: true,
+      priceAmount: true,
+      cobrarEnDestino: true,
       trip: {
         select: {
           departureAt: true,

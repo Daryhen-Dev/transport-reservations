@@ -343,21 +343,19 @@ model CargoReservation {
   trip                Trip              @relation(fields: [tripId], references: [id])
   proveedorId         String
   proveedor           Proveedor         @relation(fields: [proveedorId], references: [id])
-  categoriaId         String?
-  categoria           CargaCategoria?   @relation(fields: [categoriaId], references: [id])
+  categoriaId         String
+  categoria           CargaCategoria    @relation(fields: [categoriaId], references: [id])
   destinatarioId      String?
   destinatario        Destinatario?     @relation(fields: [destinatarioId], references: [id])
   description         String?
   weightKg            Float
+  // Precio
+  priceAmount         Decimal           @db.Decimal(10, 2)
+  cobrarEnDestino     Boolean           @default(false)
   // Destino
   destinationBranchId String?
   destinationBranch   Branch?           @relation("DestinationBranch", fields: [destinationBranchId], references: [id])
   externalDestination String?
-  // Dimensiones opcionales
-  diameterCm          Float?
-  widthCm             Float?
-  heightCm            Float?
-  lengthCm            Float?
   reservationStatusId String
   reservationStatus   ReservationStatus @relation(fields: [reservationStatusId], references: [id])
   cargoStatusId       String?

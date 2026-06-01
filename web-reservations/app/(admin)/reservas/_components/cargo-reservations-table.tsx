@@ -68,13 +68,11 @@ type Trip = {
 type CargoReservation = {
   id: string
   weightKg: number
+  priceAmount: unknown // Prisma Decimal serializes differently; we don't need to read it directly here
+  cobrarEnDestino: boolean
   description: string | null
   destinationBranchId: string | null
   externalDestination: string | null
-  diameterCm: number | null
-  widthCm: number | null
-  heightCm: number | null
-  lengthCm: number | null
   trip: {
     id: string
     departureAt: Date
@@ -89,7 +87,7 @@ type CargoReservation = {
     proveedorTypeId: string
   }
   reservationStatus: { id: string; name: string }
-  categoria: { id: string; name: string } | null
+  categoria: { id: string; name: string }
   destinatario: { id: string; firstName: string; lastName: string; phone: string | null } | null
 }
 
@@ -195,17 +193,19 @@ export function CargoReservationsTable({
       cell: ({ row }) => `${row.original.weightKg} kg`,
     },
     {
-      id: "dimensions",
-      header: "Dimensiones",
+      id: "price",
+      header: "Precio",
       cell: ({ row }) => {
-        const r = row.original
-        if (r.diameterCm) return `Ø ${r.diameterCm} cm`
-        if (r.widthCm || r.heightCm || r.lengthCm) {
-          return [r.widthCm, r.heightCm, r.lengthCm]
-            .map((v) => (v ? `${v}` : "—"))
-            .join(" × ") + " cm"
-        }
-        return "—"
+        const amount = String(row.original.priceAmount ?? "0")
+        const label = `$ ${Number(amount).toFixed(2)}`
+        return row.original.cobrarEnDestino ? (
+          <span>
+            {label}{" "}
+            <span className="text-xs text-amber-600 font-medium">(por cobrar)</span>
+          </span>
+        ) : (
+          label
+        )
       },
     },
     {

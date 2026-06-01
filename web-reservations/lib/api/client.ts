@@ -297,13 +297,11 @@ export type CargoReservation = {
   id: string;
   tripId: string;
   weightKg: number;
+  priceAmount: string; // Decimal serializes as string in JSON
+  cobrarEnDestino: boolean;
   description: string | null;
   destinationBranchId: string | null;
   externalDestination: string | null;
-  diameterCm: number | null;
-  widthCm: number | null;
-  heightCm: number | null;
-  lengthCm: number | null;
   trip: {
     id: string;
     departureAt: string;
@@ -322,7 +320,7 @@ export type CargoReservation = {
   reservationStatus: { id: string; name: string };
   cargoStatus: { id: string; name: string } | null;
   destinationBranch: { id: string; name: string } | null;
-  categoria: { id: string; name: string } | null;
+  categoria: { id: string; name: string };
   destinatario: {
     id: string;
     firstName: string;

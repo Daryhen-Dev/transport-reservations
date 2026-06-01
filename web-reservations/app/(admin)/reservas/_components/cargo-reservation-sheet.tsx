@@ -42,8 +42,8 @@ const schema = z.object({
   companyName: z.string().optional(),
   taxId: z.string().optional(),
   contactName: z.string().optional(),
-  // Categoría
-  categoriaId: z.string().optional(),
+  // Categoría (obligatoria)
+  categoriaId: z.string().min(1, "Debe seleccionar una categoría"),
   // Destinatario
   destFirstName: z.string().min(1, "El nombre del destinatario es requerido"),
   destLastName: z.string().min(1, "El apellido del destinatario es requerido"),
@@ -54,15 +54,13 @@ const schema = z.object({
   description: z.string().optional(),
   // Peso
   weightKg: z.number().positive("El peso debe ser mayor a 0"),
+  // Precio
+  priceAmount: z.number().positive("El precio debe ser mayor a 0"),
+  cobrarEnDestino: z.boolean().optional(),
   // Destino
   destinoType: z.enum(["SUCURSAL", "EXTERNO"]),
   destinationBranchId: z.string().optional(),
   externalDestination: z.string().optional(),
-  // Dimensiones opcionales
-  diameterCm: z.union([z.number().positive(), z.nan()]).optional(),
-  widthCm: z.union([z.number().positive(), z.nan()]).optional(),
-  heightCm: z.union([z.number().positive(), z.nan()]).optional(),
-  lengthCm: z.union([z.number().positive(), z.nan()]).optional(),
 })
 
 type FormValues = z.infer<typeof schema>
@@ -171,10 +169,8 @@ export function CargoReservationSheet({
       await api.reservations.cargo.create({
         tripId: data.tripId,
         weightKg: data.weightKg,
-        diameterCm: isNaN(data.diameterCm as number) ? undefined : data.diameterCm,
-        widthCm: isNaN(data.widthCm as number) ? undefined : data.widthCm,
-        heightCm: isNaN(data.heightCm as number) ? undefined : data.heightCm,
-        lengthCm: isNaN(data.lengthCm as number) ? undefined : data.lengthCm,
+        priceAmount: data.priceAmount,
+        cobrarEnDestino: data.cobrarEnDestino ?? false,
         categoriaId: data.categoriaId,
         description: data.description,
         destinationBranchId: data.destinoType === "SUCURSAL" ? data.destinationBranchId : undefined,
@@ -383,8 +379,8 @@ export function CargoReservationSheet({
             <div className="flex flex-col gap-3">
               {/* Categoría */}
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="categoriaId">Categoría (opcional)</Label>
-                <Select onValueChange={(val) => setValue("categoriaId", val)}>
+                <Label htmlFor="categoriaId">Categoría *</Label>
+                <Select onValueChange={(val) => setValue("categoriaId", val, { shouldValidate: true })}>
                   <SelectTrigger id="categoriaId" className="w-full">
                     <SelectValue placeholder="Seleccionar categoría" />
                   </SelectTrigger>
@@ -394,6 +390,11 @@ export function CargoReservationSheet({
                     ))}
                   </SelectContent>
                 </Select>
+                {errors.categoriaId && (
+                  <p className="text-xs text-destructive">
+                    {errors.categoriaId.message}
+                  </p>
+                )}
               </div>
 
               {/* Descripción */}
@@ -471,53 +472,32 @@ export function CargoReservationSheet({
                 </div>
               )}
 
-              {/* Dimensiones */}
-              <div className="flex flex-col gap-2">
-                <p className="text-xs text-muted-foreground">
-                  Dimensiones opcionales. Para objetos cilíndricos use diámetro. Para cajas use ancho/alto/largo.
-                </p>
+              {/* Precio */}
+              <div className="flex flex-col gap-2 rounded-md border bg-muted/30 p-3">
                 <div className="flex flex-col gap-1.5">
-                  <Label htmlFor="diameterCm">Diámetro (cm)</Label>
+                  <Label htmlFor="priceAmount">Precio de la encomienda *</Label>
                   <Input
-                    id="diameterCm"
+                    id="priceAmount"
                     type="number"
-                    step="0.1"
-                    placeholder="30"
-                    {...register("diameterCm", { valueAsNumber: true })}
+                    step="0.01"
+                    min="0.01"
+                    placeholder="0.00"
+                    {...register("priceAmount", { valueAsNumber: true })}
                   />
+                  {errors.priceAmount && (
+                    <p className="text-xs text-destructive">
+                      {errors.priceAmount.message}
+                    </p>
+                  )}
                 </div>
-                <div className="grid grid-cols-3 gap-2">
-                  <div className="flex flex-col gap-1.5">
-                    <Label htmlFor="widthCm">Ancho (cm)</Label>
-                    <Input
-                      id="widthCm"
-                      type="number"
-                      step="0.1"
-                      placeholder="20"
-                      {...register("widthCm", { valueAsNumber: true })}
-                    />
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    <Label htmlFor="heightCm">Alto (cm)</Label>
-                    <Input
-                      id="heightCm"
-                      type="number"
-                      step="0.1"
-                      placeholder="30"
-                      {...register("heightCm", { valueAsNumber: true })}
-                    />
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    <Label htmlFor="lengthCm">Largo (cm)</Label>
-                    <Input
-                      id="lengthCm"
-                      type="number"
-                      step="0.1"
-                      placeholder="50"
-                      {...register("lengthCm", { valueAsNumber: true })}
-                    />
-                  </div>
-                </div>
+                <label className="flex items-center gap-2 text-sm cursor-pointer mt-1">
+                  <input
+                    type="checkbox"
+                    className="size-4"
+                    {...register("cobrarEnDestino")}
+                  />
+                  <span>Cobrar en sucursal de destino (encomienda por cobrar)</span>
+                </label>
               </div>
             </div>
           </div>
