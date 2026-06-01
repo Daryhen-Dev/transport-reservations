@@ -116,6 +116,8 @@ model User {
   cargoReservationsUpdated     CargoReservation[]     @relation("CargoReservationUpdatedBy")
   proveedorTariffsCreated      ProveedorTariff[]      @relation("ProveedorTariffCreatedBy")
   proveedorTariffsUpdated      ProveedorTariff[]      @relation("ProveedorTariffUpdatedBy")
+  routeSegmentsCreated         RouteSegment[]         @relation("RouteSegmentCreatedBy")
+  routeSegmentsUpdated         RouteSegment[]         @relation("RouteSegmentUpdatedBy")
 
   @@map("usuario")
 }
@@ -142,6 +144,7 @@ model Route {
   trips       Trip[]
   schedules   TripSchedule[]
   tariffs     ProveedorTariff[]
+  segments    RouteSegment[]
   // Tarifas
   directPriceAmount         Decimal       @db.Decimal(10, 2)
   incomingAgencyPriceAmount Decimal       @db.Decimal(10, 2)
@@ -255,11 +258,35 @@ model Proveedor {
   externalAgencyOfReservations      PassengerReservation[] @relation("PassengerReservationExternalAgency")
   cargoReservations     CargoReservation[]
   tariffs               ProveedorTariff[]
+  operatedSegments      RouteSegment[]         @relation("RouteSegmentOperator")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@map("proveedor")
+}
+
+model RouteSegment {
+  id                  String     @id @default(cuid())
+  routeId             String
+  route               Route      @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  position            Int
+  origin              String
+  destination         String
+  isExternal          Boolean    @default(false)
+  operatorProveedorId String?
+  operatorProveedor   Proveedor? @relation("RouteSegmentOperator", fields: [operatorProveedorId], references: [id])
+  externalCostAmount  Decimal?   @db.Decimal(10, 2)
+  notes               String?
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+  createdById         String?
+  createdBy           User?      @relation("RouteSegmentCreatedBy", fields: [createdById], references: [id])
+  updatedById         String?
+  updatedBy           User?      @relation("RouteSegmentUpdatedBy", fields: [updatedById], references: [id])
+
+  @@unique([routeId, position])
+  @@map("ruta_tramo")
 }
 
 model ProveedorTariff {

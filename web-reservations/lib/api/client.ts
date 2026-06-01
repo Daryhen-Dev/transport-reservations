@@ -27,6 +27,10 @@ import type {
   UpdateRouteInput,
 } from "./schemas/routes";
 import type {
+  CreateRouteSegmentInput,
+  UpdateRouteSegmentInput,
+} from "./schemas/route-segments";
+import type {
   CreateTripScheduleInput,
   UpdateTripScheduleInput,
 } from "./schemas/trip-schedules";
@@ -188,6 +192,27 @@ export type Proveedor = {
   country: { id: string; name: string } | null;
   birthDate: string | null;
   phone: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type RouteSegment = {
+  id: string;
+  routeId: string;
+  position: number;
+  origin: string;
+  destination: string;
+  isExternal: boolean;
+  operatorProveedorId: string | null;
+  externalCostAmount: string | null;
+  notes: string | null;
+  operatorProveedor: {
+    id: string;
+    firstName: string | null;
+    lastName: string | null;
+    companyName: string | null;
+    proveedorType: { id: string; name: string };
+  } | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -587,6 +612,24 @@ export const api = {
       }),
     delete: (id: string) =>
       request<void>(`/proveedores/${id}`, { method: "DELETE" }),
+  },
+  routeSegments: {
+    list: (routeId: string) => {
+      const params = new URLSearchParams({ routeId });
+      return request<RouteSegment[]>(`/route-segments?${params.toString()}`);
+    },
+    create: (data: CreateRouteSegmentInput) =>
+      request<RouteSegment>("/route-segments", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    update: (id: string, data: UpdateRouteSegmentInput) =>
+      request<RouteSegment>(`/route-segments/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }),
+    delete: (id: string) =>
+      request<void>(`/route-segments/${id}`, { method: "DELETE" }),
   },
   proveedorTariffs: {
     list: (params?: { proveedorId?: string; routeId?: string; branchId?: string }) => {

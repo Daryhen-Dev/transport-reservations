@@ -39,7 +39,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { IconEdit, IconTrash } from "@tabler/icons-react"
+import { IconEdit, IconTrash, IconRoute } from "@tabler/icons-react"
+import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { api, ApiError } from "@/lib/api/client"
@@ -95,6 +96,11 @@ export function RoutesTable({
       header: "",
       cell: ({ row }) => (
         <div className="flex items-center justify-end gap-2">
+          <Button variant="ghost" size="icon" asChild title="Tramos">
+            <Link href={`/rutas/${row.original.id}/tramos`}>
+              <IconRoute className="size-4" />
+            </Link>
+          </Button>
           <Button
             variant="ghost"
             size="icon"
