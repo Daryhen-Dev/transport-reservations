@@ -327,6 +327,36 @@ export type PassengerLink = {
 
 export type SalesChannel = "DIRECT" | "FROM_AGENCY" | "TO_AGENCY";
 
+export type SalesReport = {
+  totals: {
+    reservationCount: number;
+    seatCount: number;
+    revenueAmount: number;
+    suggestedAmount: number;
+    delta: number;
+  };
+  byChannel: Array<{
+    channel: SalesChannel;
+    reservationCount: number;
+    seatCount: number;
+    revenueAmount: number;
+  }>;
+  byAgency: Array<{
+    agencyId: string;
+    agencyName: string;
+    reservationCount: number;
+    seatCount: number;
+    revenueAmount: number;
+  }>;
+  byRoute: Array<{
+    routeId: string;
+    label: string;
+    reservationCount: number;
+    seatCount: number;
+    revenueAmount: number;
+  }>;
+};
+
 export type PassengerReservation = {
   id: string;
   tripId: string;
@@ -843,6 +873,16 @@ export const api = {
           `/reservations/passengers/${reservationId}/passengers/${passengerId}`,
           { method: "DELETE" }
         ),
+    },
+  },
+  reports: {
+    sales: (params?: { from?: string; to?: string; branchId?: string }) => {
+      const q = new URLSearchParams();
+      if (params?.from) q.set("from", params.from);
+      if (params?.to) q.set("to", params.to);
+      if (params?.branchId) q.set("branchId", params.branchId);
+      const qs = q.toString();
+      return request<SalesReport>(`/reports/sales${qs ? `?${qs}` : ""}`);
     },
   },
   search: {

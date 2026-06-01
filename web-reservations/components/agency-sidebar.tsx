@@ -15,6 +15,7 @@ import {
   IconFlag,
   IconFileText,
   IconPackage,
+  IconChartBar,
 } from "@tabler/icons-react"
 import { NavUser } from "@/components/nav-user"
 import { BranchSwitcher } from "@/components/branch-switcher"
@@ -55,6 +56,7 @@ const operationsItems = [
   { title: "Reservas", url: "/reservas", icon: IconLayoutList },
   { title: "Manifiestos", url: "/manifiestos", icon: IconFileText },
   { title: "Encomiendas", url: "/encomiendas", icon: IconPackage },
+  { title: "Reportes", url: "/reportes", icon: IconChartBar },
 ]
 
 type AgencySidebarProps = React.ComponentProps<typeof Sidebar> & {

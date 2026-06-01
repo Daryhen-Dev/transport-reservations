@@ -91,11 +91,24 @@ const columns: CsvColumn<Row>[] = [
 export const GET = withAuth(async (req, { auth }) => {
   const url = new URL(req.url);
   const branchIdParam = url.searchParams.get("branchId") ?? undefined;
+  const fromParam = url.searchParams.get("from") ?? undefined;
+  const toParam = url.searchParams.get("to") ?? undefined;
   const effectiveBranchId =
     auth.role === "SUCURSAL_USER" ? auth.branchId ?? undefined : branchIdParam;
 
+  const from = fromParam ? new Date(fromParam) : undefined;
+  const to = toParam ? new Date(toParam) : undefined;
+  const tripFilter: Record<string, unknown> = {};
+  if (effectiveBranchId) tripFilter.branchId = effectiveBranchId;
+  if (from || to) {
+    tripFilter.departureAt = {
+      ...(from ? { gte: from } : {}),
+      ...(to ? { lte: to } : {}),
+    };
+  }
+
   const rows = await prisma.passengerReservation.findMany({
-    where: effectiveBranchId ? { trip: { branchId: effectiveBranchId } } : undefined,
+    where: Object.keys(tripFilter).length > 0 ? { trip: tripFilter } : undefined,
     select: {
       id: true,
       seatCount: true,
