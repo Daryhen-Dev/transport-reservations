@@ -108,12 +108,96 @@ async function main() {
     });
   }
 
-  // 9. Sucursal principal
-  const principalBranch = await prisma.branch.upsert({
+  // 9. Sucursales
+  //
+  // Legacy "principal" branch (if it exists) gets consolidated into
+  // "san-cristobal":
+  //   * If only "principal" exists      → rename in place.
+  //   * If only "san-cristobal" exists  → keep it.
+  //   * If BOTH exist (mid-test state)  → move every reference from
+  //     "principal" to "san-cristobal" and delete "principal".
+  const legacyPrincipal = await prisma.branch.findUnique({
     where: { slug: "principal" },
-    update: {},
-    create: { name: "Principal", slug: "principal" },
   });
+
+  let sanCristobal: Awaited<ReturnType<typeof prisma.branch.upsert>>;
+  if (legacyPrincipal) {
+    const existingSC = await prisma.branch.findUnique({
+      where: { slug: "san-cristobal" },
+    });
+    if (!existingSC) {
+      // Rename in place
+      sanCristobal = await prisma.branch.update({
+        where: { id: legacyPrincipal.id },
+        data: { name: "San Cristóbal", slug: "san-cristobal" },
+      });
+    } else {
+      // Consolidate: move every reference, then delete principal
+      await prisma.user.updateMany({
+        where: { branchId: legacyPrincipal.id },
+        data: { branchId: existingSC.id },
+      });
+      await prisma.route.updateMany({
+        where: { branchId: legacyPrincipal.id },
+        data: { branchId: existingSC.id },
+      });
+      await prisma.trip.updateMany({
+        where: { branchId: legacyPrincipal.id },
+        data: { branchId: existingSC.id },
+      });
+      await prisma.cargoReservation.updateMany({
+        where: { destinationBranchId: legacyPrincipal.id },
+        data: { destinationBranchId: existingSC.id },
+      });
+      await prisma.tripManifest.updateMany({
+        where: { receivedByBranchId: legacyPrincipal.id },
+        data: { receivedByBranchId: existingSC.id },
+      });
+      await prisma.branch.delete({ where: { id: legacyPrincipal.id } });
+      sanCristobal = await prisma.branch.update({
+        where: { id: existingSC.id },
+        data: { name: "San Cristóbal" },
+      });
+    }
+  } else {
+    sanCristobal = await prisma.branch.upsert({
+      where: { slug: "san-cristobal" },
+      update: { name: "San Cristóbal" },
+      create: { name: "San Cristóbal", slug: "san-cristobal" },
+    });
+  }
+
+  const santaCruz = await prisma.branch.upsert({
+    where: { slug: "santa-cruz" },
+    update: { name: "Santa Cruz" },
+    create: { name: "Santa Cruz", slug: "santa-cruz" },
+  });
+
+  // 9b. Rutas predeterminadas (cada ruta pertenece a la sucursal de origen)
+  const ROUTES_SEED = [
+    {
+      origin: "San Cristóbal",
+      destination: "Santa Cruz",
+      branchId: sanCristobal.id,
+    },
+    {
+      origin: "Santa Cruz",
+      destination: "San Cristóbal",
+      branchId: santaCruz.id,
+    },
+  ];
+  for (const r of ROUTES_SEED) {
+    const existing = await prisma.route.findFirst({
+      where: {
+        origin: r.origin,
+        destination: r.destination,
+        branchId: r.branchId,
+      },
+    });
+    if (!existing) {
+      await prisma.route.create({ data: r });
+    }
+  }
 
   // 10. Usuarios del sistema
   const ownerRole        = await prisma.role.findUniqueOrThrow({ where: { name: "OWNER" } });
@@ -132,23 +216,44 @@ async function main() {
     },
   });
 
-  // 10b. SUCURSAL_USER (ligado a sucursal principal)
-  await prisma.user.upsert({
+  // Migrate legacy user@system.com → sancristobal@system.com (rename in place).
+  await prisma.user.updateMany({
     where: { email: "user@system.com" },
-    update: {},
+    data: { email: "sancristobal@system.com", name: "Usuario San Cristóbal" },
+  });
+
+  // 10b. SUCURSAL_USER de San Cristóbal
+  await prisma.user.upsert({
+    where: { email: "sancristobal@system.com" },
+    update: { branchId: sanCristobal.id },
     create: {
-      name: "Usuario Sucursal",
-      email: "user@system.com",
+      name: "Usuario San Cristóbal",
+      email: "sancristobal@system.com",
       password: await bcrypt.hash("User1234!", 12),
       roleId: sucursalUserRole.id,
-      branchId: principalBranch.id,
+      branchId: sanCristobal.id,
+    },
+  });
+
+  // 10c. SUCURSAL_USER de Santa Cruz
+  await prisma.user.upsert({
+    where: { email: "santacruz@system.com" },
+    update: { branchId: santaCruz.id },
+    create: {
+      name: "Usuario Santa Cruz",
+      email: "santacruz@system.com",
+      password: await bcrypt.hash("User1234!", 12),
+      roleId: sucursalUserRole.id,
+      branchId: santaCruz.id,
     },
   });
 
   console.log("Seed completado:");
-  console.log("  → OWNER:              owner@system.com / Admin1234!");
-  console.log("  → SUCURSAL_USER:      user@system.com  / User1234!");
-  console.log("  → Sucursal:           Principal (slug: principal)");
+  console.log("  → OWNER:              owner@system.com         / Admin1234!");
+  console.log("  → SUCURSAL_USER (SC): sancristobal@system.com  / User1234!");
+  console.log("  → SUCURSAL_USER (SZ): santacruz@system.com     / User1234!");
+  console.log("  → Sucursales:         San Cristóbal, Santa Cruz");
+  console.log("  → Rutas:              San Cristóbal ↔ Santa Cruz (2 rutas)");
   console.log(`  → Países:             ${COUNTRIES.length}`);
   console.log("  → Tipos de documento: CEDULA DE IDENTIDAD, PASAPORTE, RUC");
   console.log("  → Estados de reserva: PENDIENTE, CONFIRMADA, CANCELADA");
