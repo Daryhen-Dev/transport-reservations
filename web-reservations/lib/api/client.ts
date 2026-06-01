@@ -194,6 +194,10 @@ export type Route = {
   destination: string;
   branchId: string;
   branch?: { id: string; name: string; slug: string };
+  directPriceAmount: string;         // Decimal serializes as string
+  incomingAgencyPriceAmount: string;
+  outgoingCommissionAmount: string;
+  minPrice: string;
   createdAt: string;
   updatedAt: string;
 };

@@ -178,17 +178,26 @@ async function main() {
     create: { name: "Santa Cruz", slug: "santa-cruz" },
   });
 
-  // 9b. Rutas predeterminadas (cada ruta pertenece a la sucursal de origen)
+  // 9b. Rutas predeterminadas (cada ruta pertenece a la sucursal de origen).
+  //     Tarifas defaults — el OWNER puede ajustarlas en /rutas.
   const ROUTES_SEED = [
     {
       origin: "San Cristóbal",
       destination: "Santa Cruz",
       branchId: sanCristobal.id,
+      directPriceAmount: 30,
+      incomingAgencyPriceAmount: 25,
+      outgoingCommissionAmount: 5,
+      minPrice: 15,
     },
     {
       origin: "Santa Cruz",
       destination: "San Cristóbal",
       branchId: santaCruz.id,
+      directPriceAmount: 30,
+      incomingAgencyPriceAmount: 25,
+      outgoingCommissionAmount: 5,
+      minPrice: 15,
     },
   ];
   for (const r of ROUTES_SEED) {

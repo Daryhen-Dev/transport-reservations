@@ -139,6 +139,11 @@ model Route {
   branch      Branch        @relation(fields: [branchId], references: [id])
   trips       Trip[]
   schedules   TripSchedule[]
+  // Tarifas
+  directPriceAmount         Decimal       @db.Decimal(10, 2)
+  incomingAgencyPriceAmount Decimal       @db.Decimal(10, 2)
+  outgoingCommissionAmount  Decimal       @db.Decimal(10, 2)
+  minPrice                  Decimal       @db.Decimal(10, 2)
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
   // Audit

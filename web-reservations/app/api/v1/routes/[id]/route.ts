@@ -76,7 +76,15 @@ export async function PATCH(
   const gate = await requireBranchAccess(req, existing.branchId);
   if (gate instanceof NextResponse) return gate;
 
-  const { origin, destination, branchId } = parsed.data;
+  const {
+    origin,
+    destination,
+    branchId,
+    directPriceAmount,
+    incomingAgencyPriceAmount,
+    outgoingCommissionAmount,
+    minPrice,
+  } = parsed.data;
 
   // If branchId is changing, validate the target branch + ensure access.
   if (branchId && branchId !== existing.branchId) {
@@ -100,6 +108,10 @@ export async function PATCH(
         origin,
         destination,
         branchId,
+        directPriceAmount,
+        incomingAgencyPriceAmount,
+        outgoingCommissionAmount,
+        minPrice,
         ...auditUpdate(authOrError.userId),
       },
       include: {

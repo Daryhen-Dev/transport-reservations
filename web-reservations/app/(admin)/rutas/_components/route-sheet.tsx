@@ -26,10 +26,16 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 
+const priceField = z.number().nonnegative("No puede ser negativo")
+
 const schema = z.object({
   origin: z.string().min(2, "El origen debe tener al menos 2 caracteres"),
   destination: z.string().min(2, "El destino debe tener al menos 2 caracteres"),
   branchId: z.string().min(1, "Debe seleccionar una sucursal"),
+  directPriceAmount: priceField,
+  incomingAgencyPriceAmount: priceField,
+  outgoingCommissionAmount: priceField,
+  minPrice: priceField,
 })
 
 type FormValues = z.infer<typeof schema>
@@ -42,6 +48,10 @@ type Route = {
   destination: string
   branchId: string
   branch: { id: string; name: string }
+  directPriceAmount?: string | number
+  incomingAgencyPriceAmount?: string | number
+  outgoingCommissionAmount?: string | number
+  minPrice?: string | number
 }
 
 type Props = {
@@ -50,6 +60,12 @@ type Props = {
   open?: boolean
   onOpenChange?: (open: boolean) => void
   trigger?: boolean
+}
+
+function num(v: string | number | undefined, fallback: number): number {
+  if (v === undefined || v === null || v === "") return fallback
+  const n = typeof v === "string" ? Number(v) : v
+  return Number.isFinite(n) ? n : fallback
 }
 
 export function RouteSheet({ branches, route, open, onOpenChange, trigger = true }: Props) {
@@ -71,6 +87,10 @@ export function RouteSheet({ branches, route, open, onOpenChange, trigger = true
       origin: route?.origin ?? "",
       destination: route?.destination ?? "",
       branchId: route?.branchId ?? "",
+      directPriceAmount: num(route?.directPriceAmount, 30),
+      incomingAgencyPriceAmount: num(route?.incomingAgencyPriceAmount, 25),
+      outgoingCommissionAmount: num(route?.outgoingCommissionAmount, 5),
+      minPrice: num(route?.minPrice, 15),
     },
   })
 
@@ -80,6 +100,10 @@ export function RouteSheet({ branches, route, open, onOpenChange, trigger = true
         origin: route?.origin ?? "",
         destination: route?.destination ?? "",
         branchId: route?.branchId ?? "",
+        directPriceAmount: num(route?.directPriceAmount, 30),
+        incomingAgencyPriceAmount: num(route?.incomingAgencyPriceAmount, 25),
+        outgoingCommissionAmount: num(route?.outgoingCommissionAmount, 5),
+        minPrice: num(route?.minPrice, 15),
       })
     }
   }, [isOpen, route, reset])
@@ -117,22 +141,24 @@ export function RouteSheet({ branches, route, open, onOpenChange, trigger = true
           <SheetTitle>{route ? "Editar ruta" : "Nueva ruta"}</SheetTitle>
         </SheetHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4 px-4">
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="origin">Origen</Label>
-            <Input id="origin" placeholder="Ciudad de origen" {...register("origin")} />
-            {errors.origin && (
-              <p className="text-sm text-destructive">{errors.origin.message}</p>
-            )}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="origin">Origen</Label>
+              <Input id="origin" placeholder="San Cristóbal" {...register("origin")} />
+              {errors.origin && (
+                <p className="text-sm text-destructive">{errors.origin.message}</p>
+              )}
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="destination">Destino</Label>
+              <Input id="destination" placeholder="Santa Cruz" {...register("destination")} />
+              {errors.destination && (
+                <p className="text-sm text-destructive">{errors.destination.message}</p>
+              )}
+            </div>
           </div>
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="destination">Destino</Label>
-            <Input id="destination" placeholder="Ciudad de destino" {...register("destination")} />
-            {errors.destination && (
-              <p className="text-sm text-destructive">{errors.destination.message}</p>
-            )}
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="branchId">Sucursal</Label>
+            <Label htmlFor="branchId">Sucursal de origen</Label>
             <Select
               defaultValue={route?.branchId ?? ""}
               onValueChange={(val) => setValue("branchId", val)}
@@ -152,6 +178,66 @@ export function RouteSheet({ branches, route, open, onOpenChange, trigger = true
               <p className="text-sm text-destructive">{errors.branchId.message}</p>
             )}
           </div>
+
+          {/* Tarifas */}
+          <div className="flex flex-col gap-3 rounded-md border bg-muted/30 p-3">
+            <p className="text-sm font-medium">Tarifas</p>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="directPriceAmount">Precio directo *</Label>
+                <Input
+                  id="directPriceAmount"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  {...register("directPriceAmount", { valueAsNumber: true })}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Venta directa al pasajero
+                </p>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="incomingAgencyPriceAmount">Desde agencia *</Label>
+                <Input
+                  id="incomingAgencyPriceAmount"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  {...register("incomingAgencyPriceAmount", { valueAsNumber: true })}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Cuando agencia nos envía pasajero
+                </p>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="outgoingCommissionAmount">Comisión a agencia *</Label>
+                <Input
+                  id="outgoingCommissionAmount"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  {...register("outgoingCommissionAmount", { valueAsNumber: true })}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Cuando enviamos a otra agencia
+                </p>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="minPrice">Precio mínimo *</Label>
+                <Input
+                  id="minPrice"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  {...register("minPrice", { valueAsNumber: true })}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Piso absoluto por reserva
+                </p>
+              </div>
+            </div>
+          </div>
+
           <Button type="submit" disabled={isSubmitting}>
             {isSubmitting
               ? route ? "Guardando..." : "Creando..."
