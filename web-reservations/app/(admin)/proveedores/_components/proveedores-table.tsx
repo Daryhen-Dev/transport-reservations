@@ -38,8 +38,9 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { Badge } from "@/components/ui/badge"
 import { IconEdit, IconTrash } from "@tabler/icons-react"
+import { ProveedorTypeBadge } from "@/components/proveedor-type-badge"
+import { formatProveedorTypeName, isPersonaType } from "@/lib/proveedor-types"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { api, ApiError } from "@/lib/api/client"
@@ -83,8 +84,7 @@ export function ProveedoresTable({
     : data.filter((c) => c.proveedorTypeId === selectedTypeId)
 
   function getDisplayName(proveedor: Proveedor): string {
-    const isPersona = proveedor.proveedorType.name.toLowerCase().includes("persona")
-    if (isPersona) {
+    if (isPersonaType(proveedor.proveedorType.name)) {
       return [proveedor.firstName, proveedor.lastName].filter(Boolean).join(" ") || "—"
     }
     return proveedor.companyName ?? "—"
@@ -94,14 +94,7 @@ export function ProveedoresTable({
     {
       id: "tipo",
       header: "Tipo",
-      cell: ({ row }) => {
-        const isPersona = row.original.proveedorType.name.toLowerCase().includes("persona")
-        return (
-          <Badge variant={isPersona ? "default" : "secondary"}>
-            {isPersona ? "Persona" : "Empresa"}
-          </Badge>
-        )
-      },
+      cell: ({ row }) => <ProveedorTypeBadge name={row.original.proveedorType.name} />,
     },
     {
       id: "nombre",
@@ -188,7 +181,7 @@ export function ProveedoresTable({
               <SelectItem value="all">Todos los tipos</SelectItem>
               {proveedorTypes.map((ct) => (
                 <SelectItem key={ct.id} value={ct.id}>
-                  {ct.name}
+                  {formatProveedorTypeName(ct.name)}
                 </SelectItem>
               ))}
             </SelectContent>

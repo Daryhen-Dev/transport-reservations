@@ -25,6 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { formatProveedorTypeName, isPersonaType } from "@/lib/proveedor-types"
 
 const personaSchema = z.object({
   proveedorTypeId: z.string().min(1, "Tipo de proveedor requerido"),
@@ -85,7 +86,7 @@ type Props = {
 
 function getSchemaForType(typeName: string | undefined) {
   if (!typeName) return baseSchema
-  if (typeName.toLowerCase().includes("persona")) return personaSchema
+  if (isPersonaType(typeName)) return personaSchema
   return empresaSchema
 }
 
@@ -108,7 +109,7 @@ export function ProveedorSheet({
   const [selectedTypeId, setSelectedTypeId] = useState<string>(defaultTypeId)
 
   const selectedType = proveedorTypes.find((ct) => ct.id === selectedTypeId)
-  const isPersona = selectedType?.name.toLowerCase().includes("persona") ?? false
+  const isPersona = selectedType ? isPersonaType(selectedType.name) : false
   const isEmpresa = selectedType !== undefined && !isPersona
 
   const schema = getSchemaForType(selectedType?.name)
@@ -197,7 +198,9 @@ export function ProveedorSheet({
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="proveedorTypeId">Tipo de proveedor</Label>
             {proveedor ? (
-              <p className="text-sm text-muted-foreground">{proveedor.proveedorType.name}</p>
+              <p className="text-sm text-muted-foreground">
+                {formatProveedorTypeName(proveedor.proveedorType.name)}
+              </p>
             ) : (
               <>
                 <Select
@@ -213,7 +216,7 @@ export function ProveedorSheet({
                   <SelectContent>
                     {proveedorTypes.map((ct) => (
                       <SelectItem key={ct.id} value={ct.id}>
-                        {ct.name}
+                        {formatProveedorTypeName(ct.name)}
                       </SelectItem>
                     ))}
                   </SelectContent>
