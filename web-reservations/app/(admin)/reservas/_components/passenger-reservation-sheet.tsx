@@ -38,18 +38,13 @@ const clienteSchema = z.object({
 
 const schema = z.object({
   tripId: z.string().min(1, "Debe seleccionar un viaje"),
-  proveedorType: z.enum(["PERSONA", "EMPRESA"]),
-  // PERSONA
+  // Comprador PERSONA (inline)
   firstName: z.string().optional(),
   lastName: z.string().optional(),
   documentTypeId: z.string().optional(),
   documentNumber: z.string().optional(),
   countryId: z.string().optional(),
   birthDate: z.string().optional(),
-  // EMPRESA
-  companyName: z.string().optional(),
-  taxId: z.string().optional(),
-  contactName: z.string().optional(),
   // Reservation
   seatCount: z.number().int().min(1, "Mínimo 1 asiento"),
   passengers: z.array(clienteSchema).optional(),
@@ -118,7 +113,6 @@ export function PassengerReservationSheet({
 
   const confirmadaStatus = reservationStatuses.find((s) => s.name === "CONFIRMADA")
   const personaType = proveedorTypes.find((t) => t.name === "PERSONA")
-  const empresaType = proveedorTypes.find((t) => t.name === "EMPRESA")
 
   const {
     register,
@@ -131,7 +125,6 @@ export function PassengerReservationSheet({
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
-      proveedorType: "PERSONA",
       seatCount: 1,
       passengers: [],
       salesChannel: "DIRECT",
@@ -160,12 +153,9 @@ export function PassengerReservationSheet({
     name: "passengers",
   })
 
-  const proveedorType = watch("proveedorType")
-
   useEffect(() => {
     if (!open) {
       reset({
-        proveedorType: "PERSONA",
         seatCount: 1,
         passengers: [],
         salesChannel: "DIRECT",
@@ -176,36 +166,25 @@ export function PassengerReservationSheet({
   }, [open, reset])
 
   async function onSubmit(data: FormValues) {
-    const proveedorTypeId = data.proveedorType === "PERSONA"
-      ? personaType?.id ?? ""
-      : empresaType?.id ?? ""
+    const proveedorTypeId = personaType?.id ?? ""
+    if (!proveedorTypeId) {
+      toast.error("Falta el tipo de proveedor PERSONA en el sistema")
+      return
+    }
 
-    let proveedor: CreatePassengerReservationInput["proveedor"]
-    if (data.proveedorType === "PERSONA") {
-      if (!data.firstName || !data.lastName || !data.documentTypeId || !data.documentNumber || !data.countryId) {
-        toast.error("Complete todos los campos del proveedor")
-        return
-      }
-      proveedor = {
-        customerType: "PERSONA",
-        firstName: data.firstName,
-        lastName: data.lastName,
-        documentTypeId: data.documentTypeId,
-        documentNumber: data.documentNumber,
-        countryId: data.countryId,
-        birthDate: data.birthDate,
-      }
-    } else {
-      if (!data.companyName || !data.taxId) {
-        toast.error("Complete los campos de la empresa")
-        return
-      }
-      proveedor = {
-        customerType: "EMPRESA",
-        companyName: data.companyName,
-        taxId: data.taxId,
-        contactName: data.contactName,
-      }
+    if (!data.firstName || !data.lastName || !data.documentTypeId || !data.documentNumber || !data.countryId) {
+      toast.error("Complete todos los campos del comprador")
+      return
+    }
+
+    const proveedor: CreatePassengerReservationInput["proveedor"] = {
+      customerType: "PERSONA",
+      firstName: data.firstName,
+      lastName: data.lastName,
+      documentTypeId: data.documentTypeId,
+      documentNumber: data.documentNumber,
+      countryId: data.countryId,
+      birthDate: data.birthDate,
     }
 
     if (data.salesChannel !== "DIRECT" && !data.externalAgencyId) {
@@ -234,7 +213,6 @@ export function PassengerReservationSheet({
       })
       toast.success("Reserva creada exitosamente")
       reset({
-        proveedorType: "PERSONA",
         seatCount: 1,
         passengers: [],
         salesChannel: "DIRECT",
@@ -289,124 +267,70 @@ export function PassengerReservationSheet({
             )}
           </div>
 
-          {/* Proveedor type */}
-          <div className="flex flex-col gap-1.5">
-            <Label>Tipo de proveedor</Label>
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                variant={proveedorType === "PERSONA" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setValue("proveedorType", "PERSONA")}
-              >
-                Persona
-              </Button>
-              <Button
-                type="button"
-                variant={proveedorType === "EMPRESA" ? "default" : "outline"}
-                size="sm"
-                onClick={() => setValue("proveedorType", "EMPRESA")}
-              >
-                Empresa
-              </Button>
+          {/* Comprador (PERSONA inline). Para AGENCIA / INSTITUCION_PUBLICA
+              creá primero el proveedor en /proveedores y usá el flujo
+              rápido desde calendario. */}
+          <div className="flex gap-2">
+            <div className="flex flex-col gap-1.5 flex-1">
+              <Label htmlFor="firstName">Nombre</Label>
+              <Input id="firstName" placeholder="Juan" {...register("firstName")} />
+            </div>
+            <div className="flex flex-col gap-1.5 flex-1">
+              <Label htmlFor="lastName">Apellido</Label>
+              <Input id="lastName" placeholder="Pérez" {...register("lastName")} />
             </div>
           </div>
 
-          {proveedorType === "PERSONA" ? (
-            <>
-              <div className="flex gap-2">
-                <div className="flex flex-col gap-1.5 flex-1">
-                  <Label htmlFor="firstName">Nombre</Label>
-                  <Input id="firstName" placeholder="Juan" {...register("firstName")} />
-                </div>
-                <div className="flex flex-col gap-1.5 flex-1">
-                  <Label htmlFor="lastName">Apellido</Label>
-                  <Input id="lastName" placeholder="Pérez" {...register("lastName")} />
-                </div>
-              </div>
+          <div className="flex gap-2">
+            <div className="flex flex-col gap-1.5 flex-1">
+              <Label htmlFor="documentTypeId">Tipo de documento</Label>
+              <Select onValueChange={(val) => setValue("documentTypeId", val)}>
+                <SelectTrigger id="documentTypeId" className="w-full">
+                  <SelectValue placeholder="Seleccionar tipo" />
+                </SelectTrigger>
+                <SelectContent>
+                  {documentTypes.map((dt) => (
+                    <SelectItem key={dt.id} value={dt.id}>{dt.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1.5 flex-1">
+              <Label htmlFor="documentNumber">Número de documento</Label>
+              <Input id="documentNumber" placeholder="V-12345678" {...register("documentNumber")} />
+            </div>
+          </div>
 
-              {/* Tipo de documento + Número de documento */}
-              <div className="flex gap-2">
-                <div className="flex flex-col gap-1.5 flex-1">
-                  <Label htmlFor="documentTypeId">Tipo de documento</Label>
-                  <Select onValueChange={(val) => setValue("documentTypeId", val)}>
-                    <SelectTrigger id="documentTypeId" className="w-full">
-                      <SelectValue placeholder="Seleccionar tipo" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {documentTypes.map((dt) => (
-                        <SelectItem key={dt.id} value={dt.id}>{dt.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex flex-col gap-1.5 flex-1">
-                  <Label htmlFor="documentNumber">Número de documento</Label>
-                  <Input id="documentNumber" placeholder="V-12345678" {...register("documentNumber")} />
-                </div>
-              </div>
-
-              {/* País + Fecha de nacimiento + Cantidad */}
-              <div className="flex gap-2">
-                <div className="flex flex-col gap-1.5 flex-1">
-                  <Label htmlFor="countryId">País</Label>
-                  <Select onValueChange={(val) => setValue("countryId", val)}>
-                    <SelectTrigger id="countryId" className="w-full">
-                      <SelectValue placeholder="Seleccionar" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {countries.map((c) => (
-                        <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="flex flex-col gap-1.5 flex-1">
-                  <Label htmlFor="birthDate">Nacimiento</Label>
-                  <Input id="birthDate" type="date" {...register("birthDate")} />
-                </div>
-                <div className="flex flex-col gap-1.5 w-24">
-                  <Label htmlFor="seatCount">Asientos</Label>
-                  <Input
-                    id="seatCount"
-                    type="number"
-                    min={1}
-                    {...register("seatCount", { valueAsNumber: true })}
-                  />
-                </div>
-              </div>
-              {errors.seatCount && (
-                <p className="text-sm text-destructive">{errors.seatCount.message}</p>
-              )}
-            </>
-          ) : (
-            <>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="companyName">Nombre de la empresa</Label>
-                <Input id="companyName" placeholder="Empresa S.A." {...register("companyName")} />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="taxId">RIF/NIT</Label>
-                <Input id="taxId" placeholder="J-12345678-0" {...register("taxId")} />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="contactName">Persona de contacto (opcional)</Label>
-                <Input id="contactName" placeholder="Juan Pérez" {...register("contactName")} />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label htmlFor="seatCount">Cantidad de asientos</Label>
-                <Input
-                  id="seatCount"
-                  type="number"
-                  min={1}
-                  className="w-32"
-                  {...register("seatCount", { valueAsNumber: true })}
-                />
-                {errors.seatCount && (
-                  <p className="text-sm text-destructive">{errors.seatCount.message}</p>
-                )}
-              </div>
-            </>
+          <div className="flex gap-2">
+            <div className="flex flex-col gap-1.5 flex-1">
+              <Label htmlFor="countryId">País</Label>
+              <Select onValueChange={(val) => setValue("countryId", val)}>
+                <SelectTrigger id="countryId" className="w-full">
+                  <SelectValue placeholder="Seleccionar" />
+                </SelectTrigger>
+                <SelectContent>
+                  {countries.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-1.5 flex-1">
+              <Label htmlFor="birthDate">Nacimiento</Label>
+              <Input id="birthDate" type="date" {...register("birthDate")} />
+            </div>
+            <div className="flex flex-col gap-1.5 w-24">
+              <Label htmlFor="seatCount">Asientos</Label>
+              <Input
+                id="seatCount"
+                type="number"
+                min={1}
+                {...register("seatCount", { valueAsNumber: true })}
+              />
+            </div>
+          </div>
+          {errors.seatCount && (
+            <p className="text-sm text-destructive">{errors.seatCount.message}</p>
           )}
 
           {/* Passengers */}

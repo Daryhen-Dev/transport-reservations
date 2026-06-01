@@ -13,9 +13,9 @@ const phoneSchema = z.string().optional().or(z.literal(""));
 const birthDateSchema = z.string().optional().or(z.literal(""));
 const optionalString = z.string().optional().or(z.literal(""));
 
-// Discriminator: presence of companyName implies EMPRESA, otherwise PERSONA.
-// The current sheet does not require all empresa-specific fields (taxId/contactName),
-// so we keep them optional to match the existing Prisma model + UI behavior.
+// PERSONA usa firstName/lastName. AGENCIA / INSTITUCION_PUBLICA usan
+// companyName (+ taxId / contactName opcionales). Mantenemos todos los
+// campos opcionales y validamos via refine que al menos uno este informado.
 export const createProveedorSchema = z
   .object({
     proveedorTypeId: proveedorTypeIdSchema,
@@ -26,7 +26,7 @@ export const createProveedorSchema = z
     countryId: optionalString,
     birthDate: birthDateSchema,
 
-    // EMPRESA fields
+    // Campos para AGENCIA / INSTITUCION_PUBLICA
     companyName: optionalString,
     taxId: optionalString,
     contactName: optionalString,

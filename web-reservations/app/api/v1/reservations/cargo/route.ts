@@ -130,25 +130,17 @@ export async function POST(req: NextRequest) {
   try {
     const created = await prisma.$transaction(async (tx) => {
       const newProveedor = await tx.proveedor.create({
-        data:
-          proveedor.customerType === "PERSONA"
-            ? {
-                proveedorTypeId,
-                firstName: proveedor.firstName,
-                lastName: proveedor.lastName,
-                documentTypeId: proveedor.documentTypeId,
-                documentNumber: proveedor.documentNumber,
-                countryId: proveedor.countryId,
-                birthDate: proveedor.birthDate
-                  ? new Date(proveedor.birthDate)
-                  : undefined,
-              }
-            : {
-                proveedorTypeId,
-                companyName: proveedor.companyName,
-                taxId: proveedor.taxId,
-                contactName: proveedor.contactName ?? undefined,
-              },
+        data: {
+          proveedorTypeId,
+          firstName: proveedor.firstName,
+          lastName: proveedor.lastName,
+          documentTypeId: proveedor.documentTypeId,
+          documentNumber: proveedor.documentNumber,
+          countryId: proveedor.countryId,
+          birthDate: proveedor.birthDate
+            ? new Date(proveedor.birthDate)
+            : undefined,
+        },
       });
 
       const newDestinatario = await tx.destinatario.create({

@@ -205,7 +205,7 @@ export function TramoSheet({
           {isExternal && (
             <>
               <div className="flex flex-col gap-1.5">
-                <Label htmlFor="operator">Operador (AGENCIA/EMPRESA)</Label>
+                <Label htmlFor="operator">Operador (AGENCIA)</Label>
                 <Select value={operatorId} onValueChange={setOperatorId}>
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Seleccionar operador" />
@@ -213,7 +213,7 @@ export function TramoSheet({
                   <SelectContent>
                     {operators.length === 0 ? (
                       <div className="px-2 py-1.5 text-sm text-muted-foreground">
-                        No hay proveedores AGENCIA o EMPRESA disponibles
+                        No hay proveedores tipo AGENCIA disponibles
                       </div>
                     ) : (
                       operators.map((o) => (

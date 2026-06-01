@@ -1,8 +1,9 @@
 import { z } from "zod";
 import { cuidSchema } from "./cuid";
 
-// Discriminated proveedor (matches the cargo variant, used by the create sheet).
-const personaProveedorSchema = z.object({
+// Inline proveedor — solo PERSONA. Para AGENCIA / INSTITUCION_PUBLICA se
+// crea el proveedor previamente y se usa el flujo quick por proveedorId.
+export const proveedorInputSchema = z.object({
   customerType: z.literal("PERSONA"),
   firstName: z.string().min(1, "El nombre es requerido"),
   lastName: z.string().min(1, "El apellido es requerido"),
@@ -11,18 +12,6 @@ const personaProveedorSchema = z.object({
   countryId: cuidSchema,
   birthDate: z.string().optional(),
 });
-
-const empresaProveedorSchema = z.object({
-  customerType: z.literal("EMPRESA"),
-  companyName: z.string().min(1, "El nombre de la empresa es requerido"),
-  taxId: z.string().min(1, "El RIF/NIT es requerido"),
-  contactName: z.string().optional(),
-});
-
-export const proveedorInputSchema = z.discriminatedUnion("customerType", [
-  personaProveedorSchema,
-  empresaProveedorSchema,
-]);
 
 const inlinePassengerSchema = z.object({
   firstName: z.string().min(1, "El nombre es requerido"),

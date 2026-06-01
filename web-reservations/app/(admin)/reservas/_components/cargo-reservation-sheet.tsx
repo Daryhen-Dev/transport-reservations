@@ -30,18 +30,13 @@ import {
 
 const schema = z.object({
   tripId: z.string().min(1, "Debe seleccionar un viaje"),
-  proveedorType: z.enum(["PERSONA", "EMPRESA"]),
-  // PERSONA
+  // Remitente (PERSONA inline)
   firstName: z.string().optional(),
   lastName: z.string().optional(),
   documentTypeId: z.string().optional(),
   documentNumber: z.string().optional(),
   countryId: z.string().optional(),
   birthDate: z.string().optional(),
-  // EMPRESA
-  companyName: z.string().optional(),
-  taxId: z.string().optional(),
-  contactName: z.string().optional(),
   // Categoría (obligatoria)
   categoriaId: z.string().min(1, "Debe seleccionar una categoría"),
   // Destinatario
@@ -101,7 +96,6 @@ export function CargoReservationSheet({
 
   const confirmadaStatus = reservationStatuses.find((s) => s.name === "CONFIRMADA")
   const personaType = proveedorTypes.find((t) => t.name === "PERSONA")
-  const empresaType = proveedorTypes.find((t) => t.name === "EMPRESA")
 
   const {
     register,
@@ -113,19 +107,16 @@ export function CargoReservationSheet({
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
-      proveedorType: "PERSONA",
       destinoType: "SUCURSAL",
       weightKg: undefined,
     },
   })
 
-  const proveedorType = watch("proveedorType")
   const destinoType = watch("destinoType")
 
   useEffect(() => {
     if (!open) {
       reset({
-        proveedorType: "PERSONA",
         destinoType: "SUCURSAL",
         weightKg: undefined,
       })
@@ -133,36 +124,25 @@ export function CargoReservationSheet({
   }, [open, reset])
 
   async function onSubmit(data: FormValues) {
-    const proveedorTypeId = data.proveedorType === "PERSONA"
-      ? personaType?.id ?? ""
-      : empresaType?.id ?? ""
+    const proveedorTypeId = personaType?.id ?? ""
+    if (!proveedorTypeId) {
+      toast.error("Falta el tipo de proveedor PERSONA en el sistema")
+      return
+    }
 
-    let proveedor: CreateCargoReservationInput["proveedor"]
-    if (data.proveedorType === "PERSONA") {
-      if (!data.firstName || !data.lastName || !data.documentTypeId || !data.documentNumber || !data.countryId) {
-        toast.error("Complete todos los campos del proveedor")
-        return
-      }
-      proveedor = {
-        customerType: "PERSONA",
-        firstName: data.firstName,
-        lastName: data.lastName,
-        documentTypeId: data.documentTypeId,
-        documentNumber: data.documentNumber,
-        countryId: data.countryId,
-        birthDate: data.birthDate,
-      }
-    } else {
-      if (!data.companyName || !data.taxId) {
-        toast.error("Complete los campos de la empresa")
-        return
-      }
-      proveedor = {
-        customerType: "EMPRESA",
-        companyName: data.companyName,
-        taxId: data.taxId,
-        contactName: data.contactName,
-      }
+    if (!data.firstName || !data.lastName || !data.documentTypeId || !data.documentNumber || !data.countryId) {
+      toast.error("Complete todos los campos del remitente")
+      return
+    }
+
+    const proveedor: CreateCargoReservationInput["proveedor"] = {
+      customerType: "PERSONA",
+      firstName: data.firstName,
+      lastName: data.lastName,
+      documentTypeId: data.documentTypeId,
+      documentNumber: data.documentNumber,
+      countryId: data.countryId,
+      birthDate: data.birthDate,
     }
 
     try {
@@ -187,7 +167,7 @@ export function CargoReservationSheet({
         reservationStatusId: confirmadaStatus?.id ?? "",
       })
       toast.success("Encomienda registrada exitosamente")
-      reset({ proveedorType: "PERSONA", destinoType: "SUCURSAL", weightKg: undefined })
+      reset({ destinoType: "SUCURSAL", weightKg: undefined })
       setOpen(false)
       router.refresh()
     } catch (err) {
@@ -237,95 +217,55 @@ export function CargoReservationSheet({
             )}
           </div>
 
-          {/* Proveedor */}
+          {/* Remitente (PERSONA inline). Para AGENCIA / INSTITUCION_PUBLICA,
+              creá primero el proveedor en /proveedores. */}
           <div className="border-t pt-4">
-            <p className="text-sm font-medium mb-3">Proveedor (remitente)</p>
+            <p className="text-sm font-medium mb-3">Remitente</p>
             <div className="flex flex-col gap-3">
-              <div className="flex flex-col gap-1.5">
-                <Label>Tipo de proveedor</Label>
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant={proveedorType === "PERSONA" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setValue("proveedorType", "PERSONA")}
-                  >
-                    Persona
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={proveedorType === "EMPRESA" ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setValue("proveedorType", "EMPRESA")}
-                  >
-                    Empresa
-                  </Button>
+              <div className="flex gap-2">
+                <div className="flex flex-col gap-1.5 flex-1">
+                  <Label htmlFor="firstName">Nombre</Label>
+                  <Input id="firstName" placeholder="Juan" {...register("firstName")} />
+                </div>
+                <div className="flex flex-col gap-1.5 flex-1">
+                  <Label htmlFor="lastName">Apellido</Label>
+                  <Input id="lastName" placeholder="Pérez" {...register("lastName")} />
                 </div>
               </div>
-
-              {proveedorType === "PERSONA" ? (
-                <>
-                  <div className="flex gap-2">
-                    <div className="flex flex-col gap-1.5 flex-1">
-                      <Label htmlFor="firstName">Nombre</Label>
-                      <Input id="firstName" placeholder="Juan" {...register("firstName")} />
-                    </div>
-                    <div className="flex flex-col gap-1.5 flex-1">
-                      <Label htmlFor="lastName">Apellido</Label>
-                      <Input id="lastName" placeholder="Pérez" {...register("lastName")} />
-                    </div>
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    <Label htmlFor="documentTypeId">Tipo de documento</Label>
-                    <Select onValueChange={(val) => setValue("documentTypeId", val)}>
-                      <SelectTrigger id="documentTypeId" className="w-full">
-                        <SelectValue placeholder="Seleccionar tipo" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {documentTypes.map((dt) => (
-                          <SelectItem key={dt.id} value={dt.id}>{dt.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    <Label htmlFor="documentNumber">Número de documento</Label>
-                    <Input id="documentNumber" placeholder="V-12345678" {...register("documentNumber")} />
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    <Label htmlFor="countryId">País</Label>
-                    <Select onValueChange={(val) => setValue("countryId", val)}>
-                      <SelectTrigger id="countryId" className="w-full">
-                        <SelectValue placeholder="Seleccionar país" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {countries.map((c) => (
-                          <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    <Label htmlFor="birthDate">Fecha de nacimiento (opcional)</Label>
-                    <Input id="birthDate" type="date" {...register("birthDate")} />
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="flex flex-col gap-1.5">
-                    <Label htmlFor="companyName">Nombre de la empresa</Label>
-                    <Input id="companyName" placeholder="Empresa S.A." {...register("companyName")} />
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    <Label htmlFor="taxId">RIF/NIT</Label>
-                    <Input id="taxId" placeholder="J-12345678-0" {...register("taxId")} />
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    <Label htmlFor="contactName">Persona de contacto (opcional)</Label>
-                    <Input id="contactName" placeholder="Juan Pérez" {...register("contactName")} />
-                  </div>
-                </>
-              )}
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="documentTypeId">Tipo de documento</Label>
+                <Select onValueChange={(val) => setValue("documentTypeId", val)}>
+                  <SelectTrigger id="documentTypeId" className="w-full">
+                    <SelectValue placeholder="Seleccionar tipo" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {documentTypes.map((dt) => (
+                      <SelectItem key={dt.id} value={dt.id}>{dt.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="documentNumber">Número de documento</Label>
+                <Input id="documentNumber" placeholder="V-12345678" {...register("documentNumber")} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="countryId">País</Label>
+                <Select onValueChange={(val) => setValue("countryId", val)}>
+                  <SelectTrigger id="countryId" className="w-full">
+                    <SelectValue placeholder="Seleccionar país" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {countries.map((c) => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="birthDate">Fecha de nacimiento (opcional)</Label>
+                <Input id="birthDate" type="date" {...register("birthDate")} />
+              </div>
             </div>
           </div>
 

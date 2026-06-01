@@ -16,7 +16,6 @@ const RESERVATION_STATUSES = ["PENDIENTE", "CONFIRMADA", "CANCELADA"] as const;
 
 const CUSTOMER_TYPES = [
   "PERSONA",
-  "EMPRESA",
   "AGENCIA",
   "INSTITUCION_PUBLICA",
 ] as const;
@@ -82,6 +81,23 @@ async function main() {
   // 4. Tipos de proveedor
   for (const name of CUSTOMER_TYPES) {
     await prisma.proveedorType.upsert({ where: { name }, update: {}, create: { name } });
+  }
+
+  // 4b. Limpieza legacy: EMPRESA fue retirado del catalogo. Si quedo algun
+  // registro (por seeds antiguos), migramos sus proveedores a AGENCIA y
+  // borramos el tipo.
+  const legacyEmpresa = await prisma.proveedorType.findUnique({
+    where: { name: "EMPRESA" },
+  });
+  if (legacyEmpresa) {
+    const agencia = await prisma.proveedorType.findUniqueOrThrow({
+      where: { name: "AGENCIA" },
+    });
+    await prisma.proveedor.updateMany({
+      where: { proveedorTypeId: legacyEmpresa.id },
+      data: { proveedorTypeId: agencia.id },
+    });
+    await prisma.proveedorType.delete({ where: { id: legacyEmpresa.id } });
   }
 
   // 5. Categorías de carga
@@ -271,7 +287,7 @@ async function main() {
   console.log(`  → Países:             ${COUNTRIES.length}`);
   console.log("  → Tipos de documento: CEDULA DE IDENTIDAD, PASAPORTE, RUC");
   console.log("  → Estados de reserva: PENDIENTE, CONFIRMADA, CANCELADA");
-  console.log("  → Tipos de cliente:   PERSONA, EMPRESA");
+  console.log("  → Tipos de proveedor: PERSONA, AGENCIA, INSTITUCION_PUBLICA");
   console.log(`  → Categorías de carga: ${CARGA_CATEGORIAS.join(", ")}`);
   console.log(`  → Roles de tripulación: ${CREW_ROLES.join(", ")}`);
   console.log(`  → Estados de viaje: ${TRIP_STATUSES.map((s) => s.name).join(", ")}`);

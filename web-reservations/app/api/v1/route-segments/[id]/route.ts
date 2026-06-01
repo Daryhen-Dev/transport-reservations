@@ -59,16 +59,12 @@ export const PATCH = withAuth<{ id: string }>(async (req, { auth, params }) => {
       where: { id: data.operatorProveedorId },
       select: { proveedorType: { select: { name: true } } },
     });
-    if (
-      !op ||
-      (op.proveedorType.name !== "AGENCIA" &&
-        op.proveedorType.name !== "EMPRESA")
-    ) {
+    if (!op || op.proveedorType.name !== "AGENCIA") {
       return NextResponse.json(
         {
           error: {
             code: "BAD_REQUEST",
-            message: "El operador debe ser un proveedor AGENCIA o EMPRESA",
+            message: "El operador debe ser un proveedor tipo AGENCIA",
           },
         },
         { status: 400 }

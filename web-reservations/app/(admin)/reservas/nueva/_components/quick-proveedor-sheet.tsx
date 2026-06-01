@@ -42,7 +42,15 @@ export function QuickProveedorSheet({
   const [isPending, startTransition] = useTransition()
 
   const isPersona = proveedorTypeName?.toLowerCase().includes("persona") ?? false
-  const sheetTitle = `Nuevo Proveedor — ${isPersona ? "Persona" : "Empresa"}`
+  const typeLabel =
+    proveedorTypeName === "AGENCIA"
+      ? "Agencia"
+      : proveedorTypeName === "INSTITUCION_PUBLICA"
+        ? "Institución pública"
+        : isPersona
+          ? "Persona"
+          : (proveedorTypeName ?? "Proveedor")
+  const sheetTitle = `Nuevo Proveedor — ${typeLabel}`
 
   const [firstName, setFirstName] = useState("")
   const [lastName, setLastName] = useState("")

@@ -217,9 +217,10 @@ describe("Reservations API", () => {
     proveedorId = (proveedorRes.body.data as ProveedorDto).id;
   });
 
-  it("creates a passenger reservation (201, seatCount=2, inline empresa proveedor)", async () => {
-    // Use EMPRESA discriminator so the auto-link-passenger path (PERSONA +
-    // seatCount===1) does not fire — we want to add a passenger explicitly.
+  it("creates a passenger reservation (201, seatCount=2, inline PERSONA proveedor)", async () => {
+    // With seatCount>1 the auto-link-passenger path does not fire — we add
+    // a passenger explicitly in a later test.
+    const uniqueDoc = `BUYER-${Date.now()}`;
     const { status, body } = await apiFetch<Envelope<PassengerReservationDto>>(
       "/api/v1/reservations/passengers",
       {
@@ -230,10 +231,14 @@ describe("Reservations API", () => {
           seatCount: 2,
           proveedorTypeId: proveedorTypePersonaId,
           proveedor: {
-            customerType: "EMPRESA",
-            companyName: "Empresa Test",
-            taxId: `J-${Date.now()}`,
+            customerType: "PERSONA",
+            firstName: "Comprador",
+            lastName: "Test",
+            documentTypeId,
+            documentNumber: uniqueDoc,
+            countryId,
           },
+          priceAmount: 30,
         }),
       }
     );

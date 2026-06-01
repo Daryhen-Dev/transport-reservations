@@ -220,25 +220,17 @@ export async function POST(req: NextRequest) {
   try {
     const created = await prisma.$transaction(async (tx) => {
       const newProveedor = await tx.proveedor.create({
-        data:
-          proveedor.customerType === "PERSONA"
-            ? {
-                proveedorTypeId,
-                firstName: proveedor.firstName,
-                lastName: proveedor.lastName,
-                documentTypeId: proveedor.documentTypeId,
-                documentNumber: proveedor.documentNumber,
-                countryId: proveedor.countryId,
-                birthDate: proveedor.birthDate
-                  ? new Date(proveedor.birthDate)
-                  : undefined,
-              }
-            : {
-                proveedorTypeId,
-                companyName: proveedor.companyName,
-                taxId: proveedor.taxId,
-                contactName: proveedor.contactName ?? undefined,
-              },
+        data: {
+          proveedorTypeId,
+          firstName: proveedor.firstName,
+          lastName: proveedor.lastName,
+          documentTypeId: proveedor.documentTypeId,
+          documentNumber: proveedor.documentNumber,
+          countryId: proveedor.countryId,
+          birthDate: proveedor.birthDate
+            ? new Date(proveedor.birthDate)
+            : undefined,
+        },
       });
 
       const reservation = await tx.passengerReservation.create({
@@ -255,10 +247,10 @@ export async function POST(req: NextRequest) {
         },
       });
 
-      // Auto-link proveedor as passenger when seatCount === 1 and proveedor is
-      // PERSONA. Matches the legacy server-action behavior.
+      // Auto-link proveedor as passenger when seatCount === 1.
+      // Matches the legacy server-action behavior.
       const autoPassengers =
-        seatCount === 1 && proveedor.customerType === "PERSONA"
+        seatCount === 1
           ? [
               {
                 firstName: proveedor.firstName,

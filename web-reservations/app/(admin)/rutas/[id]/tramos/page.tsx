@@ -33,7 +33,7 @@ export default async function RouteTramosPage({
       orderBy: { position: "asc" },
     }),
     prisma.proveedor.findMany({
-      where: { proveedorType: { name: { in: ["AGENCIA", "EMPRESA"] } } },
+      where: { proveedorType: { name: "AGENCIA" } },
       select: {
         id: true,
         firstName: true,

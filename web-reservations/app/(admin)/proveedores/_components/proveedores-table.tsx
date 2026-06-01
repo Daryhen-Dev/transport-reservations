@@ -118,7 +118,7 @@ export function ProveedoresTable({
       header: "",
       cell: ({ row }) => {
         const typeName = row.original.proveedorType.name
-        const canHaveTariffs = typeName === "AGENCIA" || typeName === "EMPRESA"
+        const canHaveTariffs = typeName === "AGENCIA"
         return (
           <div className="flex items-center justify-end gap-2">
             {canHaveTariffs && (

@@ -255,7 +255,7 @@ export function ProveedorSheet({
             </>
           )}
 
-          {/* EMPRESA fields */}
+          {/* Campos para AGENCIA / INSTITUCION_PUBLICA */}
           {isEmpresa && (
             <div className="flex flex-col gap-1.5">
               <Label htmlFor="companyName">Nombre de empresa</Label>
