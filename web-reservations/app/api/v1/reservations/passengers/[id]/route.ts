@@ -4,7 +4,10 @@ import { prisma } from "@/lib/db";
 import { requireAuth, requireBranchAccess } from "@/lib/api/auth";
 import { updatePassengerReservationSchema } from "@/lib/api/schemas/passenger-reservations";
 import { auditUpdate } from "@/lib/api/audit";
-import { resolveTariff, suggestedFor } from "@/lib/services/tariff.service";
+import {
+  resolveTariff,
+  suggestedForProveedorType,
+} from "@/lib/services/tariff.service";
 
 const RESERVATION_DETAIL_INCLUDE = {
   trip: {
@@ -34,7 +37,7 @@ const RESERVATION_DETAIL_INCLUDE = {
       phone: true,
     },
   },
-  externalAgency: {
+  referredByAgency: {
     select: {
       id: true,
       firstName: true,
@@ -165,8 +168,8 @@ export async function PATCH(
     seatCount,
     tripId,
     priceAmount,
-    salesChannel,
-    externalAgencyId,
+    referredByAgencyId: referredByAgencyIdInput,
+    commissionAmount: commissionAmountInput,
   } = parsed.data;
 
   let targetRoute = existing.trip.route;
@@ -214,7 +217,10 @@ export async function PATCH(
 
   const existingReservation = await prisma.passengerReservation.findUnique({
     where: { id },
-    select: { proveedorId: true },
+    select: {
+      proveedorId: true,
+      proveedor: { select: { proveedorType: { select: { name: true } } } },
+    },
   });
   const tariff = await resolveTariff(
     existingReservation!.proveedorId,
@@ -234,38 +240,18 @@ export async function PATCH(
     );
   }
 
-  const finalChannel = salesChannel ?? undefined;
-  let finalExternalAgencyId: string | null | undefined;
-  if (finalChannel === "DIRECT") {
-    finalExternalAgencyId = null;
-  } else if (finalChannel) {
-    if (externalAgencyId === undefined) {
-      return NextResponse.json(
-        {
-          error: {
-            code: "BAD_REQUEST",
-            message: "Debe seleccionar la agencia externa para este canal",
-          },
-        },
-        { status: 400 }
-      );
-    }
-    finalExternalAgencyId = externalAgencyId;
-  } else if (externalAgencyId !== undefined) {
-    finalExternalAgencyId = externalAgencyId;
-  }
-
-  if (finalExternalAgencyId) {
-    const agency = await prisma.proveedor.findUnique({
-      where: { id: finalExternalAgencyId },
+  // Validar agencia referida cuando se manda.
+  if (referredByAgencyIdInput) {
+    const refAgency = await prisma.proveedor.findUnique({
+      where: { id: referredByAgencyIdInput },
       include: { proveedorType: { select: { name: true } } },
     });
-    if (!agency || agency.proveedorType.name !== "AGENCIA") {
+    if (!refAgency || refAgency.proveedorType.name !== "AGENCIA") {
       return NextResponse.json(
         {
           error: {
             code: "BAD_REQUEST",
-            message: "La agencia externa debe ser un proveedor tipo AGENCIA",
+            message: "La agencia que refirió debe ser un proveedor tipo AGENCIA",
           },
         },
         { status: 400 }
@@ -273,10 +259,14 @@ export async function PATCH(
     }
   }
 
-  // Recompute suggestedAmount when channel changes (snapshot stays otherwise).
+  // Recalcular suggestedAmount si cambia el viaje (la ruta puede ser otra).
+  // Mantiene el snapshot histórico cuando no hay cambio de viaje.
   let suggestedAmount: number | undefined;
-  if (finalChannel) {
-    suggestedAmount = suggestedFor(finalChannel, tariff);
+  if (tripId) {
+    suggestedAmount = suggestedForProveedorType(
+      existingReservation!.proveedor.proveedorType.name,
+      tariff
+    );
   }
 
   try {
@@ -286,8 +276,8 @@ export async function PATCH(
         seatCount,
         tripId,
         priceAmount,
-        salesChannel: finalChannel,
-        externalAgencyId: finalExternalAgencyId,
+        referredByAgencyId: referredByAgencyIdInput,
+        commissionAmount: commissionAmountInput,
         suggestedAmount,
         ...auditUpdate(authOrError.userId),
       },

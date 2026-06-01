@@ -22,14 +22,13 @@ const inlinePassengerSchema = z.object({
   birthDate: z.string().optional(),
 });
 
-export const salesChannelSchema = z.enum([
-  "DIRECT",
-  "FROM_AGENCY",
-  "TO_AGENCY",
-]);
-export type SalesChannel = z.infer<typeof salesChannelSchema>;
-
 const priceField = z.number().positive("El precio debe ser mayor a 0");
+const commissionField = z
+  .number()
+  .nonnegative("La comisión no puede ser negativa")
+  .nullable()
+  .optional();
+const referralField = cuidSchema.nullable().optional();
 
 // Full create: inline proveedor + (optional) inline passengers attached in tx.
 export const createPassengerReservationSchema = z.object({
@@ -40,8 +39,8 @@ export const createPassengerReservationSchema = z.object({
   reservationStatusId: cuidSchema.optional(),
   passengers: z.array(inlinePassengerSchema).optional(),
   priceAmount: priceField,
-  salesChannel: salesChannelSchema.optional(),
-  externalAgencyId: cuidSchema.optional().nullable(),
+  referredByAgencyId: referralField,
+  commissionAmount: commissionField,
 });
 
 // Quick create (calendar "nueva reserva" flow): existing proveedor + auto-trip.
@@ -53,8 +52,8 @@ export const createQuickPassengerReservationSchema = z.object({
   seatCount: z.number().int().min(1, "Debe reservar al menos 1 asiento"),
   isPending: z.boolean().optional(),
   priceAmount: priceField,
-  salesChannel: salesChannelSchema.optional(),
-  externalAgencyId: cuidSchema.optional().nullable(),
+  referredByAgencyId: referralField,
+  commissionAmount: commissionField,
 });
 
 export const updateReservationStatusSchema = z.object({
@@ -65,8 +64,8 @@ export const updatePassengerReservationSchema = z.object({
   seatCount: z.number().int().min(1, "Mínimo 1 asiento").optional(),
   tripId: cuidSchema.optional(),
   priceAmount: priceField.optional(),
-  salesChannel: salesChannelSchema.optional(),
-  externalAgencyId: cuidSchema.nullable().optional(),
+  referredByAgencyId: referralField,
+  commissionAmount: commissionField,
 });
 
 // Nested /passengers: discriminated body — create new + link, or link existing.

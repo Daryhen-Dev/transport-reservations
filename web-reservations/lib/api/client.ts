@@ -325,7 +325,7 @@ export type PassengerLink = {
   birthDate: string | null;
 };
 
-export type SalesChannel = "DIRECT" | "FROM_AGENCY" | "TO_AGENCY";
+export type ProveedorTypeName = "PERSONA" | "AGENCIA" | "INSTITUCION_PUBLICA";
 
 export type SalesReport = {
   totals: {
@@ -334,19 +334,21 @@ export type SalesReport = {
     revenueAmount: number;
     suggestedAmount: number;
     delta: number;
+    commissionAmount: number;
   };
-  byChannel: Array<{
-    channel: SalesChannel;
+  byProveedorType: Array<{
+    proveedorTypeName: ProveedorTypeName | string;
     reservationCount: number;
     seatCount: number;
     revenueAmount: number;
   }>;
-  byAgency: Array<{
+  byReferralAgency: Array<{
     agencyId: string;
     agencyName: string;
     reservationCount: number;
     seatCount: number;
     revenueAmount: number;
+    commissionAmount: number;
   }>;
   byRoute: Array<{
     routeId: string;
@@ -363,14 +365,14 @@ export type PassengerReservation = {
   seatCount: number;
   priceAmount: string;        // Decimal serializes as string
   suggestedAmount: string;
-  salesChannel: SalesChannel;
-  externalAgencyId: string | null;
-  externalAgency: {
+  referredByAgencyId: string | null;
+  referredByAgency: {
     id: string;
     firstName: string | null;
     lastName: string | null;
     companyName: string | null;
   } | null;
+  commissionAmount: string | null;
   trip: {
     id: string;
     departureAt: string;

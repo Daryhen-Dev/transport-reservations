@@ -1,7 +1,5 @@
 import { prisma } from "@/lib/db";
 
-type ChannelKey = "DIRECT" | "FROM_AGENCY" | "TO_AGENCY";
-
 export type SalesReportFilters = {
   branchId?: string;
   from?: Date;
@@ -14,20 +12,22 @@ export type SalesReport = {
     seatCount: number;
     revenueAmount: number;
     suggestedAmount: number;
-    delta: number; // sum(price - suggested)
+    delta: number; // sum(price - suggested) × seatCount
+    commissionAmount: number;
   };
-  byChannel: Array<{
-    channel: ChannelKey;
+  byProveedorType: Array<{
+    proveedorTypeName: string;
     reservationCount: number;
     seatCount: number;
     revenueAmount: number;
   }>;
-  byAgency: Array<{
+  byReferralAgency: Array<{
     agencyId: string;
     agencyName: string;
     reservationCount: number;
     seatCount: number;
     revenueAmount: number;
+    commissionAmount: number;
   }>;
   byRoute: Array<{
     routeId: string;
@@ -74,15 +74,18 @@ export async function getSalesReport(
       seatCount: true,
       priceAmount: true,
       suggestedAmount: true,
-      salesChannel: true,
-      externalAgencyId: true,
-      externalAgency: {
+      commissionAmount: true,
+      referredByAgencyId: true,
+      referredByAgency: {
         select: {
           id: true,
           firstName: true,
           lastName: true,
           companyName: true,
         },
+      },
+      proveedor: {
+        select: { proveedorType: { select: { name: true } } },
       },
       trip: {
         select: {
@@ -98,10 +101,11 @@ export async function getSalesReport(
     revenueAmount: 0,
     suggestedAmount: 0,
     delta: 0,
+    commissionAmount: 0,
   };
 
-  const channelMap = new Map<
-    ChannelKey,
+  const typeMap = new Map<
+    string,
     { reservationCount: number; seatCount: number; revenueAmount: number }
   >();
   const agencyMap = new Map<
@@ -112,6 +116,7 @@ export async function getSalesReport(
       reservationCount: number;
       seatCount: number;
       revenueAmount: number;
+      commissionAmount: number;
     }
   >();
   const routeMap = new Map<
@@ -128,34 +133,40 @@ export async function getSalesReport(
   for (const r of rows) {
     const price = Number(r.priceAmount.toString());
     const suggested = Number(r.suggestedAmount.toString());
+    const commission = r.commissionAmount
+      ? Number(r.commissionAmount.toString())
+      : 0;
     totals.seatCount += r.seatCount;
     totals.revenueAmount += price * r.seatCount;
     totals.suggestedAmount += suggested * r.seatCount;
     totals.delta += (price - suggested) * r.seatCount;
+    totals.commissionAmount += commission;
 
-    const channel = r.salesChannel as ChannelKey;
-    const c = channelMap.get(channel) ?? {
+    const typeName = r.proveedor.proveedorType.name;
+    const t = typeMap.get(typeName) ?? {
       reservationCount: 0,
       seatCount: 0,
       revenueAmount: 0,
     };
-    c.reservationCount += 1;
-    c.seatCount += r.seatCount;
-    c.revenueAmount += price * r.seatCount;
-    channelMap.set(channel, c);
+    t.reservationCount += 1;
+    t.seatCount += r.seatCount;
+    t.revenueAmount += price * r.seatCount;
+    typeMap.set(typeName, t);
 
-    if (r.externalAgencyId && r.externalAgency) {
-      const a = agencyMap.get(r.externalAgencyId) ?? {
-        agencyId: r.externalAgencyId,
-        agencyName: agencyDisplay(r.externalAgency),
+    if (r.referredByAgencyId && r.referredByAgency) {
+      const a = agencyMap.get(r.referredByAgencyId) ?? {
+        agencyId: r.referredByAgencyId,
+        agencyName: agencyDisplay(r.referredByAgency),
         reservationCount: 0,
         seatCount: 0,
         revenueAmount: 0,
+        commissionAmount: 0,
       };
       a.reservationCount += 1;
       a.seatCount += r.seatCount;
       a.revenueAmount += price * r.seatCount;
-      agencyMap.set(r.externalAgencyId, a);
+      a.commissionAmount += commission;
+      agencyMap.set(r.referredByAgencyId, a);
     }
 
     const route = r.trip.route;
@@ -174,15 +185,10 @@ export async function getSalesReport(
 
   return {
     totals,
-    byChannel: (["DIRECT", "FROM_AGENCY", "TO_AGENCY"] as const).map(
-      (channel) => ({
-        channel,
-        reservationCount: channelMap.get(channel)?.reservationCount ?? 0,
-        seatCount: channelMap.get(channel)?.seatCount ?? 0,
-        revenueAmount: channelMap.get(channel)?.revenueAmount ?? 0,
-      })
-    ),
-    byAgency: Array.from(agencyMap.values()).sort(
+    byProveedorType: Array.from(typeMap.entries())
+      .map(([proveedorTypeName, v]) => ({ proveedorTypeName, ...v }))
+      .sort((a, b) => b.revenueAmount - a.revenueAmount),
+    byReferralAgency: Array.from(agencyMap.values()).sort(
       (a, b) => b.revenueAmount - a.revenueAmount
     ),
     byRoute: Array.from(routeMap.values()).sort(

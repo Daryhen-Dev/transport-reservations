@@ -7,7 +7,7 @@ type Row = {
   seatCount: number;
   priceAmount: { toString(): string };
   suggestedAmount: { toString(): string };
-  salesChannel: "DIRECT" | "FROM_AGENCY" | "TO_AGENCY";
+  commissionAmount: { toString(): string } | null;
   trip: {
     departureAt: Date;
     route: { origin: string; destination: string };
@@ -23,7 +23,7 @@ type Row = {
     documentType: { name: string } | null;
     proveedorType: { name: string };
   };
-  externalAgency: {
+  referredByAgency: {
     firstName: string | null;
     lastName: string | null;
     companyName: string | null;
@@ -33,13 +33,7 @@ type Row = {
   createdAt: Date;
 };
 
-const channelLabel: Record<Row["salesChannel"], string> = {
-  DIRECT: "Directo",
-  FROM_AGENCY: "Desde agencia",
-  TO_AGENCY: "Comisión a agencia",
-};
-
-function agencyName(a: Row["externalAgency"]): string {
+function agencyName(a: Row["referredByAgency"]): string {
   if (!a) return "";
   return a.companyName ?? `${a.firstName ?? ""} ${a.lastName ?? ""}`.trim();
 }
@@ -71,8 +65,6 @@ const columns: CsvColumn<Row>[] = [
   { header: "Teléfono", accessor: (r) => r.proveedor.phone ?? "" },
   { header: "Asientos", accessor: (r) => r.seatCount },
   { header: "Pasajeros asignados", accessor: (r) => r._count.passengers },
-  { header: "Canal", accessor: (r) => channelLabel[r.salesChannel] },
-  { header: "Agencia externa", accessor: (r) => agencyName(r.externalAgency) },
   {
     header: "Precio sugerido",
     accessor: (r) => Number(r.suggestedAmount.toString()).toFixed(2),
@@ -80,6 +72,14 @@ const columns: CsvColumn<Row>[] = [
   {
     header: "Precio cobrado",
     accessor: (r) => Number(r.priceAmount.toString()).toFixed(2),
+  },
+  { header: "Referido por", accessor: (r) => agencyName(r.referredByAgency) },
+  {
+    header: "Comisión",
+    accessor: (r) =>
+      r.commissionAmount
+        ? Number(r.commissionAmount.toString()).toFixed(2)
+        : "",
   },
   { header: "Estado reserva", accessor: (r) => r.reservationStatus.name },
   {
@@ -114,7 +114,7 @@ export const GET = withAuth(async (req, { auth }) => {
       seatCount: true,
       priceAmount: true,
       suggestedAmount: true,
-      salesChannel: true,
+      commissionAmount: true,
       trip: {
         select: {
           departureAt: true,
@@ -134,7 +134,7 @@ export const GET = withAuth(async (req, { auth }) => {
           proveedorType: { select: { name: true } },
         },
       },
-      externalAgency: {
+      referredByAgency: {
         select: {
           firstName: true,
           lastName: true,

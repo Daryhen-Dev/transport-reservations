@@ -48,10 +48,11 @@ const schema = z.object({
   // Reservation
   seatCount: z.number().int().min(1, "Mínimo 1 asiento"),
   passengers: z.array(clienteSchema).optional(),
-  // Channel + pricing
-  salesChannel: z.enum(["DIRECT", "FROM_AGENCY", "TO_AGENCY"]),
-  externalAgencyId: z.string().optional(),
+  // Pricing
   priceAmount: z.number().positive("El precio debe ser mayor a 0"),
+  // Referido por agencia (opcional)
+  referredByAgencyId: z.string().optional(),
+  commissionAmount: z.number().nonnegative().optional(),
 })
 
 type FormValues = z.infer<typeof schema>
@@ -127,20 +128,16 @@ export function PassengerReservationSheet({
     defaultValues: {
       seatCount: 1,
       passengers: [],
-      salesChannel: "DIRECT",
-      externalAgencyId: "",
       priceAmount: 0,
+      referredByAgencyId: "",
     },
   })
 
   const tripIdValue = watch("tripId")
-  const salesChannelValue = watch("salesChannel")
   const selectedTrip = trips.find((t) => t.id === tripIdValue)
-  const directPrice = asNumber(selectedTrip?.route.directPriceAmount)
-  const incomingPrice = asNumber(selectedTrip?.route.incomingAgencyPriceAmount)
+  // Inline siempre crea comprador PERSONA → suggested = tarifa directa.
+  const suggested = asNumber(selectedTrip?.route.directPriceAmount)
   const minPrice = asNumber(selectedTrip?.route.minPrice)
-  const suggested =
-    salesChannelValue === "FROM_AGENCY" ? incomingPrice : directPrice
 
   useEffect(() => {
     if (suggested !== null) {
@@ -158,9 +155,8 @@ export function PassengerReservationSheet({
       reset({
         seatCount: 1,
         passengers: [],
-        salesChannel: "DIRECT",
-        externalAgencyId: "",
         priceAmount: 0,
+        referredByAgencyId: "",
       })
     }
   }, [open, reset])
@@ -187,10 +183,6 @@ export function PassengerReservationSheet({
       birthDate: data.birthDate,
     }
 
-    if (data.salesChannel !== "DIRECT" && !data.externalAgencyId) {
-      toast.error("Seleccione la agencia externa para este canal")
-      return
-    }
     if (minPrice !== null && data.priceAmount < minPrice) {
       toast.error(`El precio no puede ser menor al mínimo ($${minPrice.toFixed(2)})`)
       return
@@ -205,19 +197,15 @@ export function PassengerReservationSheet({
         proveedorTypeId,
         reservationStatusId: confirmadaStatus?.id,
         priceAmount: data.priceAmount,
-        salesChannel: data.salesChannel,
-        externalAgencyId:
-          data.salesChannel === "DIRECT"
-            ? null
-            : data.externalAgencyId || null,
+        referredByAgencyId: data.referredByAgencyId || null,
+        commissionAmount: data.commissionAmount ?? null,
       })
       toast.success("Reserva creada exitosamente")
       reset({
         seatCount: 1,
         passengers: [],
-        salesChannel: "DIRECT",
-        externalAgencyId: "",
         priceAmount: 0,
+        referredByAgencyId: "",
       })
       setOpen(false)
       router.refresh()
@@ -427,54 +415,8 @@ export function PassengerReservationSheet({
             ))}
           </div>
 
-          {/* Canal de venta */}
+          {/* Precio cobrado */}
           <div className="flex flex-col gap-1.5 border-t pt-4">
-            <Label htmlFor="salesChannel">Canal de venta</Label>
-            <Select
-              value={salesChannelValue}
-              onValueChange={(val) =>
-                setValue("salesChannel", val as FormValues["salesChannel"])
-              }
-            >
-              <SelectTrigger id="salesChannel" className="w-full">
-                <SelectValue placeholder="Seleccionar canal" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="DIRECT">Directo</SelectItem>
-                <SelectItem value="FROM_AGENCY">Desde agencia externa</SelectItem>
-                <SelectItem value="TO_AGENCY">Con comisión a agencia</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {salesChannelValue !== "DIRECT" && (
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="externalAgencyId">Agencia externa</Label>
-              <Select
-                value={watch("externalAgencyId") ?? ""}
-                onValueChange={(val) => setValue("externalAgencyId", val)}
-              >
-                <SelectTrigger id="externalAgencyId" className="w-full">
-                  <SelectValue placeholder="Seleccionar agencia" />
-                </SelectTrigger>
-                <SelectContent>
-                  {agencies.length === 0 ? (
-                    <div className="px-2 py-1.5 text-sm text-muted-foreground">
-                      No hay agencias registradas
-                    </div>
-                  ) : (
-                    agencies.map((a) => (
-                      <SelectItem key={a.id} value={a.id}>
-                        {agencyLabel(a)}
-                      </SelectItem>
-                    ))
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
-          )}
-
-          <div className="flex flex-col gap-1.5">
             <Label htmlFor="priceAmount">Precio cobrado (USD)</Label>
             <Input
               id="priceAmount"
@@ -497,6 +439,44 @@ export function PassengerReservationSheet({
               </p>
             )}
           </div>
+
+          {/* Referida por agencia (opcional, si una agencia trajo al cliente) */}
+          <div className="flex flex-col gap-1.5 border-t pt-4">
+            <Label htmlFor="referredByAgencyId">
+              ¿Referido por agencia? (opcional)
+            </Label>
+            <Select
+              value={watch("referredByAgencyId") ?? ""}
+              onValueChange={(val) =>
+                setValue("referredByAgencyId", val === "__none__" ? "" : val)
+              }
+            >
+              <SelectTrigger id="referredByAgencyId" className="w-full">
+                <SelectValue placeholder="Sin referido" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__none__">Sin referido</SelectItem>
+                {agencies.map((a) => (
+                  <SelectItem key={a.id} value={a.id}>
+                    {agencyLabel(a)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {watch("referredByAgencyId") && (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="commissionAmount">Comisión a pagar (USD)</Label>
+              <Input
+                id="commissionAmount"
+                type="number"
+                step="0.01"
+                min={0}
+                {...register("commissionAmount", { valueAsNumber: true })}
+              />
+            </div>
+          )}
 
           <Button type="submit" disabled={isSubmitting}>
             {isSubmitting ? "Creando..." : "Crear reserva"}

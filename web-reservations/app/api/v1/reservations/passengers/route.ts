@@ -33,7 +33,7 @@ const RESERVATION_INCLUDE = {
       phone: true,
     },
   },
-  externalAgency: {
+  referredByAgency: {
     select: {
       id: true,
       firstName: true,
@@ -105,26 +105,13 @@ export async function POST(req: NextRequest) {
     proveedorTypeId,
     passengers,
     priceAmount,
-    salesChannel: salesChannelInput,
-    externalAgencyId: externalAgencyIdInput,
+    referredByAgencyId: referredByAgencyIdInput,
+    commissionAmount: commissionAmountInput,
   } = parsed.data;
   let { reservationStatusId } = parsed.data;
 
-  const salesChannel = salesChannelInput ?? "DIRECT";
-  const externalAgencyId =
-    salesChannel === "DIRECT" ? null : externalAgencyIdInput ?? null;
-
-  if (salesChannel !== "DIRECT" && !externalAgencyId) {
-    return NextResponse.json(
-      {
-        error: {
-          code: "BAD_REQUEST",
-          message: "Debe seleccionar la agencia externa para este canal",
-        },
-      },
-      { status: 400 }
-    );
-  }
+  const referredByAgencyId = referredByAgencyIdInput ?? null;
+  const commissionAmount = commissionAmountInput ?? null;
 
   const trip = await prisma.trip.findUnique({
     where: { id: tripId },
@@ -162,17 +149,29 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  if (externalAgencyId) {
-    const agency = await prisma.proveedor.findUnique({
-      where: { id: externalAgencyId },
+  // Resolver tipo del comprador para derivar el precio sugerido.
+  const buyerType = await prisma.proveedorType.findUnique({
+    where: { id: proveedorTypeId },
+    select: { name: true },
+  });
+  if (!buyerType) {
+    return NextResponse.json(
+      { error: { code: "BAD_REQUEST", message: "Tipo de proveedor inválido" } },
+      { status: 400 }
+    );
+  }
+
+  if (referredByAgencyId) {
+    const refAgency = await prisma.proveedor.findUnique({
+      where: { id: referredByAgencyId },
       include: { proveedorType: { select: { name: true } } },
     });
-    if (!agency || agency.proveedorType.name !== "AGENCIA") {
+    if (!refAgency || refAgency.proveedorType.name !== "AGENCIA") {
       return NextResponse.json(
         {
           error: {
             code: "BAD_REQUEST",
-            message: "La agencia externa debe ser un proveedor tipo AGENCIA",
+            message: "La agencia que refirió debe ser un proveedor tipo AGENCIA",
           },
         },
         { status: 400 }
@@ -194,7 +193,7 @@ export async function POST(req: NextRequest) {
   }
 
   const suggestedAmount =
-    salesChannel === "FROM_AGENCY"
+    buyerType.name === "AGENCIA" || buyerType.name === "INSTITUCION_PUBLICA"
       ? Number(trip.route.incomingAgencyPriceAmount)
       : Number(trip.route.directPriceAmount);
 
@@ -240,8 +239,8 @@ export async function POST(req: NextRequest) {
           seatCount,
           priceAmount,
           suggestedAmount,
-          salesChannel,
-          externalAgencyId,
+          referredByAgencyId,
+          commissionAmount,
           reservationStatusId: reservationStatusId!,
           ...auditCreate(authOrError.userId),
         },

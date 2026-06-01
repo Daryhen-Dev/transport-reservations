@@ -4,7 +4,8 @@ import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { IconDownload } from "@tabler/icons-react"
-import { api, ApiError, type SalesReport, type SalesChannel } from "@/lib/api/client"
+import { api, ApiError, type SalesReport } from "@/lib/api/client"
+import { formatProveedorTypeName } from "@/lib/proveedor-types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -16,12 +17,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table"
-
-const CHANNEL_LABELS: Record<SalesChannel, string> = {
-  DIRECT: "Directo",
-  FROM_AGENCY: "Desde agencia",
-  TO_AGENCY: "Comisión a agencia",
-}
 
 function money(n: number): string {
   return `$${n.toFixed(2)}`
@@ -118,7 +113,7 @@ export function ReportesClient({
       </div>
 
       {/* KPIs */}
-      <div className="px-4 lg:px-6 grid grid-cols-2 lg:grid-cols-5 gap-3">
+      <div className="px-4 lg:px-6 grid grid-cols-2 lg:grid-cols-6 gap-3">
         <Card label="Reservas" value={String(report.totals.reservationCount)} />
         <Card label="Asientos" value={String(report.totals.seatCount)} />
         <Card label="Ingresos" value={money(report.totals.revenueAmount)} />
@@ -128,40 +123,56 @@ export function ReportesClient({
           value={money(report.totals.delta)}
           tone={report.totals.delta < 0 ? "negative" : undefined}
         />
+        <Card label="Comisiones" value={money(report.totals.commissionAmount)} />
       </div>
 
-      {/* Por canal */}
+      {/* Por tipo de proveedor */}
       <section className="px-4 lg:px-6">
-        <h2 className="text-lg font-semibold mb-3">Por canal</h2>
+        <h2 className="text-lg font-semibold mb-3">Por tipo de comprador</h2>
         <div className="rounded-md border">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Canal</TableHead>
+                <TableHead>Tipo</TableHead>
                 <TableHead className="text-right">Reservas</TableHead>
                 <TableHead className="text-right">Asientos</TableHead>
                 <TableHead className="text-right">Ingresos</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {report.byChannel.map((c) => (
-                <TableRow key={c.channel}>
-                  <TableCell>{CHANNEL_LABELS[c.channel]}</TableCell>
-                  <TableCell className="text-right">{c.reservationCount}</TableCell>
-                  <TableCell className="text-right">{c.seatCount}</TableCell>
-                  <TableCell className="text-right">
-                    {money(c.revenueAmount)}
+              {report.byProveedorType.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={4}
+                    className="text-center text-muted-foreground py-6"
+                  >
+                    Sin reservas en el rango.
                   </TableCell>
                 </TableRow>
-              ))}
+              ) : (
+                report.byProveedorType.map((t) => (
+                  <TableRow key={t.proveedorTypeName}>
+                    <TableCell>
+                      {formatProveedorTypeName(t.proveedorTypeName)}
+                    </TableCell>
+                    <TableCell className="text-right">{t.reservationCount}</TableCell>
+                    <TableCell className="text-right">{t.seatCount}</TableCell>
+                    <TableCell className="text-right">
+                      {money(t.revenueAmount)}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
             </TableBody>
           </Table>
         </div>
       </section>
 
-      {/* Por agencia */}
+      {/* Agencias que refirieron + comisión */}
       <section className="px-4 lg:px-6">
-        <h2 className="text-lg font-semibold mb-3">Por agencia externa</h2>
+        <h2 className="text-lg font-semibold mb-3">
+          Reservas referidas por agencia
+        </h2>
         <div className="rounded-md border">
           <Table>
             <TableHeader>
@@ -170,26 +181,30 @@ export function ReportesClient({
                 <TableHead className="text-right">Reservas</TableHead>
                 <TableHead className="text-right">Asientos</TableHead>
                 <TableHead className="text-right">Ingresos</TableHead>
+                <TableHead className="text-right">Comisión pagada</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {report.byAgency.length === 0 ? (
+              {report.byReferralAgency.length === 0 ? (
                 <TableRow>
                   <TableCell
-                    colSpan={4}
+                    colSpan={5}
                     className="text-center text-muted-foreground py-6"
                   >
-                    Sin reservas asociadas a agencias externas en el rango.
+                    No hubo reservas referidas en el rango.
                   </TableCell>
                 </TableRow>
               ) : (
-                report.byAgency.map((a) => (
+                report.byReferralAgency.map((a) => (
                   <TableRow key={a.agencyId}>
                     <TableCell>{a.agencyName}</TableCell>
                     <TableCell className="text-right">{a.reservationCount}</TableCell>
                     <TableCell className="text-right">{a.seatCount}</TableCell>
                     <TableCell className="text-right">
                       {money(a.revenueAmount)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {money(a.commissionAmount)}
                     </TableCell>
                   </TableRow>
                 ))

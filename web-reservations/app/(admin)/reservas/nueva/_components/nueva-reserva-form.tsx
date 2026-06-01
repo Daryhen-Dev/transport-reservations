@@ -84,7 +84,10 @@ function asNumber(v: unknown): number | null {
   return Number.isFinite(n) ? n : null
 }
 
-type SalesChannel = "DIRECT" | "FROM_AGENCY" | "TO_AGENCY"
+function isAgencyOrInstitution(typeName: string | null | undefined): boolean {
+  if (!typeName) return false
+  return typeName === "AGENCIA" || typeName === "INSTITUCION_PUBLICA"
+}
 
 function formatScheduleLabel(schedule: TripScheduleWithRoute): string {
   return `${schedule.time} — ${schedule.route.origin} → ${schedule.route.destination}`
@@ -143,8 +146,8 @@ export function NuevaReservaForm({ fecha, schedules, proveedorTypes, documentTyp
   const [seatCount, setSeatCount] = useState<number>(1)
   const [asPending, setAsPending] = useState<boolean>(false)
   const [quickSheetOpen, setQuickSheetOpen] = useState(false)
-  const [salesChannel, setSalesChannel] = useState<SalesChannel>("DIRECT")
-  const [externalAgencyId, setExternalAgencyId] = useState<string>("")
+  const [referredByAgencyId, setReferredByAgencyId] = useState<string>("")
+  const [commissionAmount, setCommissionAmount] = useState<number>(0)
   const [priceAmount, setPriceAmount] = useState<number>(0)
   const [priceDirty, setPriceDirty] = useState<boolean>(false)
 
@@ -152,10 +155,13 @@ export function NuevaReservaForm({ fecha, schedules, proveedorTypes, documentTyp
   const directPrice = asNumber(selectedSchedule?.route.directPriceAmount)
   const incomingPrice = asNumber(selectedSchedule?.route.incomingAgencyPriceAmount)
   const minPrice = asNumber(selectedSchedule?.route.minPrice)
-  const suggested =
-    salesChannel === "FROM_AGENCY" ? incomingPrice : directPrice
+  // El precio sugerido sale del tipo del comprador (proveedor seleccionado).
+  // PERSONA → tarifa directa. AGENCIA / INSTITUCION_PUBLICA → tarifa de agencia.
+  const suggested = isAgencyOrInstitution(proveedorTypeName)
+    ? incomingPrice
+    : directPrice
 
-  // Auto-fill price when the route/channel changes and the user hasn't touched it.
+  // Auto-fill price when the route/buyer-type changes and the user hasn't touched it.
   useEffect(() => {
     if (!priceDirty && suggested !== null) {
       setPriceAmount(suggested)
@@ -169,7 +175,6 @@ export function NuevaReservaForm({ fecha, schedules, proveedorTypes, documentTyp
     selectedProveedor !== null &&
     seatCount >= 1 &&
     priceAmount > 0 &&
-    (salesChannel === "DIRECT" || externalAgencyId !== "") &&
     (minPrice === null || priceAmount >= minPrice)
 
   function handleProveedorTypeChange(value: string) {
@@ -178,6 +183,8 @@ export function NuevaReservaForm({ fecha, schedules, proveedorTypes, documentTyp
     setProveedorTypeName(found?.name ?? null)
     setSelectedProveedor(null)
     setProveedorDisplayValue("")
+    // Reset el dirty flag para que el sugerido se aplique cuando cambia el tipo.
+    setPriceDirty(false)
   }
 
   function handleSubmit() {
@@ -193,9 +200,8 @@ export function NuevaReservaForm({ fecha, schedules, proveedorTypes, documentTyp
           branchId,
           isPending: asPending,
           priceAmount,
-          salesChannel,
-          externalAgencyId:
-            salesChannel === "DIRECT" ? null : externalAgencyId || null,
+          referredByAgencyId: referredByAgencyId || null,
+          commissionAmount: referredByAgencyId ? commissionAmount : null,
         })
         toast.success("Reserva creada exitosamente")
         router.push(`/reservas`)
@@ -312,51 +318,6 @@ export function NuevaReservaForm({ fecha, schedules, proveedorTypes, documentTyp
           />
         </div>
 
-        {/* Canal de venta */}
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="salesChannel">Canal de venta</Label>
-          <Select
-            value={salesChannel}
-            onValueChange={(val) => setSalesChannel(val as SalesChannel)}
-          >
-            <SelectTrigger id="salesChannel" className="w-full">
-              <SelectValue placeholder="Seleccionar canal" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="DIRECT">Directo</SelectItem>
-              <SelectItem value="FROM_AGENCY">Desde agencia externa</SelectItem>
-              <SelectItem value="TO_AGENCY">Con comisión a agencia</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {salesChannel !== "DIRECT" && (
-          <div className="flex flex-col gap-1.5">
-            <Label htmlFor="externalAgencyId">Agencia externa</Label>
-            <Select
-              value={externalAgencyId}
-              onValueChange={setExternalAgencyId}
-            >
-              <SelectTrigger id="externalAgencyId" className="w-full">
-                <SelectValue placeholder="Seleccionar agencia" />
-              </SelectTrigger>
-              <SelectContent>
-                {agencies.length === 0 ? (
-                  <div className="px-2 py-1.5 text-sm text-muted-foreground">
-                    No hay agencias registradas
-                  </div>
-                ) : (
-                  agencies.map((a) => (
-                    <SelectItem key={a.id} value={a.id}>
-                      {agencyLabel(a)}
-                    </SelectItem>
-                  ))
-                )}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
-
         {/* Precio cobrado */}
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="priceAmount">Precio cobrado (USD)</Label>
@@ -374,7 +335,12 @@ export function NuevaReservaForm({ fecha, schedules, proveedorTypes, documentTyp
           />
           <div className="flex flex-col gap-0.5 text-xs text-muted-foreground">
             {suggested !== null && (
-              <span>Precio sugerido: ${suggested.toFixed(2)}</span>
+              <span>
+                Precio sugerido: ${suggested.toFixed(2)}
+                {isAgencyOrInstitution(proveedorTypeName)
+                  ? " (tarifa agencia/institución)"
+                  : " (tarifa directa)"}
+              </span>
             )}
             {minPrice !== null && (
               <span>Precio mínimo permitido: ${minPrice.toFixed(2)}</span>
@@ -386,6 +352,46 @@ export function NuevaReservaForm({ fecha, schedules, proveedorTypes, documentTyp
             </p>
           )}
         </div>
+
+        {/* Referida por agencia (opcional) */}
+        <div className="flex flex-col gap-1.5">
+          <Label htmlFor="referredByAgencyId">
+            ¿Referido por agencia? (opcional)
+          </Label>
+          <Select
+            value={referredByAgencyId === "" ? "__none__" : referredByAgencyId}
+            onValueChange={(val) =>
+              setReferredByAgencyId(val === "__none__" ? "" : val)
+            }
+          >
+            <SelectTrigger id="referredByAgencyId" className="w-full">
+              <SelectValue placeholder="Sin referido" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none__">Sin referido</SelectItem>
+              {agencies.map((a) => (
+                <SelectItem key={a.id} value={a.id}>
+                  {agencyLabel(a)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {referredByAgencyId && (
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="commissionAmount">Comisión a pagar (USD)</Label>
+            <Input
+              id="commissionAmount"
+              type="number"
+              step="0.01"
+              min={0}
+              value={commissionAmount}
+              onChange={(e) => setCommissionAmount(Number(e.target.value))}
+              className="w-40"
+            />
+          </div>
+        )}
 
         {/* Estado */}
         <div className="flex items-center gap-2">

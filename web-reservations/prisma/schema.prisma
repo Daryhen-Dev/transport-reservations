@@ -255,7 +255,7 @@ model Proveedor {
   phone       String?
 
   passengerReservations             PassengerReservation[] @relation("PassengerReservationProveedor")
-  externalAgencyOfReservations      PassengerReservation[] @relation("PassengerReservationExternalAgency")
+  referredReservations              PassengerReservation[] @relation("PassengerReservationReferral")
   cargoReservations     CargoReservation[]
   tariffs               ProveedorTariff[]
   operatedSegments      RouteSegment[]         @relation("RouteSegmentOperator")
@@ -324,12 +324,17 @@ model PassengerReservation {
   reservationStatusId String
   reservationStatus   ReservationStatus      @relation(fields: [reservationStatusId], references: [id])
   passengers          ReservationPassenger[]
-  // Precio + canal
+  // Precio: priceAmount es lo cobrado; suggestedAmount es el snapshot del
+  // sugerido al momento de crear (se deriva del tipo de proveedor del
+  // comprador: PERSONA → tarifa directa, AGENCIA/INSTITUCION_PUBLICA →
+  // tarifa de agencia).
   priceAmount         Decimal                @db.Decimal(10, 2)
   suggestedAmount     Decimal                @db.Decimal(10, 2)
-  salesChannel        SalesChannel           @default(DIRECT)
-  externalAgencyId    String?
-  externalAgency      Proveedor?             @relation("PassengerReservationExternalAgency", fields: [externalAgencyId], references: [id])
+  // Comisión opcional: si la venta vino referida por una agencia, registramos
+  // quién y cuánto le pagamos. Independiente del tipo del comprador.
+  referredByAgencyId  String?
+  referredByAgency    Proveedor?             @relation("PassengerReservationReferral", fields: [referredByAgencyId], references: [id])
+  commissionAmount    Decimal?               @db.Decimal(10, 2)
   createdAt           DateTime               @default(now())
   updatedAt           DateTime               @updatedAt
   // Audit
@@ -339,12 +344,6 @@ model PassengerReservation {
   updatedBy           User?                  @relation("PassengerReservationUpdatedBy", fields: [updatedById], references: [id])
 
   @@map("reserva_pasajero")
-}
-
-enum SalesChannel {
-  DIRECT       // Venta directa al pasajero (sin agencia involucrada)
-  FROM_AGENCY  // Una agencia externa nos envía el pasajero (precio descuento)
-  TO_AGENCY    // Nosotros enviamos al pasajero a otra agencia (cobramos comisión)
 }
 
 model ReservationPassenger {

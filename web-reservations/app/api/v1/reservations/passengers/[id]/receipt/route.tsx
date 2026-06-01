@@ -150,7 +150,7 @@ export const GET = withAuth<{ id: string }>(async (_req, { params, auth }) => {
           documentType: { select: { name: true } },
         },
       },
-      externalAgency: {
+      referredByAgency: {
         select: {
           firstName: true,
           lastName: true,
@@ -183,14 +183,8 @@ export const GET = withAuth<{ id: string }>(async (_req, { params, auth }) => {
     return new Response("Acceso denegado", { status: 403 });
   }
 
-  const { trip, proveedor, reservationStatus, passengers, externalAgency } =
+  const { trip, proveedor, reservationStatus, passengers, referredByAgency } =
     reservation;
-  const channelLabel =
-    reservation.salesChannel === "FROM_AGENCY"
-      ? "Desde agencia externa"
-      : reservation.salesChannel === "TO_AGENCY"
-        ? "Con comisión a agencia"
-        : "Directo";
   const priceFmt = (v: { toString(): string }) =>
     `$${Number(v.toString()).toFixed(2)}`;
   const shortCode = `PR-${reservation.id.slice(-8).toUpperCase()}`;
@@ -286,16 +280,6 @@ export const GET = withAuth<{ id: string }>(async (_req, { params, auth }) => {
             </Text>
           </View>
           <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Canal:</Text>
-            <Text style={styles.infoValue}>{channelLabel}</Text>
-          </View>
-          {externalAgency && (
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Agencia:</Text>
-              <Text style={styles.infoValue}>{proveedorDisplay(externalAgency)}</Text>
-            </View>
-          )}
-          <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Precio cobrado:</Text>
             <Text style={styles.infoValue}>{priceFmt(reservation.priceAmount)}</Text>
           </View>
@@ -303,6 +287,18 @@ export const GET = withAuth<{ id: string }>(async (_req, { params, auth }) => {
             <Text style={styles.infoLabel}>Precio sugerido:</Text>
             <Text style={styles.infoValue}>{priceFmt(reservation.suggestedAmount)}</Text>
           </View>
+          {referredByAgency && (
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Referido por:</Text>
+              <Text style={styles.infoValue}>{proveedorDisplay(referredByAgency)}</Text>
+            </View>
+          )}
+          {reservation.commissionAmount && (
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Comisión:</Text>
+              <Text style={styles.infoValue}>{priceFmt(reservation.commissionAmount)}</Text>
+            </View>
+          )}
         </View>
 
         {/* Pasajeros */}

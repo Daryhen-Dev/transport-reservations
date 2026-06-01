@@ -64,11 +64,17 @@ export async function resolveTariff(
   };
 }
 
-export function suggestedFor(
-  channel: "DIRECT" | "FROM_AGENCY" | "TO_AGENCY",
+/**
+ * Tarifa sugerida según el tipo del proveedor comprador.
+ * PERSONA paga tarifa directa; AGENCIA / INSTITUCION_PUBLICA paga la
+ * tarifa rebajada para agencias.
+ */
+export function suggestedForProveedorType(
+  proveedorTypeName: string,
   tariff: ResolvedTariff
 ): number {
-  return channel === "FROM_AGENCY"
+  return proveedorTypeName === "AGENCIA" ||
+    proveedorTypeName === "INSTITUCION_PUBLICA"
     ? tariff.incomingAgencyPriceAmount
     : tariff.directPriceAmount;
 }

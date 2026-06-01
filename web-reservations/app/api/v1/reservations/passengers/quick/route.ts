@@ -5,7 +5,7 @@ import { prisma } from "@/lib/db";
 import { requireAuth, requireBranchAccess } from "@/lib/api/auth";
 import { auditCreate } from "@/lib/api/audit";
 import { createQuickPassengerReservationSchema } from "@/lib/api/schemas/passenger-reservations";
-import { resolveTariff, suggestedFor } from "@/lib/services/tariff.service";
+import { resolveTariff, suggestedForProveedorType } from "@/lib/services/tariff.service";
 
 const RESERVATION_INCLUDE = {
   trip: {
@@ -35,7 +35,7 @@ const RESERVATION_INCLUDE = {
       phone: true,
     },
   },
-  externalAgency: {
+  referredByAgency: {
     select: {
       id: true,
       firstName: true,
@@ -82,25 +82,12 @@ export async function POST(req: NextRequest) {
     seatCount,
     isPending,
     priceAmount,
-    salesChannel: salesChannelInput,
-    externalAgencyId: externalAgencyIdInput,
+    referredByAgencyId: referredByAgencyIdInput,
+    commissionAmount: commissionAmountInput,
   } = parsed.data;
 
-  const salesChannel = salesChannelInput ?? "DIRECT";
-  const externalAgencyId =
-    salesChannel === "DIRECT" ? null : externalAgencyIdInput ?? null;
-
-  if (salesChannel !== "DIRECT" && !externalAgencyId) {
-    return NextResponse.json(
-      {
-        error: {
-          code: "BAD_REQUEST",
-          message: "Debe seleccionar la agencia externa para este canal",
-        },
-      },
-      { status: 400 }
-    );
-  }
+  const referredByAgencyId = referredByAgencyIdInput ?? null;
+  const commissionAmount = commissionAmountInput ?? null;
 
   const gate = await requireBranchAccess(req, branchId);
   if (gate instanceof NextResponse) return gate;
@@ -128,17 +115,29 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  if (externalAgencyId) {
-    const agency = await prisma.proveedor.findUnique({
-      where: { id: externalAgencyId },
+  // Resolver tipo del comprador (existente) para derivar precio sugerido.
+  const buyer = await prisma.proveedor.findUnique({
+    where: { id: proveedorId },
+    select: { proveedorType: { select: { name: true } } },
+  });
+  if (!buyer) {
+    return NextResponse.json(
+      { error: { code: "NOT_FOUND", message: "Proveedor no encontrado" } },
+      { status: 404 }
+    );
+  }
+
+  if (referredByAgencyId) {
+    const refAgency = await prisma.proveedor.findUnique({
+      where: { id: referredByAgencyId },
       include: { proveedorType: { select: { name: true } } },
     });
-    if (!agency || agency.proveedorType.name !== "AGENCIA") {
+    if (!refAgency || refAgency.proveedorType.name !== "AGENCIA") {
       return NextResponse.json(
         {
           error: {
             code: "BAD_REQUEST",
-            message: "La agencia externa debe ser un proveedor tipo AGENCIA",
+            message: "La agencia que refirió debe ser un proveedor tipo AGENCIA",
           },
         },
         { status: 400 }
@@ -159,7 +158,10 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const suggestedAmount = suggestedFor(salesChannel, tariff);
+  const suggestedAmount = suggestedForProveedorType(
+    buyer.proveedorType.name,
+    tariff
+  );
 
   const departureDay = new Date(date + "T00:00:00");
   const start = startOfDay(departureDay);
@@ -240,8 +242,8 @@ export async function POST(req: NextRequest) {
         seatCount,
         priceAmount,
         suggestedAmount,
-        salesChannel,
-        externalAgencyId,
+        referredByAgencyId,
+        commissionAmount,
         reservationStatusId: reservationStatus.id,
         ...auditCreate(authOrError.userId),
       },
