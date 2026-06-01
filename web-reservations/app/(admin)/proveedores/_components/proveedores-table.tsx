@@ -38,7 +38,8 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { IconEdit, IconTrash } from "@tabler/icons-react"
+import { IconEdit, IconTrash, IconCash } from "@tabler/icons-react"
+import Link from "next/link"
 import { ProveedorTypeBadge } from "@/components/proveedor-type-badge"
 import { formatProveedorTypeName, isPersonaType } from "@/lib/proveedor-types"
 import { useRouter } from "next/navigation"
@@ -115,25 +116,36 @@ export function ProveedoresTable({
     {
       id: "actions",
       header: "",
-      cell: ({ row }) => (
-        <div className="flex items-center justify-end gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => setEditingProveedor(row.original)}
-          >
-            <IconEdit className="size-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            className="text-destructive hover:text-destructive"
-            onClick={() => setDeletingProveedor(row.original)}
-          >
-            <IconTrash className="size-4" />
-          </Button>
-        </div>
-      ),
+      cell: ({ row }) => {
+        const typeName = row.original.proveedorType.name
+        const canHaveTariffs = typeName === "AGENCIA" || typeName === "EMPRESA"
+        return (
+          <div className="flex items-center justify-end gap-2">
+            {canHaveTariffs && (
+              <Button variant="ghost" size="icon" asChild title="Tarifas">
+                <Link href={`/proveedores/${row.original.id}/tarifas`}>
+                  <IconCash className="size-4" />
+                </Link>
+              </Button>
+            )}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => setEditingProveedor(row.original)}
+            >
+              <IconEdit className="size-4" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-destructive hover:text-destructive"
+              onClick={() => setDeletingProveedor(row.original)}
+            >
+              <IconTrash className="size-4" />
+            </Button>
+          </div>
+        )
+      },
     },
   ]
 

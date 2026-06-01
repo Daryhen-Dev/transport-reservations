@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import { requireAuth, requireBranchAccess } from "@/lib/api/auth";
 import { updatePassengerReservationSchema } from "@/lib/api/schemas/passenger-reservations";
 import { auditUpdate } from "@/lib/api/audit";
+import { resolveTariff, suggestedFor } from "@/lib/services/tariff.service";
 
 const RESERVATION_DETAIL_INCLUDE = {
   trip: {
@@ -124,11 +125,13 @@ export async function PATCH(
       trip: {
         select: {
           branchId: true,
+          routeId: true,
           status: { select: { name: true } },
           route: {
             select: {
               directPriceAmount: true,
               incomingAgencyPriceAmount: true,
+              outgoingCommissionAmount: true,
               minPrice: true,
             },
           },
@@ -167,6 +170,7 @@ export async function PATCH(
   } = parsed.data;
 
   let targetRoute = existing.trip.route;
+  let targetRouteId = existing.trip.routeId;
 
   // If switching the reservation to a different trip, validate access to the
   // target trip's branch as well.
@@ -179,6 +183,7 @@ export async function PATCH(
           select: {
             directPriceAmount: true,
             incomingAgencyPriceAmount: true,
+            outgoingCommissionAmount: true,
             minPrice: true,
           },
         },
@@ -204,16 +209,25 @@ export async function PATCH(
       );
     }
     targetRoute = targetTrip.route;
+    targetRouteId = targetTrip.routeId;
   }
 
-  if (priceAmount !== undefined && priceAmount < Number(targetRoute.minPrice)) {
+  const existingReservation = await prisma.passengerReservation.findUnique({
+    where: { id },
+    select: { proveedorId: true },
+  });
+  const tariff = await resolveTariff(
+    existingReservation!.proveedorId,
+    targetRouteId,
+    targetRoute
+  );
+
+  if (priceAmount !== undefined && priceAmount < tariff.minPrice) {
     return NextResponse.json(
       {
         error: {
           code: "BAD_REQUEST",
-          message: `El precio no puede ser menor al mínimo ($${Number(
-            targetRoute.minPrice
-          ).toFixed(2)})`,
+          message: `El precio no puede ser menor al mínimo ($${tariff.minPrice.toFixed(2)})`,
         },
       },
       { status: 400 }
@@ -262,10 +276,7 @@ export async function PATCH(
   // Recompute suggestedAmount when channel changes (snapshot stays otherwise).
   let suggestedAmount: number | undefined;
   if (finalChannel) {
-    suggestedAmount =
-      finalChannel === "FROM_AGENCY"
-        ? Number(targetRoute.incomingAgencyPriceAmount)
-        : Number(targetRoute.directPriceAmount);
+    suggestedAmount = suggestedFor(finalChannel, tariff);
   }
 
   try {

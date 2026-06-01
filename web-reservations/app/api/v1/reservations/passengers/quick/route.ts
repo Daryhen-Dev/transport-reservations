@@ -5,6 +5,7 @@ import { prisma } from "@/lib/db";
 import { requireAuth, requireBranchAccess } from "@/lib/api/auth";
 import { auditCreate } from "@/lib/api/audit";
 import { createQuickPassengerReservationSchema } from "@/lib/api/schemas/passenger-reservations";
+import { resolveTariff, suggestedFor } from "@/lib/services/tariff.service";
 
 const RESERVATION_INCLUDE = {
   trip: {
@@ -145,23 +146,20 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const minPrice = Number(schedule.route.minPrice);
-  if (priceAmount < minPrice) {
+  const tariff = await resolveTariff(proveedorId, schedule.routeId, schedule.route);
+  if (priceAmount < tariff.minPrice) {
     return NextResponse.json(
       {
         error: {
           code: "BAD_REQUEST",
-          message: `El precio no puede ser menor al mínimo ($${minPrice.toFixed(2)})`,
+          message: `El precio no puede ser menor al mínimo ($${tariff.minPrice.toFixed(2)})`,
         },
       },
       { status: 400 }
     );
   }
 
-  const suggestedAmount =
-    salesChannel === "FROM_AGENCY"
-      ? Number(schedule.route.incomingAgencyPriceAmount)
-      : Number(schedule.route.directPriceAmount);
+  const suggestedAmount = suggestedFor(salesChannel, tariff);
 
   const departureDay = new Date(date + "T00:00:00");
   const start = startOfDay(departureDay);

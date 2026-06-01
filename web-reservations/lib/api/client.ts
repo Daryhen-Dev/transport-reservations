@@ -19,6 +19,10 @@ import type {
   UpdateProveedorInput,
 } from "./schemas/proveedores";
 import type {
+  CreateProveedorTariffInput,
+  UpdateProveedorTariffInput,
+} from "./schemas/proveedor-tariffs";
+import type {
   CreateRouteInput,
   UpdateRouteInput,
 } from "./schemas/routes";
@@ -186,6 +190,38 @@ export type Proveedor = {
   phone: string | null;
   createdAt: string;
   updatedAt: string;
+};
+
+export type ProveedorTariff = {
+  id: string;
+  proveedorId: string;
+  routeId: string;
+  directPriceAmount: string | null;
+  incomingAgencyPriceAmount: string | null;
+  outgoingCommissionAmount: string | null;
+  minPrice: string | null;
+  notes: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+  proveedor: {
+    id: string;
+    firstName: string | null;
+    lastName: string | null;
+    companyName: string | null;
+    proveedorType: { id: string; name: string };
+  };
+  route: {
+    id: string;
+    origin: string;
+    destination: string;
+    branchId: string;
+    branch: { id: string; name: string };
+    directPriceAmount: string;
+    incomingAgencyPriceAmount: string;
+    outgoingCommissionAmount: string;
+    minPrice: string;
+  };
 };
 
 export type Route = {
@@ -551,6 +587,28 @@ export const api = {
       }),
     delete: (id: string) =>
       request<void>(`/proveedores/${id}`, { method: "DELETE" }),
+  },
+  proveedorTariffs: {
+    list: (params?: { proveedorId?: string; routeId?: string; branchId?: string }) => {
+      const q = new URLSearchParams();
+      if (params?.proveedorId) q.set("proveedorId", params.proveedorId);
+      if (params?.routeId) q.set("routeId", params.routeId);
+      if (params?.branchId) q.set("branchId", params.branchId);
+      const qs = q.toString();
+      return request<ProveedorTariff[]>(`/proveedor-tariffs${qs ? `?${qs}` : ""}`);
+    },
+    create: (data: CreateProveedorTariffInput) =>
+      request<ProveedorTariff>("/proveedor-tariffs", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    update: (id: string, data: UpdateProveedorTariffInput) =>
+      request<ProveedorTariff>(`/proveedor-tariffs/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }),
+    delete: (id: string) =>
+      request<void>(`/proveedor-tariffs/${id}`, { method: "DELETE" }),
   },
   routes: {
     list: (branchId: string) => {

@@ -114,6 +114,8 @@ model User {
   passengerReservationsUpdated PassengerReservation[] @relation("PassengerReservationUpdatedBy")
   cargoReservationsCreated     CargoReservation[]     @relation("CargoReservationCreatedBy")
   cargoReservationsUpdated     CargoReservation[]     @relation("CargoReservationUpdatedBy")
+  proveedorTariffsCreated      ProveedorTariff[]      @relation("ProveedorTariffCreatedBy")
+  proveedorTariffsUpdated      ProveedorTariff[]      @relation("ProveedorTariffUpdatedBy")
 
   @@map("usuario")
 }
@@ -139,6 +141,7 @@ model Route {
   branch      Branch        @relation(fields: [branchId], references: [id])
   trips       Trip[]
   schedules   TripSchedule[]
+  tariffs     ProveedorTariff[]
   // Tarifas
   directPriceAmount         Decimal       @db.Decimal(10, 2)
   incomingAgencyPriceAmount Decimal       @db.Decimal(10, 2)
@@ -251,11 +254,37 @@ model Proveedor {
   passengerReservations             PassengerReservation[] @relation("PassengerReservationProveedor")
   externalAgencyOfReservations      PassengerReservation[] @relation("PassengerReservationExternalAgency")
   cargoReservations     CargoReservation[]
+  tariffs               ProveedorTariff[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@map("proveedor")
+}
+
+model ProveedorTariff {
+  id                        String     @id @default(cuid())
+  proveedorId               String
+  proveedor                 Proveedor  @relation(fields: [proveedorId], references: [id], onDelete: Cascade)
+  routeId                   String
+  route                     Route      @relation(fields: [routeId], references: [id], onDelete: Cascade)
+  // Overrides — null means "use the Route default".
+  directPriceAmount         Decimal?   @db.Decimal(10, 2)
+  incomingAgencyPriceAmount Decimal?   @db.Decimal(10, 2)
+  outgoingCommissionAmount  Decimal?   @db.Decimal(10, 2)
+  minPrice                  Decimal?   @db.Decimal(10, 2)
+  notes                     String?
+  isActive                  Boolean    @default(true)
+  createdAt                 DateTime   @default(now())
+  updatedAt                 DateTime   @updatedAt
+  // Audit
+  createdById               String?
+  createdBy                 User?      @relation("ProveedorTariffCreatedBy", fields: [createdById], references: [id])
+  updatedById               String?
+  updatedBy                 User?      @relation("ProveedorTariffUpdatedBy", fields: [updatedById], references: [id])
+
+  @@unique([proveedorId, routeId])
+  @@map("proveedor_tarifa")
 }
 
 model PassengerReservation {
