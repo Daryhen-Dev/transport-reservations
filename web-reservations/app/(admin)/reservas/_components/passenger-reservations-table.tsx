@@ -61,8 +61,22 @@ function StatusBadge({ status }: { status: string }) {
 type Trip = {
   id: string
   departureAt: Date
-  route: { origin: string; destination: string }
+  route: {
+    origin: string
+    destination: string
+    directPriceAmount?: unknown
+    incomingAgencyPriceAmount?: unknown
+    outgoingCommissionAmount?: unknown
+    minPrice?: unknown
+  }
   branch: { name: string }
+}
+
+type Agency = {
+  id: string
+  firstName: string | null
+  lastName: string | null
+  companyName: string | null
 }
 
 type Reservation = {
@@ -97,6 +111,7 @@ export function PassengerReservationsTable({
   documentTypes,
   countries,
   proveedorTypes,
+  agencies,
 }: {
   data: Reservation[]
   trips: Trip[]
@@ -104,6 +119,7 @@ export function PassengerReservationsTable({
   documentTypes: DocumentType[]
   countries: Country[]
   proveedorTypes: ProveedorType[]
+  agencies: Agency[]
 }) {
   const router = useRouter()
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
@@ -331,6 +347,7 @@ export function PassengerReservationsTable({
               countries={countries}
               reservationStatuses={reservationStatuses}
               proveedorTypes={proveedorTypes}
+              agencies={agencies}
             />
           </div>
         </div>

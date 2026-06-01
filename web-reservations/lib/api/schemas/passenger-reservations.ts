@@ -33,6 +33,15 @@ const inlinePassengerSchema = z.object({
   birthDate: z.string().optional(),
 });
 
+export const salesChannelSchema = z.enum([
+  "DIRECT",
+  "FROM_AGENCY",
+  "TO_AGENCY",
+]);
+export type SalesChannel = z.infer<typeof salesChannelSchema>;
+
+const priceField = z.number().positive("El precio debe ser mayor a 0");
+
 // Full create: inline proveedor + (optional) inline passengers attached in tx.
 export const createPassengerReservationSchema = z.object({
   tripId: cuidSchema,
@@ -41,6 +50,9 @@ export const createPassengerReservationSchema = z.object({
   proveedorTypeId: cuidSchema,
   reservationStatusId: cuidSchema.optional(),
   passengers: z.array(inlinePassengerSchema).optional(),
+  priceAmount: priceField,
+  salesChannel: salesChannelSchema.optional(),
+  externalAgencyId: cuidSchema.optional().nullable(),
 });
 
 // Quick create (calendar "nueva reserva" flow): existing proveedor + auto-trip.
@@ -51,6 +63,9 @@ export const createQuickPassengerReservationSchema = z.object({
   proveedorId: cuidSchema,
   seatCount: z.number().int().min(1, "Debe reservar al menos 1 asiento"),
   isPending: z.boolean().optional(),
+  priceAmount: priceField,
+  salesChannel: salesChannelSchema.optional(),
+  externalAgencyId: cuidSchema.optional().nullable(),
 });
 
 export const updateReservationStatusSchema = z.object({
@@ -60,6 +75,9 @@ export const updateReservationStatusSchema = z.object({
 export const updatePassengerReservationSchema = z.object({
   seatCount: z.number().int().min(1, "Mínimo 1 asiento").optional(),
   tripId: cuidSchema.optional(),
+  priceAmount: priceField.optional(),
+  salesChannel: salesChannelSchema.optional(),
+  externalAgencyId: cuidSchema.nullable().optional(),
 });
 
 // Nested /passengers: discriminated body — create new + link, or link existing.

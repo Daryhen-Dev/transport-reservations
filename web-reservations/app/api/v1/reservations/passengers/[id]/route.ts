@@ -8,7 +8,17 @@ import { auditUpdate } from "@/lib/api/audit";
 const RESERVATION_DETAIL_INCLUDE = {
   trip: {
     include: {
-      route: { select: { id: true, origin: true, destination: true } },
+      route: {
+        select: {
+          id: true,
+          origin: true,
+          destination: true,
+          directPriceAmount: true,
+          incomingAgencyPriceAmount: true,
+          outgoingCommissionAmount: true,
+          minPrice: true,
+        },
+      },
       branch: { select: { id: true, name: true } },
       status: { select: { id: true, name: true } },
     },
@@ -21,6 +31,14 @@ const RESERVATION_DETAIL_INCLUDE = {
       companyName: true,
       proveedorTypeId: true,
       phone: true,
+    },
+  },
+  externalAgency: {
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      companyName: true,
     },
   },
   reservationStatus: { select: { id: true, name: true } },
@@ -103,7 +121,19 @@ export async function PATCH(
   const existing = await prisma.passengerReservation.findUnique({
     where: { id },
     include: {
-      trip: { select: { branchId: true, status: { select: { name: true } } } },
+      trip: {
+        select: {
+          branchId: true,
+          status: { select: { name: true } },
+          route: {
+            select: {
+              directPriceAmount: true,
+              incomingAgencyPriceAmount: true,
+              minPrice: true,
+            },
+          },
+        },
+      },
     },
   });
   if (!existing) {
@@ -128,14 +158,31 @@ export async function PATCH(
     );
   }
 
-  const { seatCount, tripId } = parsed.data;
+  const {
+    seatCount,
+    tripId,
+    priceAmount,
+    salesChannel,
+    externalAgencyId,
+  } = parsed.data;
+
+  let targetRoute = existing.trip.route;
 
   // If switching the reservation to a different trip, validate access to the
   // target trip's branch as well.
   if (tripId && tripId !== existing.trip.branchId) {
     const targetTrip = await prisma.trip.findUnique({
       where: { id: tripId },
-      include: { status: { select: { name: true } } },
+      include: {
+        status: { select: { name: true } },
+        route: {
+          select: {
+            directPriceAmount: true,
+            incomingAgencyPriceAmount: true,
+            minPrice: true,
+          },
+        },
+      },
     });
     if (!targetTrip) {
       return NextResponse.json(
@@ -156,6 +203,69 @@ export async function PATCH(
         { status: 409 }
       );
     }
+    targetRoute = targetTrip.route;
+  }
+
+  if (priceAmount !== undefined && priceAmount < Number(targetRoute.minPrice)) {
+    return NextResponse.json(
+      {
+        error: {
+          code: "BAD_REQUEST",
+          message: `El precio no puede ser menor al mínimo ($${Number(
+            targetRoute.minPrice
+          ).toFixed(2)})`,
+        },
+      },
+      { status: 400 }
+    );
+  }
+
+  const finalChannel = salesChannel ?? undefined;
+  let finalExternalAgencyId: string | null | undefined;
+  if (finalChannel === "DIRECT") {
+    finalExternalAgencyId = null;
+  } else if (finalChannel) {
+    if (externalAgencyId === undefined) {
+      return NextResponse.json(
+        {
+          error: {
+            code: "BAD_REQUEST",
+            message: "Debe seleccionar la agencia externa para este canal",
+          },
+        },
+        { status: 400 }
+      );
+    }
+    finalExternalAgencyId = externalAgencyId;
+  } else if (externalAgencyId !== undefined) {
+    finalExternalAgencyId = externalAgencyId;
+  }
+
+  if (finalExternalAgencyId) {
+    const agency = await prisma.proveedor.findUnique({
+      where: { id: finalExternalAgencyId },
+      include: { proveedorType: { select: { name: true } } },
+    });
+    if (!agency || agency.proveedorType.name !== "AGENCIA") {
+      return NextResponse.json(
+        {
+          error: {
+            code: "BAD_REQUEST",
+            message: "La agencia externa debe ser un proveedor tipo AGENCIA",
+          },
+        },
+        { status: 400 }
+      );
+    }
+  }
+
+  // Recompute suggestedAmount when channel changes (snapshot stays otherwise).
+  let suggestedAmount: number | undefined;
+  if (finalChannel) {
+    suggestedAmount =
+      finalChannel === "FROM_AGENCY"
+        ? Number(targetRoute.incomingAgencyPriceAmount)
+        : Number(targetRoute.directPriceAmount);
   }
 
   try {
@@ -164,6 +274,10 @@ export async function PATCH(
       data: {
         seatCount,
         tripId,
+        priceAmount,
+        salesChannel: finalChannel,
+        externalAgencyId: finalExternalAgencyId,
+        suggestedAmount,
         ...auditUpdate(authOrError.userId),
       },
       include: RESERVATION_DETAIL_INCLUDE,

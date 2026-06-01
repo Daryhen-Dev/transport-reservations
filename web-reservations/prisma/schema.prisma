@@ -248,7 +248,8 @@ model Proveedor {
   contactName String?
   phone       String?
 
-  passengerReservations PassengerReservation[]
+  passengerReservations             PassengerReservation[] @relation("PassengerReservationProveedor")
+  externalAgencyOfReservations      PassengerReservation[] @relation("PassengerReservationExternalAgency")
   cargoReservations     CargoReservation[]
 
   createdAt DateTime @default(now())
@@ -262,11 +263,17 @@ model PassengerReservation {
   tripId              String
   trip                Trip                   @relation(fields: [tripId], references: [id])
   proveedorId         String
-  proveedor           Proveedor              @relation(fields: [proveedorId], references: [id])
+  proveedor           Proveedor              @relation("PassengerReservationProveedor", fields: [proveedorId], references: [id])
   seatCount           Int
   reservationStatusId String
   reservationStatus   ReservationStatus      @relation(fields: [reservationStatusId], references: [id])
   passengers          ReservationPassenger[]
+  // Precio + canal
+  priceAmount         Decimal                @db.Decimal(10, 2)
+  suggestedAmount     Decimal                @db.Decimal(10, 2)
+  salesChannel        SalesChannel           @default(DIRECT)
+  externalAgencyId    String?
+  externalAgency      Proveedor?             @relation("PassengerReservationExternalAgency", fields: [externalAgencyId], references: [id])
   createdAt           DateTime               @default(now())
   updatedAt           DateTime               @updatedAt
   // Audit
@@ -276,6 +283,12 @@ model PassengerReservation {
   updatedBy           User?                  @relation("PassengerReservationUpdatedBy", fields: [updatedById], references: [id])
 
   @@map("reserva_pasajero")
+}
+
+enum SalesChannel {
+  DIRECT       // Venta directa al pasajero (sin agencia involucrada)
+  FROM_AGENCY  // Una agencia externa nos envía el pasajero (precio descuento)
+  TO_AGENCY    // Nosotros enviamos al pasajero a otra agencia (cobramos comisión)
 }
 
 model ReservationPassenger {

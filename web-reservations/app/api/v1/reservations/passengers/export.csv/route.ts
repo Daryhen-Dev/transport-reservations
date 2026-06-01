@@ -5,6 +5,9 @@ import { toCsv, csvResponse, dateStamp, type CsvColumn } from "@/lib/api/csv";
 type Row = {
   id: string;
   seatCount: number;
+  priceAmount: { toString(): string };
+  suggestedAmount: { toString(): string };
+  salesChannel: "DIRECT" | "FROM_AGENCY" | "TO_AGENCY";
   trip: {
     departureAt: Date;
     route: { origin: string; destination: string };
@@ -20,10 +23,26 @@ type Row = {
     documentType: { name: string } | null;
     proveedorType: { name: string };
   };
+  externalAgency: {
+    firstName: string | null;
+    lastName: string | null;
+    companyName: string | null;
+  } | null;
   reservationStatus: { name: string };
   _count: { passengers: number };
   createdAt: Date;
 };
+
+const channelLabel: Record<Row["salesChannel"], string> = {
+  DIRECT: "Directo",
+  FROM_AGENCY: "Desde agencia",
+  TO_AGENCY: "Comisión a agencia",
+};
+
+function agencyName(a: Row["externalAgency"]): string {
+  if (!a) return "";
+  return a.companyName ?? `${a.firstName ?? ""} ${a.lastName ?? ""}`.trim();
+}
 
 const columns: CsvColumn<Row>[] = [
   { header: "Código", accessor: (r) => `PR-${r.id.slice(-8).toUpperCase()}` },
@@ -52,6 +71,16 @@ const columns: CsvColumn<Row>[] = [
   { header: "Teléfono", accessor: (r) => r.proveedor.phone ?? "" },
   { header: "Asientos", accessor: (r) => r.seatCount },
   { header: "Pasajeros asignados", accessor: (r) => r._count.passengers },
+  { header: "Canal", accessor: (r) => channelLabel[r.salesChannel] },
+  { header: "Agencia externa", accessor: (r) => agencyName(r.externalAgency) },
+  {
+    header: "Precio sugerido",
+    accessor: (r) => Number(r.suggestedAmount.toString()).toFixed(2),
+  },
+  {
+    header: "Precio cobrado",
+    accessor: (r) => Number(r.priceAmount.toString()).toFixed(2),
+  },
   { header: "Estado reserva", accessor: (r) => r.reservationStatus.name },
   {
     header: "Creado",
@@ -70,6 +99,9 @@ export const GET = withAuth(async (req, { auth }) => {
     select: {
       id: true,
       seatCount: true,
+      priceAmount: true,
+      suggestedAmount: true,
+      salesChannel: true,
       trip: {
         select: {
           departureAt: true,
@@ -87,6 +119,13 @@ export const GET = withAuth(async (req, { auth }) => {
           documentNumber: true,
           documentType: { select: { name: true } },
           proveedorType: { select: { name: true } },
+        },
+      },
+      externalAgency: {
+        select: {
+          firstName: true,
+          lastName: true,
+          companyName: true,
         },
       },
       reservationStatus: { select: { name: true } },

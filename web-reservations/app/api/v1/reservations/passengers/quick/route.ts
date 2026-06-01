@@ -9,7 +9,17 @@ import { createQuickPassengerReservationSchema } from "@/lib/api/schemas/passeng
 const RESERVATION_INCLUDE = {
   trip: {
     include: {
-      route: { select: { id: true, origin: true, destination: true } },
+      route: {
+        select: {
+          id: true,
+          origin: true,
+          destination: true,
+          directPriceAmount: true,
+          incomingAgencyPriceAmount: true,
+          outgoingCommissionAmount: true,
+          minPrice: true,
+        },
+      },
       branch: { select: { id: true, name: true } },
       status: { select: { id: true, name: true } },
     },
@@ -22,6 +32,14 @@ const RESERVATION_INCLUDE = {
       companyName: true,
       proveedorTypeId: true,
       phone: true,
+    },
+  },
+  externalAgency: {
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      companyName: true,
     },
   },
   reservationStatus: { select: { id: true, name: true } },
@@ -55,15 +73,52 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const { scheduleId, date, branchId, proveedorId, seatCount, isPending } =
-    parsed.data;
+  const {
+    scheduleId,
+    date,
+    branchId,
+    proveedorId,
+    seatCount,
+    isPending,
+    priceAmount,
+    salesChannel: salesChannelInput,
+    externalAgencyId: externalAgencyIdInput,
+  } = parsed.data;
+
+  const salesChannel = salesChannelInput ?? "DIRECT";
+  const externalAgencyId =
+    salesChannel === "DIRECT" ? null : externalAgencyIdInput ?? null;
+
+  if (salesChannel !== "DIRECT" && !externalAgencyId) {
+    return NextResponse.json(
+      {
+        error: {
+          code: "BAD_REQUEST",
+          message: "Debe seleccionar la agencia externa para este canal",
+        },
+      },
+      { status: 400 }
+    );
+  }
 
   const gate = await requireBranchAccess(req, branchId);
   if (gate instanceof NextResponse) return gate;
 
   const schedule = await prisma.tripSchedule.findUnique({
     where: { id: scheduleId },
-    select: { id: true, time: true, routeId: true },
+    select: {
+      id: true,
+      time: true,
+      routeId: true,
+      route: {
+        select: {
+          directPriceAmount: true,
+          incomingAgencyPriceAmount: true,
+          outgoingCommissionAmount: true,
+          minPrice: true,
+        },
+      },
+    },
   });
   if (!schedule) {
     return NextResponse.json(
@@ -71,6 +126,42 @@ export async function POST(req: NextRequest) {
       { status: 404 }
     );
   }
+
+  if (externalAgencyId) {
+    const agency = await prisma.proveedor.findUnique({
+      where: { id: externalAgencyId },
+      include: { proveedorType: { select: { name: true } } },
+    });
+    if (!agency || agency.proveedorType.name !== "AGENCIA") {
+      return NextResponse.json(
+        {
+          error: {
+            code: "BAD_REQUEST",
+            message: "La agencia externa debe ser un proveedor tipo AGENCIA",
+          },
+        },
+        { status: 400 }
+      );
+    }
+  }
+
+  const minPrice = Number(schedule.route.minPrice);
+  if (priceAmount < minPrice) {
+    return NextResponse.json(
+      {
+        error: {
+          code: "BAD_REQUEST",
+          message: `El precio no puede ser menor al mínimo ($${minPrice.toFixed(2)})`,
+        },
+      },
+      { status: 400 }
+    );
+  }
+
+  const suggestedAmount =
+    salesChannel === "FROM_AGENCY"
+      ? Number(schedule.route.incomingAgencyPriceAmount)
+      : Number(schedule.route.directPriceAmount);
 
   const departureDay = new Date(date + "T00:00:00");
   const start = startOfDay(departureDay);
@@ -149,6 +240,10 @@ export async function POST(req: NextRequest) {
         tripId: trip.id,
         proveedorId,
         seatCount,
+        priceAmount,
+        suggestedAmount,
+        salesChannel,
+        externalAgencyId,
         reservationStatusId: reservationStatus.id,
         ...auditCreate(authOrError.userId),
       },

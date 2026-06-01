@@ -53,6 +53,10 @@ const schema = z.object({
   // Reservation
   seatCount: z.number().int().min(1, "Mínimo 1 asiento"),
   passengers: z.array(clienteSchema).optional(),
+  // Channel + pricing
+  salesChannel: z.enum(["DIRECT", "FROM_AGENCY", "TO_AGENCY"]),
+  externalAgencyId: z.string().optional(),
+  priceAmount: z.number().positive("El precio debe ser mayor a 0"),
 })
 
 type FormValues = z.infer<typeof schema>
@@ -60,7 +64,14 @@ type FormValues = z.infer<typeof schema>
 type Trip = {
   id: string
   departureAt: Date
-  route: { origin: string; destination: string }
+  route: {
+    origin: string
+    destination: string
+    directPriceAmount?: unknown
+    incomingAgencyPriceAmount?: unknown
+    outgoingCommissionAmount?: unknown
+    minPrice?: unknown
+  }
   branch: { name: string }
 }
 
@@ -68,6 +79,12 @@ type DocumentType = { id: string; name: string }
 type Country = { id: string; name: string }
 type ReservationStatus = { id: string; name: string }
 type ProveedorType = { id: string; name: string }
+type Agency = {
+  id: string
+  firstName: string | null
+  lastName: string | null
+  companyName: string | null
+}
 
 type Props = {
   trips: Trip[]
@@ -75,6 +92,17 @@ type Props = {
   countries: Country[]
   reservationStatuses: ReservationStatus[]
   proveedorTypes: ProveedorType[]
+  agencies: Agency[]
+}
+
+function agencyLabel(a: Agency) {
+  return a.companyName ?? `${a.firstName ?? ""} ${a.lastName ?? ""}`.trim() ?? a.id
+}
+
+function asNumber(v: unknown): number | null {
+  if (v === null || v === undefined) return null
+  const n = typeof v === "number" ? v : Number(v)
+  return Number.isFinite(n) ? n : null
 }
 
 export function PassengerReservationSheet({
@@ -83,6 +111,7 @@ export function PassengerReservationSheet({
   countries,
   reservationStatuses,
   proveedorTypes,
+  agencies,
 }: Props) {
   const [open, setOpen] = useState(false)
   const router = useRouter()
@@ -105,8 +134,26 @@ export function PassengerReservationSheet({
       proveedorType: "PERSONA",
       seatCount: 1,
       passengers: [],
+      salesChannel: "DIRECT",
+      externalAgencyId: "",
+      priceAmount: 0,
     },
   })
+
+  const tripIdValue = watch("tripId")
+  const salesChannelValue = watch("salesChannel")
+  const selectedTrip = trips.find((t) => t.id === tripIdValue)
+  const directPrice = asNumber(selectedTrip?.route.directPriceAmount)
+  const incomingPrice = asNumber(selectedTrip?.route.incomingAgencyPriceAmount)
+  const minPrice = asNumber(selectedTrip?.route.minPrice)
+  const suggested =
+    salesChannelValue === "FROM_AGENCY" ? incomingPrice : directPrice
+
+  useEffect(() => {
+    if (suggested !== null) {
+      setValue("priceAmount", suggested)
+    }
+  }, [suggested, setValue])
 
   const { fields, append, remove } = useFieldArray({
     control,
@@ -121,6 +168,9 @@ export function PassengerReservationSheet({
         proveedorType: "PERSONA",
         seatCount: 1,
         passengers: [],
+        salesChannel: "DIRECT",
+        externalAgencyId: "",
+        priceAmount: 0,
       })
     }
   }, [open, reset])
@@ -158,6 +208,15 @@ export function PassengerReservationSheet({
       }
     }
 
+    if (data.salesChannel !== "DIRECT" && !data.externalAgencyId) {
+      toast.error("Seleccione la agencia externa para este canal")
+      return
+    }
+    if (minPrice !== null && data.priceAmount < minPrice) {
+      toast.error(`El precio no puede ser menor al mínimo ($${minPrice.toFixed(2)})`)
+      return
+    }
+
     try {
       await api.reservations.passengers.create({
         tripId: data.tripId,
@@ -166,9 +225,22 @@ export function PassengerReservationSheet({
         passengers: data.passengers ?? [],
         proveedorTypeId,
         reservationStatusId: confirmadaStatus?.id,
+        priceAmount: data.priceAmount,
+        salesChannel: data.salesChannel,
+        externalAgencyId:
+          data.salesChannel === "DIRECT"
+            ? null
+            : data.externalAgencyId || null,
       })
       toast.success("Reserva creada exitosamente")
-      reset({ proveedorType: "PERSONA", seatCount: 1, passengers: [] })
+      reset({
+        proveedorType: "PERSONA",
+        seatCount: 1,
+        passengers: [],
+        salesChannel: "DIRECT",
+        externalAgencyId: "",
+        priceAmount: 0,
+      })
       setOpen(false)
       router.refresh()
     } catch (err) {
@@ -429,6 +501,77 @@ export function PassengerReservationSheet({
                 </div>
               </div>
             ))}
+          </div>
+
+          {/* Canal de venta */}
+          <div className="flex flex-col gap-1.5 border-t pt-4">
+            <Label htmlFor="salesChannel">Canal de venta</Label>
+            <Select
+              value={salesChannelValue}
+              onValueChange={(val) =>
+                setValue("salesChannel", val as FormValues["salesChannel"])
+              }
+            >
+              <SelectTrigger id="salesChannel" className="w-full">
+                <SelectValue placeholder="Seleccionar canal" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="DIRECT">Directo</SelectItem>
+                <SelectItem value="FROM_AGENCY">Desde agencia externa</SelectItem>
+                <SelectItem value="TO_AGENCY">Con comisión a agencia</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {salesChannelValue !== "DIRECT" && (
+            <div className="flex flex-col gap-1.5">
+              <Label htmlFor="externalAgencyId">Agencia externa</Label>
+              <Select
+                value={watch("externalAgencyId") ?? ""}
+                onValueChange={(val) => setValue("externalAgencyId", val)}
+              >
+                <SelectTrigger id="externalAgencyId" className="w-full">
+                  <SelectValue placeholder="Seleccionar agencia" />
+                </SelectTrigger>
+                <SelectContent>
+                  {agencies.length === 0 ? (
+                    <div className="px-2 py-1.5 text-sm text-muted-foreground">
+                      No hay agencias registradas
+                    </div>
+                  ) : (
+                    agencies.map((a) => (
+                      <SelectItem key={a.id} value={a.id}>
+                        {agencyLabel(a)}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="priceAmount">Precio cobrado (USD)</Label>
+            <Input
+              id="priceAmount"
+              type="number"
+              step="0.01"
+              min={0}
+              {...register("priceAmount", { valueAsNumber: true })}
+            />
+            <div className="flex flex-col gap-0.5 text-xs text-muted-foreground">
+              {suggested !== null && (
+                <span>Precio sugerido: ${suggested.toFixed(2)}</span>
+              )}
+              {minPrice !== null && (
+                <span>Precio mínimo permitido: ${minPrice.toFixed(2)}</span>
+              )}
+            </div>
+            {errors.priceAmount && (
+              <p className="text-sm text-destructive">
+                {errors.priceAmount.message}
+              </p>
+            )}
           </div>
 
           <Button type="submit" disabled={isSubmitting}>

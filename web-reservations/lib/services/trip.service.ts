@@ -5,7 +5,17 @@ export async function getTrips(branchId?: string) {
   return prisma.trip.findMany({
     where: branchId ? { branchId } : undefined,
     include: {
-      route: { select: { id: true, origin: true, destination: true } },
+      route: {
+        select: {
+          id: true,
+          origin: true,
+          destination: true,
+          directPriceAmount: true,
+          incomingAgencyPriceAmount: true,
+          outgoingCommissionAmount: true,
+          minPrice: true,
+        },
+      },
       branch: { select: { id: true, name: true } },
       status: { select: { id: true, name: true } },
       crew: {

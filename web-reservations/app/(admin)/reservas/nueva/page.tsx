@@ -15,13 +15,24 @@ export default async function NuevaReservaPasajeroPage({
   const { fecha } = await searchParams
   const branch = await requireActiveBranch()
 
-  const [proveedorTypes, documentTypes, schedules, categorias, branches] = await Promise.all([
-    getProveedorTypes(),
-    getDocumentTypes(),
-    getTripSchedulesByBranch(branch.id),
-    prisma.cargaCategoria.findMany({ orderBy: { name: "asc" } }),
-    prisma.branch.findMany({ orderBy: { name: "asc" } }),
-  ])
+  const [proveedorTypes, documentTypes, schedules, categorias, branches, agencies] =
+    await Promise.all([
+      getProveedorTypes(),
+      getDocumentTypes(),
+      getTripSchedulesByBranch(branch.id),
+      prisma.cargaCategoria.findMany({ orderBy: { name: "asc" } }),
+      prisma.branch.findMany({ orderBy: { name: "asc" } }),
+      prisma.proveedor.findMany({
+        where: { proveedorType: { name: "AGENCIA" } },
+        select: {
+          id: true,
+          firstName: true,
+          lastName: true,
+          companyName: true,
+        },
+        orderBy: [{ companyName: "asc" }, { firstName: "asc" }],
+      }),
+    ])
 
   return (
     <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
@@ -42,6 +53,7 @@ export default async function NuevaReservaPasajeroPage({
         branchId={branch.id}
         categorias={categorias}
         branches={branches}
+        agencies={agencies}
       />
     </div>
   )

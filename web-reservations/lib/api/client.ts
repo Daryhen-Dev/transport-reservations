@@ -264,14 +264,34 @@ export type PassengerLink = {
   birthDate: string | null;
 };
 
+export type SalesChannel = "DIRECT" | "FROM_AGENCY" | "TO_AGENCY";
+
 export type PassengerReservation = {
   id: string;
   tripId: string;
   seatCount: number;
+  priceAmount: string;        // Decimal serializes as string
+  suggestedAmount: string;
+  salesChannel: SalesChannel;
+  externalAgencyId: string | null;
+  externalAgency: {
+    id: string;
+    firstName: string | null;
+    lastName: string | null;
+    companyName: string | null;
+  } | null;
   trip: {
     id: string;
     departureAt: string;
-    route: { id: string; origin: string; destination: string };
+    route: {
+      id: string;
+      origin: string;
+      destination: string;
+      directPriceAmount?: string;
+      incomingAgencyPriceAmount?: string;
+      outgoingCommissionAmount?: string;
+      minPrice?: string;
+    };
     branch: { id: string; name: string };
     status: { id: string; name: string };
   };

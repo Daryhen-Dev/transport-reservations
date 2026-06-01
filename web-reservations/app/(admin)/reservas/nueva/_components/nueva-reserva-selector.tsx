@@ -9,6 +9,13 @@ import type { TripSchedule, Route } from "@/lib/generated/prisma/client"
 
 type TripScheduleWithRoute = TripSchedule & { route: Route }
 
+type Agency = {
+  id: string
+  firstName: string | null
+  lastName: string | null
+  companyName: string | null
+}
+
 type Props = {
   fecha: string | null
   schedules: TripScheduleWithRoute[]
@@ -18,6 +25,7 @@ type Props = {
   branchId: string
   categorias: { id: string; name: string }[]
   branches: { id: string; name: string }[]
+  agencies: Agency[]
 }
 
 export function NuevaReservaSelector({
@@ -29,6 +37,7 @@ export function NuevaReservaSelector({
   branchId,
   categorias,
   branches,
+  agencies,
 }: Props) {
   const [tipo, setTipo] = useState<"pasajero" | "encomienda">("pasajero")
 
@@ -59,6 +68,7 @@ export function NuevaReservaSelector({
           documentTypes={documentTypes}
           slug={slug}
           branchId={branchId}
+          agencies={agencies}
         />
       ) : (
         <NuevaEncomiendaForm

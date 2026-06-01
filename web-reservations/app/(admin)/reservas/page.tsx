@@ -23,6 +23,7 @@ export default async function ReservasPage() {
     proveedorTypes,
     categorias,
     branches,
+    agencies,
   ] = await Promise.all([
     getPassengerReservationsByBranch(branchId),
     getCargoReservationsByBranch(branchId),
@@ -33,6 +34,16 @@ export default async function ReservasPage() {
     prisma.proveedorType.findMany({ orderBy: { name: "asc" } }),
     prisma.cargaCategoria.findMany({ orderBy: { name: "asc" } }),
     prisma.branch.findMany({ orderBy: { name: "asc" } }),
+    prisma.proveedor.findMany({
+      where: { proveedorType: { name: "AGENCIA" } },
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        companyName: true,
+      },
+      orderBy: [{ companyName: "asc" }, { firstName: "asc" }],
+    }),
   ]);
 
   return (
@@ -72,6 +83,7 @@ export default async function ReservasPage() {
             documentTypes={documentTypes}
             countries={countries}
             proveedorTypes={proveedorTypes}
+            agencies={agencies}
           />
         </TabsContent>
         <TabsContent value="encomiendas" className="mt-4">

@@ -150,6 +150,13 @@ export const GET = withAuth<{ id: string }>(async (_req, { params, auth }) => {
           documentType: { select: { name: true } },
         },
       },
+      externalAgency: {
+        select: {
+          firstName: true,
+          lastName: true,
+          companyName: true,
+        },
+      },
       reservationStatus: { select: { name: true } },
       passengers: {
         include: {
@@ -176,7 +183,16 @@ export const GET = withAuth<{ id: string }>(async (_req, { params, auth }) => {
     return new Response("Acceso denegado", { status: 403 });
   }
 
-  const { trip, proveedor, reservationStatus, passengers } = reservation;
+  const { trip, proveedor, reservationStatus, passengers, externalAgency } =
+    reservation;
+  const channelLabel =
+    reservation.salesChannel === "FROM_AGENCY"
+      ? "Desde agencia externa"
+      : reservation.salesChannel === "TO_AGENCY"
+        ? "Con comisión a agencia"
+        : "Directo";
+  const priceFmt = (v: { toString(): string }) =>
+    `$${Number(v.toString()).toFixed(2)}`;
   const shortCode = `PR-${reservation.id.slice(-8).toUpperCase()}`;
   const statusStyle =
     reservationStatus.name === "CONFIRMADA"
@@ -268,6 +284,24 @@ export const GET = withAuth<{ id: string }>(async (_req, { params, auth }) => {
             <Text style={styles.infoValue}>
               {passengers.length} de {reservation.seatCount}
             </Text>
+          </View>
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Canal:</Text>
+            <Text style={styles.infoValue}>{channelLabel}</Text>
+          </View>
+          {externalAgency && (
+            <View style={styles.infoRow}>
+              <Text style={styles.infoLabel}>Agencia:</Text>
+              <Text style={styles.infoValue}>{proveedorDisplay(externalAgency)}</Text>
+            </View>
+          )}
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Precio cobrado:</Text>
+            <Text style={styles.infoValue}>{priceFmt(reservation.priceAmount)}</Text>
+          </View>
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Precio sugerido:</Text>
+            <Text style={styles.infoValue}>{priceFmt(reservation.suggestedAmount)}</Text>
           </View>
         </View>
 
