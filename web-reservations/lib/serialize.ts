@@ -51,3 +51,56 @@ export function serializeTrip<T extends { route: RouteShape }>(
     route: serializeRoute(t.route),
   };
 }
+
+// Las reservas (passenger/cargo) embeben Decimals en top-level. El `trip`
+// asociado puede o no traer la Route con sus tarifas (Decimals) — depende
+// del select del service. Los helpers normalizan ambos casos.
+
+function maybeSerializeRoute(route: unknown): unknown {
+  if (!route || typeof route !== "object") return route;
+  const r = route as RouteShape;
+  // Solo aplica serializeRoute si la route trae alguno de los Decimals.
+  if (
+    r.directPriceAmount === undefined &&
+    r.incomingAgencyPriceAmount === undefined &&
+    r.outgoingCommissionAmount === undefined &&
+    r.minPrice === undefined
+  ) {
+    return route;
+  }
+  return serializeRoute(r);
+}
+
+function maybeSerializeTrip(trip: unknown): unknown {
+  if (!trip || typeof trip !== "object") return trip;
+  const t = trip as { route?: unknown };
+  if (t.route === undefined) return trip;
+  return { ...t, route: maybeSerializeRoute(t.route) };
+}
+
+export function serializePassengerReservation<
+  R extends {
+    priceAmount?: DecimalLike;
+    suggestedAmount?: DecimalLike;
+    commissionAmount?: DecimalLike;
+    trip?: unknown;
+  },
+>(r: R) {
+  return {
+    ...r,
+    priceAmount: decToString(r.priceAmount),
+    suggestedAmount: decToString(r.suggestedAmount),
+    commissionAmount: decToString(r.commissionAmount),
+    trip: maybeSerializeTrip(r.trip),
+  };
+}
+
+export function serializeCargoReservation<
+  R extends { priceAmount?: DecimalLike; trip?: unknown },
+>(r: R) {
+  return {
+    ...r,
+    priceAmount: decToString(r.priceAmount),
+    trip: maybeSerializeTrip(r.trip),
+  };
+}

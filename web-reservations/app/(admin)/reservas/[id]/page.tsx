@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation"
 import { prisma } from "@/lib/db"
 import { getTrips } from "@/lib/services/trip.service"
-import { serializeTrip } from "@/lib/serialize"
+import { serializeTrip, serializePassengerReservation } from "@/lib/serialize"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import { IconArrowLeft, IconReceipt } from "@tabler/icons-react"
@@ -64,11 +64,12 @@ export default async function ManageReservationPage({
 
   if (!reservation) notFound()
 
-  // Map ReservationPassenger join records to flat PassengerRecord array for the form
-  const reservationWithPassengers = {
+  // Map ReservationPassenger join records to flat PassengerRecord array for
+  // the form, and serialize Decimals so Next.js can cross to the client.
+  const reservationWithPassengers = serializePassengerReservation({
     ...reservation,
     passengers: reservation.passengers.map((rp) => rp.passenger),
-  }
+  })
 
   return (
     <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
