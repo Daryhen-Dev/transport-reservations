@@ -23,6 +23,10 @@ import type {
   UpdateProveedorTariffInput,
 } from "./schemas/proveedor-tariffs";
 import type {
+  CreateExternalSaleInput,
+  UpdateExternalSaleInput,
+} from "./schemas/external-sales";
+import type {
   CreateRouteInput,
   UpdateRouteInput,
 } from "./schemas/routes";
@@ -326,6 +330,33 @@ export type PassengerLink = {
 };
 
 export type ProveedorTypeName = "PERSONA" | "AGENCIA" | "INSTITUCION_PUBLICA";
+
+export type ExternalSale = {
+  id: string;
+  branchId: string;
+  branch: { id: string; name: string; slug: string };
+  operatorAgencyId: string;
+  operatorAgency: {
+    id: string;
+    firstName: string | null;
+    lastName: string | null;
+    companyName: string | null;
+    proveedorType: { id: string; name: string };
+  };
+  buyerName: string | null;
+  buyerDocument: string | null;
+  buyerPhone: string | null;
+  departureAt: string;
+  origin: string;
+  destination: string;
+  passengerCount: number;
+  priceCharged: string;
+  costPaidToOperator: string;
+  reservationStatus: { id: string; name: string };
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
 
 export type SalesReport = {
   totals: {
@@ -876,6 +907,27 @@ export const api = {
           { method: "DELETE" }
         ),
     },
+  },
+  externalSales: {
+    list: (params: { branchId: string; from?: string; to?: string }) => {
+      const q = new URLSearchParams({ branchId: params.branchId });
+      if (params.from) q.set("from", params.from);
+      if (params.to) q.set("to", params.to);
+      return request<ExternalSale[]>(`/external-sales?${q.toString()}`);
+    },
+    get: (id: string) => request<ExternalSale>(`/external-sales/${id}`),
+    create: (data: CreateExternalSaleInput) =>
+      request<ExternalSale>("/external-sales", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    update: (id: string, data: UpdateExternalSaleInput) =>
+      request<ExternalSale>(`/external-sales/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }),
+    delete: (id: string) =>
+      request<void>(`/external-sales/${id}`, { method: "DELETE" }),
   },
   reports: {
     sales: (params?: { from?: string; to?: string; branchId?: string }) => {

@@ -16,6 +16,7 @@ import {
   IconFileText,
   IconPackage,
   IconChartBar,
+  IconShoppingCart,
 } from "@tabler/icons-react"
 import { NavUser } from "@/components/nav-user"
 import { BranchSwitcher } from "@/components/branch-switcher"
@@ -56,6 +57,7 @@ const operationsItems = [
   { title: "Reservas", url: "/reservas", icon: IconLayoutList },
   { title: "Manifiestos", url: "/manifiestos", icon: IconFileText },
   { title: "Encomiendas", url: "/encomiendas", icon: IconPackage },
+  { title: "Ventas externas", url: "/ventas-externas", icon: IconShoppingCart },
   { title: "Reportes", url: "/reportes", icon: IconChartBar },
 ]
 

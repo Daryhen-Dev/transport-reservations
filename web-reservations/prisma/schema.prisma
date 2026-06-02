@@ -37,6 +37,7 @@ model ReservationStatus {
   name                  String                 @unique
   passengerReservations PassengerReservation[]
   cargoReservations     CargoReservation[]
+  externalSales         ExternalSale[]
   createdAt             DateTime               @default(now())
   updatedAt             DateTime               @updatedAt
 
@@ -64,6 +65,7 @@ model Branch {
   trips     Trip[]
   cargoReservationsAsDestination CargoReservation[] @relation("DestinationBranch")
   receivedManifests              TripManifest[]
+  externalSales                  ExternalSale[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   // Audit
@@ -118,6 +120,8 @@ model User {
   proveedorTariffsUpdated      ProveedorTariff[]      @relation("ProveedorTariffUpdatedBy")
   routeSegmentsCreated         RouteSegment[]         @relation("RouteSegmentCreatedBy")
   routeSegmentsUpdated         RouteSegment[]         @relation("RouteSegmentUpdatedBy")
+  externalSalesCreated         ExternalSale[]         @relation("ExternalSaleCreatedBy")
+  externalSalesUpdated         ExternalSale[]         @relation("ExternalSaleUpdatedBy")
 
   @@map("usuario")
 }
@@ -259,6 +263,7 @@ model Proveedor {
   cargoReservations     CargoReservation[]
   tariffs               ProveedorTariff[]
   operatedSegments      RouteSegment[]         @relation("RouteSegmentOperator")
+  externalSalesAsOperator           ExternalSale[]         @relation("ExternalSaleOperator")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -496,4 +501,47 @@ model RefreshToken {
   createdAt DateTime @default(now())
 
   @@map("refresh_token")
+}
+
+/// Ventas que NO ocupan asiento de nuestros viajes — somos intermediarios
+/// que vendemos el boleto de un viaje operado por otra agencia. El cliente
+/// vuela con `operatorAgency`, no con nosotros. priceCharged es lo que le
+/// cobramos al cliente; costPaidToOperator es lo que le pagamos al operador.
+model ExternalSale {
+  id                  String     @id @default(cuid())
+  branchId            String
+  branch              Branch     @relation(fields: [branchId], references: [id])
+  operatorAgencyId    String
+  operatorAgency      Proveedor  @relation("ExternalSaleOperator", fields: [operatorAgencyId], references: [id])
+
+  // Comprador final (datos sueltos, no FK — la agencia operadora ya tiene
+  // los datos completos del pasajero).
+  buyerName           String?
+  buyerDocument       String?
+  buyerPhone          String?
+
+  // Viaje (texto libre — la ruta puede no existir en nuestro catalogo).
+  departureAt         DateTime
+  origin              String
+  destination         String
+  passengerCount      Int        @default(1)
+
+  // Pricing
+  priceCharged        Decimal    @db.Decimal(10, 2)
+  costPaidToOperator  Decimal    @db.Decimal(10, 2)
+
+  reservationStatusId String
+  reservationStatus   ReservationStatus @relation(fields: [reservationStatusId], references: [id])
+
+  notes               String?
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+  createdById         String?
+  createdBy           User?      @relation("ExternalSaleCreatedBy", fields: [createdById], references: [id])
+  updatedById         String?
+  updatedBy           User?      @relation("ExternalSaleUpdatedBy", fields: [updatedById], references: [id])
+
+  @@index([branchId, departureAt])
+  @@index([operatorAgencyId])
+  @@map("venta_externa")
 }
