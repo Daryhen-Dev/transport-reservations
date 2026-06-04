@@ -19,13 +19,9 @@ import type {
   UpdateProveedorInput,
 } from "./schemas/proveedores";
 import type {
-  CreateProveedorTariffInput,
-  UpdateProveedorTariffInput,
-} from "./schemas/proveedor-tariffs";
-import type {
-  CreateExternalSaleInput,
-  UpdateExternalSaleInput,
-} from "./schemas/external-sales";
+  CreateAgencyPaymentInput,
+  UpdateAgencyPaymentInput,
+} from "./schemas/agency-payments";
 import type {
   CreateRouteInput,
   UpdateRouteInput,
@@ -60,12 +56,16 @@ import type {
 import type {
   CreatePassengerReservationInput,
   CreateQuickPassengerReservationInput,
+  CreateQuickTransferredReservationInput,
   UpdatePassengerReservationInput,
   UpdateReservationStatusInput as UpdatePassengerReservationStatusInput,
   AddPassengerByCreateInput,
   AddPassengerByLinkInput,
 } from "./schemas/passenger-reservations";
 import type { CalendarDay } from "@/lib/services/calendar.service";
+import type { PriceType } from "@/lib/pricing";
+
+export type { PriceType };
 
 const BASE = "/api/v1";
 
@@ -195,6 +195,7 @@ export type Proveedor = {
   countryId: string | null;
   country: { id: string; name: string } | null;
   birthDate: string | null;
+  email: string;
   phone: string | null;
   createdAt: string;
   updatedAt: string;
@@ -221,48 +222,12 @@ export type RouteSegment = {
   updatedAt: string;
 };
 
-export type ProveedorTariff = {
-  id: string;
-  proveedorId: string;
-  routeId: string;
-  directPriceAmount: string | null;
-  incomingAgencyPriceAmount: string | null;
-  outgoingCommissionAmount: string | null;
-  minPrice: string | null;
-  notes: string | null;
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-  proveedor: {
-    id: string;
-    firstName: string | null;
-    lastName: string | null;
-    companyName: string | null;
-    proveedorType: { id: string; name: string };
-  };
-  route: {
-    id: string;
-    origin: string;
-    destination: string;
-    branchId: string;
-    branch: { id: string; name: string };
-    directPriceAmount: string;
-    incomingAgencyPriceAmount: string;
-    outgoingCommissionAmount: string;
-    minPrice: string;
-  };
-};
-
 export type Route = {
   id: string;
   origin: string;
   destination: string;
   branchId: string;
   branch?: { id: string; name: string; slug: string };
-  directPriceAmount: string;         // Decimal serializes as string
-  incomingAgencyPriceAmount: string;
-  outgoingCommissionAmount: string;
-  minPrice: string;
   createdAt: string;
   updatedAt: string;
 };
@@ -316,6 +281,9 @@ export type Trip = {
 
 export type CrewAssignmentResult = TripCrewAssignment & {
   tripId: string;
+  // hasMinimumCrew = capitán asignado. allCrewAssigned se mantiene como
+  // alias para no romper callers existentes.
+  hasMinimumCrew: boolean;
   allCrewAssigned: boolean;
 };
 
@@ -331,41 +299,13 @@ export type PassengerLink = {
 
 export type ProveedorTypeName = "PERSONA" | "AGENCIA" | "INSTITUCION_PUBLICA";
 
-export type ExternalSale = {
-  id: string;
-  branchId: string;
-  branch: { id: string; name: string; slug: string };
-  operatorAgencyId: string;
-  operatorAgency: {
-    id: string;
-    firstName: string | null;
-    lastName: string | null;
-    companyName: string | null;
-    proveedorType: { id: string; name: string };
-  };
-  buyerName: string | null;
-  buyerDocument: string | null;
-  buyerPhone: string | null;
-  departureAt: string;
-  origin: string;
-  destination: string;
-  passengerCount: number;
-  priceCharged: string;
-  costPaidToOperator: string;
-  reservationStatus: { id: string; name: string };
-  notes: string | null;
-  createdAt: string;
-  updatedAt: string;
-};
-
 export type SalesReport = {
   totals: {
     reservationCount: number;
     seatCount: number;
     revenueAmount: number;
-    suggestedAmount: number;
-    delta: number;
     commissionAmount: number;
+    transferCommissionAmount: number;
   };
   byProveedorType: Array<{
     proveedorTypeName: ProveedorTypeName | string;
@@ -373,13 +313,20 @@ export type SalesReport = {
     seatCount: number;
     revenueAmount: number;
   }>;
-  byReferralAgency: Array<{
-    agencyId: string;
-    agencyName: string;
+  byPriceType: Array<{
+    priceType: PriceType;
     reservationCount: number;
     seatCount: number;
     revenueAmount: number;
     commissionAmount: number;
+  }>;
+  byTransferAgency: Array<{
+    agencyId: string;
+    agencyName: string;
+    reservationCount: number;
+    seatCount: number;
+    amountSentToAgency: number;
+    commissionEarned: number;
   }>;
   byRoute: Array<{
     routeId: string;
@@ -394,16 +341,18 @@ export type PassengerReservation = {
   id: string;
   tripId: string;
   seatCount: number;
+  priceType: PriceType;
   priceAmount: string;        // Decimal serializes as string
-  suggestedAmount: string;
-  referredByAgencyId: string | null;
-  referredByAgency: {
+  commissionAmount: string | null;
+  transferredToAgencyId: string | null;
+  transferredToAgency: {
     id: string;
     firstName: string | null;
     lastName: string | null;
     companyName: string | null;
   } | null;
-  commissionAmount: string | null;
+  transferAmountToAgency: string | null;
+  transferCommissionAmount: string | null;
   trip: {
     id: string;
     departureAt: string;
@@ -411,10 +360,6 @@ export type PassengerReservation = {
       id: string;
       origin: string;
       destination: string;
-      directPriceAmount?: string;
-      incomingAgencyPriceAmount?: string;
-      outgoingCommissionAmount?: string;
-      minPrice?: string;
     };
     branch: { id: string; name: string };
     status: { id: string; name: string };
@@ -694,28 +639,6 @@ export const api = {
     delete: (id: string) =>
       request<void>(`/route-segments/${id}`, { method: "DELETE" }),
   },
-  proveedorTariffs: {
-    list: (params?: { proveedorId?: string; routeId?: string; branchId?: string }) => {
-      const q = new URLSearchParams();
-      if (params?.proveedorId) q.set("proveedorId", params.proveedorId);
-      if (params?.routeId) q.set("routeId", params.routeId);
-      if (params?.branchId) q.set("branchId", params.branchId);
-      const qs = q.toString();
-      return request<ProveedorTariff[]>(`/proveedor-tariffs${qs ? `?${qs}` : ""}`);
-    },
-    create: (data: CreateProveedorTariffInput) =>
-      request<ProveedorTariff>("/proveedor-tariffs", {
-        method: "POST",
-        body: JSON.stringify(data),
-      }),
-    update: (id: string, data: UpdateProveedorTariffInput) =>
-      request<ProveedorTariff>(`/proveedor-tariffs/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify(data),
-      }),
-    delete: (id: string) =>
-      request<void>(`/proveedor-tariffs/${id}`, { method: "DELETE" }),
-  },
   routes: {
     list: (branchId: string) => {
       const params = new URLSearchParams({ branchId });
@@ -873,6 +796,14 @@ export const api = {
           method: "POST",
           body: JSON.stringify(data),
         }),
+      createQuickTransferred: (data: CreateQuickTransferredReservationInput) =>
+        request<PassengerReservation>(
+          "/reservations/passengers/quick-transferred",
+          {
+            method: "POST",
+            body: JSON.stringify(data),
+          }
+        ),
       update: (id: string, data: UpdatePassengerReservationInput) =>
         request<PassengerReservationDetail>(`/reservations/passengers/${id}`, {
           method: "PATCH",
@@ -885,6 +816,11 @@ export const api = {
         request<PassengerReservation>(`/reservations/passengers/${id}/status`, {
           method: "PATCH",
           body: JSON.stringify(data),
+        }),
+      transfer: (id: string, agencyId: string) =>
+        request<PassengerReservation>(`/reservations/passengers/${id}/transfer`, {
+          method: "POST",
+          body: JSON.stringify({ agencyId }),
         }),
       listPassengers: (reservationId: string) =>
         request<PassengerLink[]>(
@@ -908,27 +844,6 @@ export const api = {
         ),
     },
   },
-  externalSales: {
-    list: (params: { branchId: string; from?: string; to?: string }) => {
-      const q = new URLSearchParams({ branchId: params.branchId });
-      if (params.from) q.set("from", params.from);
-      if (params.to) q.set("to", params.to);
-      return request<ExternalSale[]>(`/external-sales?${q.toString()}`);
-    },
-    get: (id: string) => request<ExternalSale>(`/external-sales/${id}`),
-    create: (data: CreateExternalSaleInput) =>
-      request<ExternalSale>("/external-sales", {
-        method: "POST",
-        body: JSON.stringify(data),
-      }),
-    update: (id: string, data: UpdateExternalSaleInput) =>
-      request<ExternalSale>(`/external-sales/${id}`, {
-        method: "PATCH",
-        body: JSON.stringify(data),
-      }),
-    delete: (id: string) =>
-      request<void>(`/external-sales/${id}`, { method: "DELETE" }),
-  },
   reports: {
     sales: (params?: { from?: string; to?: string; branchId?: string }) => {
       const q = new URLSearchParams();
@@ -938,6 +853,20 @@ export const api = {
       const qs = q.toString();
       return request<SalesReport>(`/reports/sales${qs ? `?${qs}` : ""}`);
     },
+  },
+  agencyPayments: {
+    create: (data: CreateAgencyPaymentInput) =>
+      request<{ id: string }>("/agency-payments", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+    update: (id: string, data: UpdateAgencyPaymentInput) =>
+      request<{ id: string; notes: string | null }>(`/agency-payments/${id}`, {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }),
+    delete: (id: string) =>
+      request<void>(`/agency-payments/${id}`, { method: "DELETE" }),
   },
   search: {
     global: (q: string, branchId?: string) => {

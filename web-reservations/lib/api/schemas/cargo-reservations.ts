@@ -10,6 +10,7 @@ export const proveedorInputSchema = z.object({
   lastName: z.string().min(1, "El apellido es requerido"),
   documentTypeId: cuidSchema,
   documentNumber: z.string().min(1, "El número de documento es requerido"),
+  email: z.string().email("Email inválido"),
   countryId: cuidSchema,
   birthDate: z.string().optional(),
 });

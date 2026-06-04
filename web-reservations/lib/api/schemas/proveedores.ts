@@ -9,6 +9,7 @@ const documentTypeIdSchema = z
 const documentNumberSchema = z
   .string()
   .min(1, "Número de documento requerido");
+const emailSchema = z.string().email("Email inválido");
 const phoneSchema = z.string().optional().or(z.literal(""));
 const birthDateSchema = z.string().optional().or(z.literal(""));
 const optionalString = z.string().optional().or(z.literal(""));
@@ -34,6 +35,7 @@ export const createProveedorSchema = z
     // Shared
     documentTypeId: documentTypeIdSchema,
     documentNumber: documentNumberSchema,
+    email: emailSchema,
     phone: phoneSchema,
   })
   .refine(
@@ -64,6 +66,7 @@ export const updateProveedorSchema = z.object({
 
   documentTypeId: documentTypeIdSchema.optional(),
   documentNumber: documentNumberSchema.optional(),
+  email: emailSchema.optional(),
   phone: phoneSchema,
 });
 

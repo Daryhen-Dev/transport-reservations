@@ -1,12 +1,12 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { format } from "date-fns";
 import { useRouter } from "next/navigation";
 import { api } from "@/lib/api/client";
 import type { CalendarDay } from "@/lib/services/calendar.service";
 import { MiniCalendar } from "./mini-calendar";
 import { BigCalendar } from "./big-calendar";
+import { formatDateForInput } from "@/lib/format-date";
 
 type Props = {
   initialData: CalendarDay[];
@@ -19,7 +19,7 @@ export function CalendarioView({ initialData, initialYear, initialMonth }: Props
   const [year, setYear] = useState(initialYear);
   const [month, setMonth] = useState(initialMonth);
   const [selectedDate, setSelectedDate] = useState<string>(
-    format(new Date(), "yyyy-MM-dd")
+    formatDateForInput(new Date())
   );
   const [, startTransition] = useTransition();
   const router = useRouter();

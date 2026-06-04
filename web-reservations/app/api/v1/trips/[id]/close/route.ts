@@ -98,6 +98,23 @@ export async function POST(
     );
   }
 
+  // Minimo de tripulacion: capitan asignado.
+  const captainAssigned = await prisma.tripCrew.findFirst({
+    where: { tripId: id, crewRole: { name: "CAPITAN" } },
+    select: { crewMemberId: true },
+  });
+  if (!captainAssigned) {
+    return NextResponse.json(
+      {
+        error: {
+          code: "CONFLICT",
+          message: "No se puede cerrar el viaje: falta asignar al capitán",
+        },
+      },
+      { status: 409 }
+    );
+  }
+
   const cerrado = await prisma.tripStatus.findUnique({
     where: { name: "CERRADO" },
     select: { id: true },

@@ -3,8 +3,8 @@
 import { useEffect, useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { parseISO, format, startOfDay, isToday, isBefore } from "date-fns"
-import { es } from "date-fns/locale"
+import { parseISO, startOfDay, isToday, isBefore } from "date-fns"
+import { formatDateWithWeekday } from "@/lib/format-date"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -18,6 +18,17 @@ import {
 } from "@/components/ui/select"
 import { Autocomplete } from "@/components/ui/autocomplete"
 import { api, ApiError, type Proveedor as ProveedorWithRelations } from "@/lib/api/client"
+import {
+  PRICE_LIBRE_MAX,
+  PRICE_LIBRE_MIN,
+  PRICE_NORMAL,
+  PRICE_REFERIDOS,
+  COMMISSION_PER_PAX,
+  allowedPriceTypesForProveedor,
+  defaultPriceTypeForProveedor,
+  isPriceTypeLockedForProveedor,
+  type PriceType,
+} from "@/lib/pricing"
 import { QuickProveedorSheet } from "./quick-proveedor-sheet"
 
 export type TripScheduleWithRoute = {
@@ -30,10 +41,6 @@ export type TripScheduleWithRoute = {
     origin: string
     destination: string
     branchId: string
-    directPriceAmount: string | null
-    incomingAgencyPriceAmount: string | null
-    outgoingCommissionAmount: string | null
-    minPrice: string | null
   }
 }
 
@@ -57,13 +64,6 @@ type ProveedorResult = {
   documentType: { id: string; name: string } | null
 }
 
-type Agency = {
-  id: string
-  firstName: string | null
-  lastName: string | null
-  companyName: string | null
-}
-
 type Props = {
   fecha: string | null
   schedules: TripScheduleWithRoute[]
@@ -71,22 +71,6 @@ type Props = {
   documentTypes: DocumentType[]
   slug?: string
   branchId: string
-  agencies: Agency[]
-}
-
-function agencyLabel(a: Agency) {
-  return a.companyName ?? `${a.firstName ?? ""} ${a.lastName ?? ""}`.trim() ?? a.id
-}
-
-function asNumber(v: unknown): number | null {
-  if (v === null || v === undefined) return null
-  const n = typeof v === "number" ? v : Number(v)
-  return Number.isFinite(n) ? n : null
-}
-
-function isAgencyOrInstitution(typeName: string | null | undefined): boolean {
-  if (!typeName) return false
-  return typeName === "AGENCIA" || typeName === "INSTITUCION_PUBLICA"
 }
 
 function formatScheduleLabel(schedule: TripScheduleWithRoute): string {
@@ -95,7 +79,7 @@ function formatScheduleLabel(schedule: TripScheduleWithRoute): string {
 
 function formatFecha(fecha: string): string {
   try {
-    return format(parseISO(fecha), "EEEE, d 'de' MMMM 'de' yyyy", { locale: es })
+    return formatDateWithWeekday(fecha)
   } catch {
     return fecha
   }
@@ -103,6 +87,25 @@ function formatFecha(fecha: string): string {
 
 function capitalizeFirst(str: string): string {
   return str.charAt(0).toUpperCase() + str.slice(1)
+}
+
+function formatProveedorTypeName(name: string): string {
+  // El nombre se guarda en BD como UPPER_SNAKE. Lo mostramos limpio.
+  return name
+    .toLowerCase()
+    .replace(/_/g, " ")
+    .replace(/(^|\s)\S/g, (c) => c.toUpperCase())
+}
+
+function priceTypeLabel(type: PriceType): string {
+  switch (type) {
+    case "NORMAL":
+      return `Normal — $${PRICE_NORMAL} fijo`
+    case "REFERIDOS":
+      return `Referidos — $${PRICE_REFERIDOS} fijo ($${COMMISSION_PER_PAX}/pax a la agencia)`
+    case "LIBRE":
+      return `Libre — $${PRICE_LIBRE_MIN} a $${PRICE_LIBRE_MAX}`
+  }
 }
 
 function getProveedorDisplayValue(p: ProveedorResult | ProveedorWithRelations): string {
@@ -116,7 +119,7 @@ function getProveedorDisplayValue(p: ProveedorResult | ProveedorWithRelations): 
   return `${name}${doc}`
 }
 
-export function NuevaReservaForm({ fecha, schedules, proveedorTypes, documentTypes, slug, branchId, agencies }: Props) {
+export function NuevaReservaForm({ fecha, schedules, proveedorTypes, documentTypes, slug, branchId }: Props) {
   const router = useRouter()
   const [isPending, startTransition] = useTransition()
 
@@ -146,27 +149,28 @@ export function NuevaReservaForm({ fecha, schedules, proveedorTypes, documentTyp
   const [seatCount, setSeatCount] = useState<number>(1)
   const [asPending, setAsPending] = useState<boolean>(false)
   const [quickSheetOpen, setQuickSheetOpen] = useState(false)
-  const [referredByAgencyId, setReferredByAgencyId] = useState<string>("")
-  const [commissionAmount, setCommissionAmount] = useState<number>(0)
-  const [priceAmount, setPriceAmount] = useState<number>(0)
-  const [priceDirty, setPriceDirty] = useState<boolean>(false)
+  const [priceType, setPriceType] = useState<PriceType>(defaultPriceTypeForProveedor(defaultPersonaType?.name))
+  const [librePrice, setLibrePrice] = useState<number>(PRICE_LIBRE_MIN)
 
-  const selectedSchedule = availableSchedules.find((s) => s.id === scheduleId)
-  const directPrice = asNumber(selectedSchedule?.route.directPriceAmount)
-  const incomingPrice = asNumber(selectedSchedule?.route.incomingAgencyPriceAmount)
-  const minPrice = asNumber(selectedSchedule?.route.minPrice)
-  // El precio sugerido sale del tipo del comprador (proveedor seleccionado).
-  // PERSONA → tarifa directa. AGENCIA / INSTITUCION_PUBLICA → tarifa de agencia.
-  const suggested = isAgencyOrInstitution(proveedorTypeName)
-    ? incomingPrice
-    : directPrice
+  const allowedTypes = allowedPriceTypesForProveedor(proveedorTypeName)
+  const priceLocked = isPriceTypeLockedForProveedor(proveedorTypeName)
 
-  // Auto-fill price when the route/buyer-type changes and the user hasn't touched it.
   useEffect(() => {
-    if (!priceDirty && suggested !== null) {
-      setPriceAmount(suggested)
+    if (!allowedTypes.includes(priceType)) {
+      setPriceType(defaultPriceTypeForProveedor(proveedorTypeName))
     }
-  }, [suggested, priceDirty])
+  }, [allowedTypes, priceType, proveedorTypeName])
+
+  const effectivePrice =
+    priceType === "LIBRE"
+      ? librePrice
+      : priceType === "REFERIDOS"
+        ? PRICE_REFERIDOS
+        : PRICE_NORMAL
+
+  const libreInvalid =
+    priceType === "LIBRE" &&
+    (librePrice < PRICE_LIBRE_MIN || librePrice > PRICE_LIBRE_MAX)
 
   const isFormComplete =
     !isFechaInPast &&
@@ -174,17 +178,16 @@ export function NuevaReservaForm({ fecha, schedules, proveedorTypes, documentTyp
     proveedorTypeId !== null &&
     selectedProveedor !== null &&
     seatCount >= 1 &&
-    priceAmount > 0 &&
-    (minPrice === null || priceAmount >= minPrice)
+    !libreInvalid
 
   function handleProveedorTypeChange(value: string) {
     const found = proveedorTypes.find((pt) => pt.id === value)
+    const newName = found?.name ?? null
     setProveedorTypeId(value)
-    setProveedorTypeName(found?.name ?? null)
+    setProveedorTypeName(newName)
     setSelectedProveedor(null)
     setProveedorDisplayValue("")
-    // Reset el dirty flag para que el sugerido se aplique cuando cambia el tipo.
-    setPriceDirty(false)
+    setPriceType(defaultPriceTypeForProveedor(newName))
   }
 
   function handleSubmit() {
@@ -199,9 +202,8 @@ export function NuevaReservaForm({ fecha, schedules, proveedorTypes, documentTyp
           seatCount,
           branchId,
           isPending: asPending,
-          priceAmount,
-          referredByAgencyId: referredByAgencyId || null,
-          commissionAmount: referredByAgencyId ? commissionAmount : null,
+          priceType,
+          priceAmount: priceType === "LIBRE" ? librePrice : undefined,
         })
         toast.success("Reserva creada exitosamente")
         router.push(`/reservas`)
@@ -215,7 +217,6 @@ export function NuevaReservaForm({ fecha, schedules, proveedorTypes, documentTyp
   return (
     <div className="px-4 lg:px-6">
       <div className="max-w-lg flex flex-col gap-5">
-        {/* Fecha (read-only) */}
         <div className="flex flex-col gap-1.5">
           <Label>Fecha</Label>
           <p className="text-sm font-medium">
@@ -228,7 +229,6 @@ export function NuevaReservaForm({ fecha, schedules, proveedorTypes, documentTyp
           )}
         </div>
 
-        {/* Horario */}
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="scheduleId">Horario</Label>
           {schedules.length === 0 ? (
@@ -255,7 +255,6 @@ export function NuevaReservaForm({ fecha, schedules, proveedorTypes, documentTyp
           )}
         </div>
 
-        {/* Tipo de Proveedor */}
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="proveedorTypeId">Tipo de Proveedor</Label>
           <Select
@@ -268,14 +267,13 @@ export function NuevaReservaForm({ fecha, schedules, proveedorTypes, documentTyp
             <SelectContent>
               {proveedorTypes.map((pt) => (
                 <SelectItem key={pt.id} value={pt.id}>
-                  {pt.name}
+                  {formatProveedorTypeName(pt.name)}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
 
-        {/* Proveedor autocomplete */}
         <div className="flex flex-col gap-1.5">
           <Label>Proveedor</Label>
           <Autocomplete<ProveedorResult>
@@ -305,7 +303,6 @@ export function NuevaReservaForm({ fecha, schedules, proveedorTypes, documentTyp
           />
         </div>
 
-        {/* Cantidad de pasajeros */}
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="seatCount">Cantidad de pasajeros</Label>
           <Input
@@ -318,82 +315,65 @@ export function NuevaReservaForm({ fecha, schedules, proveedorTypes, documentTyp
           />
         </div>
 
-        {/* Precio cobrado */}
         <div className="flex flex-col gap-1.5">
-          <Label htmlFor="priceAmount">Precio cobrado (USD)</Label>
-          <Input
-            id="priceAmount"
-            type="number"
-            step="0.01"
-            min={0}
-            value={priceAmount}
-            onChange={(e) => {
-              setPriceAmount(Number(e.target.value))
-              setPriceDirty(true)
-            }}
-            className="w-40"
-          />
-          <div className="flex flex-col gap-0.5 text-xs text-muted-foreground">
-            {suggested !== null && (
-              <span>
-                Precio sugerido: ${suggested.toFixed(2)}
-                {isAgencyOrInstitution(proveedorTypeName)
-                  ? " (tarifa agencia/institución)"
-                  : " (tarifa directa)"}
-              </span>
-            )}
-            {minPrice !== null && (
-              <span>Precio mínimo permitido: ${minPrice.toFixed(2)}</span>
-            )}
-          </div>
-          {minPrice !== null && priceAmount < minPrice && (
-            <p className="text-sm text-destructive">
-              El precio no puede ser menor al mínimo.
-            </p>
-          )}
-        </div>
-
-        {/* Referida por agencia (opcional) */}
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="referredByAgencyId">
-            ¿Referido por agencia? (opcional)
-          </Label>
+          <Label htmlFor="priceType">Tipo de precio</Label>
           <Select
-            value={referredByAgencyId === "" ? "__none__" : referredByAgencyId}
-            onValueChange={(val) =>
-              setReferredByAgencyId(val === "__none__" ? "" : val)
-            }
+            value={priceType}
+            onValueChange={(val) => setPriceType(val as PriceType)}
+            disabled={priceLocked}
           >
-            <SelectTrigger id="referredByAgencyId" className="w-full">
-              <SelectValue placeholder="Sin referido" />
+            <SelectTrigger id="priceType" className="w-full">
+              <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="__none__">Sin referido</SelectItem>
-              {agencies.map((a) => (
-                <SelectItem key={a.id} value={a.id}>
-                  {agencyLabel(a)}
+              {allowedTypes.map((t) => (
+                <SelectItem key={t} value={t}>
+                  {priceTypeLabel(t)}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
+          {priceLocked && (
+            <p className="text-xs text-muted-foreground">
+              Bloqueado: los proveedores tipo Agencia siempre son Referidos.
+            </p>
+          )}
         </div>
 
-        {referredByAgencyId && (
+        {priceType === "LIBRE" ? (
           <div className="flex flex-col gap-1.5">
-            <Label htmlFor="commissionAmount">Comisión a pagar (USD)</Label>
+            <Label htmlFor="librePrice">Precio cobrado (USD)</Label>
             <Input
-              id="commissionAmount"
+              id="librePrice"
               type="number"
               step="0.01"
-              min={0}
-              value={commissionAmount}
-              onChange={(e) => setCommissionAmount(Number(e.target.value))}
+              min={PRICE_LIBRE_MIN}
+              max={PRICE_LIBRE_MAX}
+              value={librePrice}
+              onChange={(e) => setLibrePrice(Number(e.target.value))}
               className="w-40"
             />
+            <p className="text-xs text-muted-foreground">
+              Rango permitido: ${PRICE_LIBRE_MIN} a ${PRICE_LIBRE_MAX}.
+            </p>
+            {libreInvalid && (
+              <p className="text-sm text-destructive">
+                El precio LIBRE debe estar entre ${PRICE_LIBRE_MIN} y ${PRICE_LIBRE_MAX}.
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className="flex flex-col gap-1.5">
+            <Label>Precio cobrado (USD)</Label>
+            <p className="text-sm font-medium">${effectivePrice.toFixed(2)}</p>
+            {priceType === "REFERIDOS" && (
+              <p className="text-xs text-muted-foreground">
+                Comisión a la agencia: ${COMMISSION_PER_PAX} × {seatCount} = ${(COMMISSION_PER_PAX * seatCount).toFixed(2)}
+              </p>
+            )}
           </div>
         )}
 
-        {/* Estado */}
         <div className="flex items-center gap-2">
           <Checkbox
             id="isPending"
@@ -405,7 +385,6 @@ export function NuevaReservaForm({ fecha, schedules, proveedorTypes, documentTyp
           </Label>
         </div>
 
-        {/* Submit */}
         <Button
           onClick={handleSubmit}
           disabled={!isFormComplete || isPending || availableSchedules.length === 0}

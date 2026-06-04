@@ -1,17 +1,13 @@
 "use client"
 
 import { useState } from "react"
-import { IconUserCheck, IconPackage } from "@tabler/icons-react"
+import { IconUserCheck, IconPackage, IconArrowsExchange } from "@tabler/icons-react"
 import { Button } from "@/components/ui/button"
 import { NuevaReservaForm, type TripScheduleWithRoute } from "./nueva-reserva-form"
 import { NuevaEncomiendaForm } from "./nueva-encomienda-form"
+import { TransferidaDirectaForm } from "./transferida-directa-form"
 
-type Agency = {
-  id: string
-  firstName: string | null
-  lastName: string | null
-  companyName: string | null
-}
+type Tipo = "pasajero" | "encomienda" | "transferida"
 
 type Props = {
   fecha: string | null
@@ -22,7 +18,7 @@ type Props = {
   branchId: string
   categorias: { id: string; name: string }[]
   branches: { id: string; name: string }[]
-  agencies: Agency[]
+  countries: { id: string; name: string }[]
 }
 
 export function NuevaReservaSelector({
@@ -34,13 +30,13 @@ export function NuevaReservaSelector({
   branchId,
   categorias,
   branches,
-  agencies,
+  countries,
 }: Props) {
-  const [tipo, setTipo] = useState<"pasajero" | "encomienda">("pasajero")
+  const [tipo, setTipo] = useState<Tipo>("pasajero")
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex gap-2 px-4 lg:px-6">
+      <div className="flex flex-wrap gap-2 px-4 lg:px-6">
         <Button
           type="button"
           variant={tipo === "pasajero" ? "default" : "outline"}
@@ -55,9 +51,16 @@ export function NuevaReservaSelector({
         >
           <IconPackage className="size-4" /> Encomienda
         </Button>
+        <Button
+          type="button"
+          variant={tipo === "transferida" ? "default" : "outline"}
+          onClick={() => setTipo("transferida")}
+        >
+          <IconArrowsExchange className="size-4" /> Pasajero transferido
+        </Button>
       </div>
 
-      {tipo === "pasajero" ? (
+      {tipo === "pasajero" && (
         <NuevaReservaForm
           fecha={fecha}
           schedules={schedules}
@@ -65,9 +68,9 @@ export function NuevaReservaSelector({
           documentTypes={documentTypes}
           slug={slug}
           branchId={branchId}
-          agencies={agencies}
         />
-      ) : (
+      )}
+      {tipo === "encomienda" && (
         <NuevaEncomiendaForm
           fecha={fecha}
           slug={slug}
@@ -77,6 +80,17 @@ export function NuevaReservaSelector({
           proveedorTypes={proveedorTypes}
           categorias={categorias}
           branches={branches}
+        />
+      )}
+      {tipo === "transferida" && (
+        <TransferidaDirectaForm
+          fecha={fecha}
+          schedules={schedules}
+          proveedorTypes={proveedorTypes}
+          documentTypes={documentTypes}
+          countries={countries}
+          slug={slug}
+          branchId={branchId}
         />
       )}
     </div>

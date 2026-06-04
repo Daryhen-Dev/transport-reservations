@@ -12,7 +12,7 @@ const ROLES = ["OWNER", "SUCURSAL_USER"] as const;
 
 const DOCUMENT_TYPES = ["CEDULA DE IDENTIDAD", "PASAPORTE", "RUC"] as const;
 
-const RESERVATION_STATUSES = ["PENDIENTE", "CONFIRMADA", "CANCELADA"] as const;
+const RESERVATION_STATUSES = ["PENDIENTE", "CONFIRMADA", "CANCELADA", "TRANSFERIDA"] as const;
 
 const CUSTOMER_TYPES = [
   "PERSONA",
@@ -29,7 +29,7 @@ const CARGA_CATEGORIAS = [
   "OTROS",
 ] as const;
 
-const CREW_ROLES = ["CAPITAN", "PRIMER_OFICIAL", "MAQUINISTA"] as const;
+const CREW_ROLES = ["CAPITAN", "TRIPULANTE"] as const;
 
 const TRIP_STATUSES = [
   { id: "tripstatus_abierto", name: "ABIERTO" },
@@ -195,26 +195,11 @@ async function main() {
   });
 
   // 9b. Rutas predeterminadas (cada ruta pertenece a la sucursal de origen).
-  //     Tarifas defaults — el OWNER puede ajustarlas en /rutas.
+  //     Las tarifas son globales fijas (ver lib/pricing.ts) — la ruta solo
+  //     define origen, destino y sucursal.
   const ROUTES_SEED = [
-    {
-      origin: "San Cristóbal",
-      destination: "Santa Cruz",
-      branchId: sanCristobal.id,
-      directPriceAmount: 30,
-      incomingAgencyPriceAmount: 25,
-      outgoingCommissionAmount: 5,
-      minPrice: 15,
-    },
-    {
-      origin: "Santa Cruz",
-      destination: "San Cristóbal",
-      branchId: santaCruz.id,
-      directPriceAmount: 30,
-      incomingAgencyPriceAmount: 25,
-      outgoingCommissionAmount: 5,
-      minPrice: 15,
-    },
+    { origin: "San Cristóbal", destination: "Santa Cruz", branchId: sanCristobal.id },
+    { origin: "Santa Cruz",    destination: "San Cristóbal", branchId: santaCruz.id },
   ];
   for (const r of ROUTES_SEED) {
     const existing = await prisma.route.findFirst({
@@ -286,7 +271,7 @@ async function main() {
   console.log("  → Rutas:              San Cristóbal ↔ Santa Cruz (2 rutas)");
   console.log(`  → Países:             ${COUNTRIES.length}`);
   console.log("  → Tipos de documento: CEDULA DE IDENTIDAD, PASAPORTE, RUC");
-  console.log("  → Estados de reserva: PENDIENTE, CONFIRMADA, CANCELADA");
+  console.log("  → Estados de reserva: PENDIENTE, CONFIRMADA, CANCELADA, TRANSFERIDA");
   console.log("  → Tipos de proveedor: PERSONA, AGENCIA, INSTITUCION_PUBLICA");
   console.log(`  → Categorías de carga: ${CARGA_CATEGORIAS.join(", ")}`);
   console.log(`  → Roles de tripulación: ${CREW_ROLES.join(", ")}`);

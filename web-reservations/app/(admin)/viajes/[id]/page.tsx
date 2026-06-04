@@ -17,25 +17,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-
-function formatDateTime(d: Date | string): string {
-  return new Date(d).toLocaleString("es-AR", {
-    year: "numeric",
-    month: "short",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-function formatDate(d: Date | string | null): string {
-  if (!d) return "—";
-  return new Date(d).toLocaleDateString("es-AR", {
-    year: "numeric",
-    month: "short",
-    day: "2-digit",
-  });
-}
+import { formatDateTime, formatDate } from "@/lib/format-date";
 
 function proveedorDisplay(p: {
   firstName: string | null;

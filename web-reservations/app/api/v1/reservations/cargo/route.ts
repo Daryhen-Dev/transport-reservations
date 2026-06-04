@@ -136,6 +136,7 @@ export async function POST(req: NextRequest) {
           lastName: proveedor.lastName,
           documentTypeId: proveedor.documentTypeId,
           documentNumber: proveedor.documentNumber,
+          email: proveedor.email,
           countryId: proveedor.countryId,
           birthDate: proveedor.birthDate
             ? new Date(proveedor.birthDate)

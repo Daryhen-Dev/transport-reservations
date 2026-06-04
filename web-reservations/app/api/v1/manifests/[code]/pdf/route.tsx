@@ -1,6 +1,7 @@
 import { renderToBuffer, Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
 import { prisma } from "@/lib/db";
 import { withAuth } from "@/lib/api/with-auth";
+import { formatDateTime } from "@/lib/format-date";
 
 const styles = StyleSheet.create({
   page: {
@@ -71,24 +72,8 @@ const styles = StyleSheet.create({
   },
 });
 
-function formatDate(d: Date): string {
-  return new Date(d).toLocaleString("es-AR", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
 function formatGenDate(): string {
-  return new Date().toLocaleString("es-AR", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatDateTime(new Date());
 }
 
 export const GET = withAuth<{ code: string }>(async (_req, { params }) => {
@@ -227,7 +212,7 @@ export const GET = withAuth<{ code: string }>(async (_req, { params }) => {
           </View>
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Fecha de salida:</Text>
-            <Text style={styles.infoValue}>{formatDate(trip.departureAt)}</Text>
+            <Text style={styles.infoValue}>{formatDateTime(trip.departureAt)}</Text>
           </View>
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Estado:</Text>

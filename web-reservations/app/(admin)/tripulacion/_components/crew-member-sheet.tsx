@@ -7,8 +7,8 @@ import { z } from "zod"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { IconPlus } from "@tabler/icons-react"
-import { format } from "date-fns"
 import { api, ApiError } from "@/lib/api/client"
+import { formatDateForInput } from "@/lib/format-date"
 import {
   Sheet,
   SheetContent,
@@ -84,7 +84,7 @@ export function CrewMemberSheet({
         documentNumber: crewMember?.documentNumber ?? "",
         phone: crewMember?.phone ?? "",
         birthDate: crewMember?.birthDate
-          ? format(new Date(crewMember.birthDate), "yyyy-MM-dd")
+          ? formatDateForInput(crewMember.birthDate)
           : "",
       })
     }

@@ -4,20 +4,19 @@ import { prisma } from "@/lib/db";
 import { requireAuth, requireBranchAccess } from "@/lib/api/auth";
 import { createPassengerReservationSchema } from "@/lib/api/schemas/passenger-reservations";
 import { auditCreate } from "@/lib/api/audit";
+import {
+  PRICE_LIBRE_MAX,
+  PRICE_LIBRE_MIN,
+  allowedPriceTypesForProveedor,
+  commissionPerPaxForType,
+  priceForType,
+} from "@/lib/pricing";
 
 const RESERVATION_INCLUDE = {
   trip: {
     include: {
       route: {
-        select: {
-          id: true,
-          origin: true,
-          destination: true,
-          directPriceAmount: true,
-          incomingAgencyPriceAmount: true,
-          outgoingCommissionAmount: true,
-          minPrice: true,
-        },
+        select: { id: true, origin: true, destination: true },
       },
       branch: { select: { id: true, name: true } },
       status: { select: { id: true, name: true } },
@@ -33,7 +32,7 @@ const RESERVATION_INCLUDE = {
       phone: true,
     },
   },
-  referredByAgency: {
+  transferredToAgency: {
     select: {
       id: true,
       firstName: true,
@@ -104,28 +103,14 @@ export async function POST(req: NextRequest) {
     proveedor,
     proveedorTypeId,
     passengers,
-    priceAmount,
-    referredByAgencyId: referredByAgencyIdInput,
-    commissionAmount: commissionAmountInput,
+    priceType,
+    priceAmount: priceAmountInput,
   } = parsed.data;
   let { reservationStatusId } = parsed.data;
 
-  const referredByAgencyId = referredByAgencyIdInput ?? null;
-  const commissionAmount = commissionAmountInput ?? null;
-
   const trip = await prisma.trip.findUnique({
     where: { id: tripId },
-    include: {
-      status: { select: { name: true } },
-      route: {
-        select: {
-          directPriceAmount: true,
-          incomingAgencyPriceAmount: true,
-          outgoingCommissionAmount: true,
-          minPrice: true,
-        },
-      },
-    },
+    include: { status: { select: { name: true } } },
   });
   if (!trip) {
     return NextResponse.json(
@@ -149,7 +134,6 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Resolver tipo del comprador para derivar el precio sugerido.
   const buyerType = await prisma.proveedorType.findUnique({
     where: { id: proveedorTypeId },
     select: { name: true },
@@ -161,41 +145,57 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  if (referredByAgencyId) {
-    const refAgency = await prisma.proveedor.findUnique({
-      where: { id: referredByAgencyId },
-      include: { proveedorType: { select: { name: true } } },
-    });
-    if (!refAgency || refAgency.proveedorType.name !== "AGENCIA") {
-      return NextResponse.json(
-        {
-          error: {
-            code: "BAD_REQUEST",
-            message: "La agencia que refirió debe ser un proveedor tipo AGENCIA",
-          },
-        },
-        { status: 400 }
-      );
-    }
-  }
-
-  const minPrice = Number(trip.route.minPrice);
-  if (priceAmount < minPrice) {
+  const allowed = allowedPriceTypesForProveedor(buyerType.name);
+  if (!allowed.includes(priceType)) {
     return NextResponse.json(
       {
         error: {
           code: "BAD_REQUEST",
-          message: `El precio no puede ser menor al mínimo ($${minPrice.toFixed(2)})`,
+          message: `El tipo de precio ${priceType} no aplica para proveedor ${buyerType.name}`,
         },
       },
       { status: 400 }
     );
   }
 
-  const suggestedAmount =
-    buyerType.name === "AGENCIA" || buyerType.name === "INSTITUCION_PUBLICA"
-      ? Number(trip.route.incomingAgencyPriceAmount)
-      : Number(trip.route.directPriceAmount);
+  let priceAmount: number;
+  if (priceType === "LIBRE") {
+    if (priceAmountInput === undefined) {
+      return NextResponse.json(
+        {
+          error: {
+            code: "BAD_REQUEST",
+            message: "El precio es requerido para tipo LIBRE",
+          },
+        },
+        { status: 400 }
+      );
+    }
+    if (priceAmountInput < PRICE_LIBRE_MIN || priceAmountInput > PRICE_LIBRE_MAX) {
+      return NextResponse.json(
+        {
+          error: {
+            code: "BAD_REQUEST",
+            message: `El precio LIBRE debe estar entre $${PRICE_LIBRE_MIN} y $${PRICE_LIBRE_MAX}`,
+          },
+        },
+        { status: 400 }
+      );
+    }
+    priceAmount = priceAmountInput;
+  } else {
+    const fixed = priceForType(priceType);
+    if (fixed === null) {
+      return NextResponse.json(
+        { error: { code: "INTERNAL", message: "Tipo de precio sin tarifa fija" } },
+        { status: 500 }
+      );
+    }
+    priceAmount = fixed;
+  }
+
+  const commissionAmount =
+    priceType === "REFERIDOS" ? commissionPerPaxForType(priceType) * seatCount : null;
 
   if (!reservationStatusId) {
     const pendiente = await prisma.reservationStatus.findFirst({
@@ -225,6 +225,7 @@ export async function POST(req: NextRequest) {
           lastName: proveedor.lastName,
           documentTypeId: proveedor.documentTypeId,
           documentNumber: proveedor.documentNumber,
+          email: proveedor.email,
           countryId: proveedor.countryId,
           birthDate: proveedor.birthDate
             ? new Date(proveedor.birthDate)
@@ -237,9 +238,8 @@ export async function POST(req: NextRequest) {
           tripId,
           proveedorId: newProveedor.id,
           seatCount,
+          priceType,
           priceAmount,
-          suggestedAmount,
-          referredByAgencyId,
           commissionAmount,
           reservationStatusId: reservationStatusId!,
           ...auditCreate(authOrError.userId),

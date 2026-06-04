@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireAuth, requireBranchAccess } from "@/lib/api/auth";
 import { assignCrewSchema } from "@/lib/api/schemas/trips";
+import { formatDateTimeShort } from "@/lib/format-date";
 
 const ASSIGNMENT_SELECT = {
   tripId: true,
@@ -94,7 +95,7 @@ export async function PUT(
   // Validate crew role exists.
   const crewRole = await prisma.crewRole.findUnique({
     where: { id: crewRoleId },
-    select: { id: true },
+    select: { id: true, name: true },
   });
   if (!crewRole) {
     return NextResponse.json(
@@ -103,36 +104,56 @@ export async function PUT(
     );
   }
 
-  // Role already taken by a different crew member on this trip?
-  const roleConflict = await prisma.tripCrew.findUnique({
-    where: { tripId_crewRoleId: { tripId, crewRoleId } },
-  });
-  if (roleConflict && roleConflict.crewMemberId !== crewMemberId) {
-    return NextResponse.json(
-      {
-        error: {
-          code: "CONFLICT",
-          message: "Ese rol ya está asignado a otro tripulante en este viaje",
-        },
-      },
-      { status: 409 }
-    );
-  }
-
-  // This crew member already on this trip with a different role?
-  const memberConflict = await prisma.tripCrew.findUnique({
+  // This crew member already on this trip?
+  const existingAssignment = await prisma.tripCrew.findUnique({
     where: { tripId_crewMemberId: { tripId, crewMemberId } },
   });
-  if (memberConflict && memberConflict.crewRoleId !== crewRoleId) {
-    return NextResponse.json(
-      {
-        error: {
-          code: "CONFLICT",
-          message: "Este tripulante ya está asignado a este viaje con otro rol",
-        },
+
+  // Reglas por rol:
+  //   CAPITAN    → max 1 por viaje
+  //   TRIPULANTE → max 2 por viaje
+  if (crewRole.name === "CAPITAN") {
+    const existingCaptain = await prisma.tripCrew.findFirst({
+      where: {
+        tripId,
+        crewRole: { name: "CAPITAN" },
+        NOT: { crewMemberId },
       },
-      { status: 409 }
-    );
+    });
+    if (existingCaptain) {
+      return NextResponse.json(
+        {
+          error: {
+            code: "CONFLICT",
+            message: "Ya hay un capitán asignado a este viaje",
+          },
+        },
+        { status: 409 }
+      );
+    }
+  } else if (crewRole.name === "TRIPULANTE") {
+    // Si el miembro ya era TRIPULANTE en este viaje, es no-op (no suma).
+    const willCount = existingAssignment?.crewRoleId !== crewRoleId;
+    if (willCount) {
+      const tripulanteCount = await prisma.tripCrew.count({
+        where: {
+          tripId,
+          crewRole: { name: "TRIPULANTE" },
+          NOT: { crewMemberId },
+        },
+      });
+      if (tripulanteCount >= 2) {
+        return NextResponse.json(
+          {
+            error: {
+              code: "CONFLICT",
+              message: "Ya hay 2 tripulantes asignados a este viaje (máximo)",
+            },
+          },
+          { status: 409 }
+        );
+      }
+    }
   }
 
   // V1 — overlap temporal: no asignar el mismo tripulante a otro viaje que
@@ -156,12 +177,7 @@ export async function PUT(
     },
   });
   if (overlap) {
-    const when = overlap.trip.departureAt.toLocaleString("es-AR", {
-      day: "2-digit",
-      month: "short",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
+    const when = formatDateTimeShort(overlap.trip.departureAt);
     return NextResponse.json(
       {
         error: {
@@ -181,13 +197,17 @@ export async function PUT(
       select: ASSIGNMENT_SELECT,
     });
 
-    const [totalRoles, assignedRoles] = await Promise.all([
-      prisma.crewRole.count(),
-      prisma.tripCrew.count({ where: { tripId } }),
-    ]);
-    const allCrewAssigned = assignedRoles >= totalRoles;
+    // Minimo cumplido = capitan asignado. El operador decide si suma
+    // tripulantes o cierra el viaje ya.
+    const captainAssigned = await prisma.tripCrew.findFirst({
+      where: { tripId, crewRole: { name: "CAPITAN" } },
+      select: { crewMemberId: true },
+    });
+    const hasMinimumCrew = captainAssigned !== null;
 
-    return NextResponse.json({ data: { ...assignment, allCrewAssigned } });
+    return NextResponse.json({
+      data: { ...assignment, hasMinimumCrew, allCrewAssigned: hasMinimumCrew },
+    });
   } catch {
     return NextResponse.json(
       { error: { code: "BAD_REQUEST", message: "Error al asignar tripulante" } },

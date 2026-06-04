@@ -23,6 +23,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { CreateUserSheet } from "./create-user-sheet";
+import { formatDate } from "@/lib/format-date";
 
 type UserRow = {
   id: string;
@@ -66,12 +67,7 @@ const columns: ColumnDef<UserRow>[] = [
   {
     accessorKey: "createdAt",
     header: "Fecha de creación",
-    cell: ({ row }) =>
-      new Date(row.getValue("createdAt")).toLocaleDateString("es-AR", {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      }),
+    cell: ({ row }) => formatDate(row.getValue("createdAt")),
   },
 ];
 

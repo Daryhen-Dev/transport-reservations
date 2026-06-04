@@ -38,11 +38,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { IconTrash, IconPencil, IconCheck, IconX, IconReceipt } from "@tabler/icons-react"
+import { IconTrash, IconPencil, IconCheck, IconX, IconReceipt, IconArrowsExchange } from "@tabler/icons-react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { api, ApiError } from "@/lib/api/client"
+import { formatDateTime } from "@/lib/format-date"
 import { PassengerReservationSheet } from "./passenger-reservation-sheet"
+import { TransferToAgencySheet } from "./transfer-to-agency-sheet"
 import { ExportCsvButton } from "@/components/export-csv-button"
 
 function StatusBadge({ status }: { status: string }) {
@@ -50,6 +52,7 @@ function StatusBadge({ status }: { status: string }) {
     PENDIENTE: "bg-yellow-100 text-yellow-800",
     CONFIRMADA: "bg-green-100 text-green-800",
     CANCELADA: "bg-red-100 text-red-800",
+    TRANSFERIDA: "bg-purple-100 text-purple-800",
   }
   return (
     <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${colors[status] ?? "bg-gray-100 text-gray-800"}`}>
@@ -61,27 +64,14 @@ function StatusBadge({ status }: { status: string }) {
 type Trip = {
   id: string
   departureAt: Date
-  route: {
-    origin: string
-    destination: string
-    directPriceAmount?: unknown
-    incomingAgencyPriceAmount?: unknown
-    outgoingCommissionAmount?: unknown
-    minPrice?: unknown
-  }
+  route: { origin: string; destination: string }
   branch: { name: string }
-}
-
-type Agency = {
-  id: string
-  firstName: string | null
-  lastName: string | null
-  companyName: string | null
 }
 
 type Reservation = {
   id: string
   seatCount: number
+  priceAmount: string | null
   trip: {
     id: string
     departureAt: Date
@@ -95,6 +85,12 @@ type Reservation = {
     companyName: string | null
     proveedorTypeId: string
   }
+  transferredToAgency: {
+    id: string
+    firstName: string | null
+    lastName: string | null
+    companyName: string | null
+  } | null
   reservationStatus: { id: string; name: string }
   _count: { passengers: number }
 }
@@ -111,7 +107,6 @@ export function PassengerReservationsTable({
   documentTypes,
   countries,
   proveedorTypes,
-  agencies,
 }: {
   data: Reservation[]
   trips: Trip[]
@@ -119,13 +114,14 @@ export function PassengerReservationsTable({
   documentTypes: DocumentType[]
   countries: Country[]
   proveedorTypes: ProveedorType[]
-  agencies: Agency[]
 }) {
   const router = useRouter()
+  const agenciaTypeId = proveedorTypes.find((pt) => pt.name === "AGENCIA")?.id
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([])
   const [sorting, setSorting] = useState<SortingState>([])
   const [deletingReservation, setDeletingReservation] = useState<Reservation | null>(null)
   const [cancelingReservation, setCancelingReservation] = useState<Reservation | null>(null)
+  const [transferringReservation, setTransferringReservation] = useState<Reservation | null>(null)
   const [isDeleting, setIsDeleting] = useState(false)
   const [isChangingStatus, setIsChangingStatus] = useState(false)
   const [selectedStatusId, setSelectedStatusId] = useState<string>("all")
@@ -178,13 +174,7 @@ export function PassengerReservationsTable({
         return (
           <div className="flex flex-col">
             <span className="text-sm font-medium">
-              {new Date(trip.departureAt).toLocaleString("es-AR", {
-                year: "numeric",
-                month: "short",
-                day: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
+              {formatDateTime(trip.departureAt)}
             </span>
             <span className="text-xs text-muted-foreground">
               {trip.route.origin} → {trip.route.destination}
@@ -220,8 +210,15 @@ export function PassengerReservationsTable({
       header: "",
       cell: ({ row }) => {
         const reservation = row.original
-        const isPendiente = reservation.reservationStatus.name === "PENDIENTE"
-        const isCancelada = reservation.reservationStatus.name === "CANCELADA"
+        const status = reservation.reservationStatus.name
+        const isPendiente = status === "PENDIENTE"
+        const isConfirmada = status === "CONFIRMADA"
+        const isCancelada = status === "CANCELADA"
+        const isTransferida = status === "TRANSFERIDA"
+        const buyerIsAgencia =
+          agenciaTypeId !== undefined &&
+          reservation.proveedor.proveedorTypeId === agenciaTypeId
+        const canTransfer = (isPendiente || isConfirmada) && !buyerIsAgencia
         const isComplete = reservation._count.passengers >= reservation.seatCount
         const needed = Math.max(0, reservation.seatCount - reservation._count.passengers)
         const isThisUpdating = updatingStatusId === reservation.id
@@ -266,7 +263,18 @@ export function PassengerReservationsTable({
                 <IconCheck className="size-4" />
               </Button>
             )}
-            {!isCancelada && (
+            {canTransfer && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                title="Transferir a otra agencia"
+                onClick={() => setTransferringReservation(reservation)}
+              >
+                <IconArrowsExchange className="size-4" />
+              </Button>
+            )}
+            {!isCancelada && !isTransferida && (
               <Button
                 variant="ghost"
                 size="icon"
@@ -347,7 +355,6 @@ export function PassengerReservationsTable({
               countries={countries}
               reservationStatuses={reservationStatuses}
               proveedorTypes={proveedorTypes}
-              agencies={agencies}
             />
           </div>
         </div>
@@ -435,6 +442,13 @@ export function PassengerReservationsTable({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <TransferToAgencySheet
+        reservation={transferringReservation}
+        onOpenChange={(open) => {
+          if (!open) setTransferringReservation(null)
+        }}
+      />
 
       <AlertDialog open={!!cancelingReservation} onOpenChange={(open) => { if (!open) setCancelingReservation(null) }}>
         <AlertDialogContent>

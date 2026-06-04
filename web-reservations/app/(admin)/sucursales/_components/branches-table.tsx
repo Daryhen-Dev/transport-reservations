@@ -23,6 +23,7 @@ import {
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { CreateBranchSheet } from "./create-branch-sheet"
+import { formatDate } from "@/lib/format-date"
 
 type Branch = {
   id: string
@@ -44,14 +45,7 @@ const columns: ColumnDef<Branch>[] = [
   {
     accessorKey: "createdAt",
     header: "Fecha de creación",
-    cell: ({ row }) => {
-      const date = new Date(row.getValue("createdAt"))
-      return date.toLocaleDateString("es-AR", {
-        year: "numeric",
-        month: "short",
-        day: "numeric",
-      })
-    },
+    cell: ({ row }) => formatDate(row.getValue("createdAt")),
   },
 ]
 

@@ -1,6 +1,6 @@
 # Transport Reservations
 
-Sistema de planificación de viajes de pasajeros y encomiendas. Instalación **single-tenant**: una única organización con N sucursales operativas. Diseñado para ser consumido tanto desde la web (NextAuth cookie) como desde una app móvil (JWT Bearer) sobre la misma REST API `/api/v1/*`.
+Sistema de reservas para **transporte marítimo** — planificación de viajes de pasajeros y encomiendas entre sucursales costeras. Instalación **single-tenant**: una única organización con N sucursales operativas. Diseñado para ser consumido tanto desde la web (NextAuth cookie) como desde una app móvil (JWT Bearer) sobre la misma REST API `/api/v1/*`.
 
 ## Funcionalidades actuales
 
@@ -12,19 +12,20 @@ Sistema de planificación de viajes de pasajeros y encomiendas. Instalación **s
 | 🧭 Header con título de sección dinámico + user + sucursal activa | ✅ |
 | 👥 Usuarios CRUD con roles (`OWNER` / `SUCURSAL_USER`) | ✅ |
 | 🌎 Países, Estados de viaje, Tipos de proveedor — catálogos OWNER-only | ✅ |
-| 🚏 Sucursales, Rutas (con tarifas), Horarios | ✅ |
+| 🚏 Sucursales, Rutas, Horarios | ✅ |
 | ⚓ Tripulantes (con UX: delete deshabilitado si está en viajes) | ✅ |
 | 🚐 Viajes — CRUD + open/close + asignación de tripulación + manifiesto PDF | ✅ |
 | 📋 Detalle del viaje `/viajes/[id]` — ruta, tripulación, pasajeros, encomiendas (read-only) | ✅ |
-| 🎫 Reservas de pasajeros — comprador PERSONA inline + precio + comisión opcional | ✅ |
-| 💰 Precio sugerido derivado del tipo de proveedor (directo / tarifa de agencia) | ✅ |
-| 🏷️ Tarifas negociadas por proveedor que sobrescriben las defaults de la ruta | ✅ |
+| 🎫 Reservas de pasajeros — comprador PERSONA inline + tipo de precio (NORMAL / REFERIDOS / LIBRE) | ✅ |
+| 💰 Tarifas globales fijas: $30 normal, $30 referidos con $5/pax de comisión, $20-$30 libre | ✅ |
 | 🛤️ Tramos multi-segmento por ruta — con operadores externos opcionales | ✅ |
-| 🛒 Ventas externas (intermediación) — no consumen asiento de nuestros viajes | ✅ |
+| 🔁 Transferir reserva a otra agencia cuando no realizamos el viaje (comisión fija $5/pax) | ✅ |
+| 🤝 Reserva transferida directa entre agencias socias — un solo paso desde `/reservas/nueva` | ✅ |
 | ✅ Confirm/Cancel reserva — botones explícitos en lista + panel de status en detalle | ✅ |
 | 📦 Reservas de encomiendas — proveedor + destinatario + categoría + precio + cobrar en destino | ✅ |
 | 📑 Manifiesto del viaje — código generado + PDF descargable con auth | ✅ |
-| 📊 Reportes de ventas — KPIs por tipo de comprador / agencia referida / ruta + CSV con rango | ✅ |
+| 📊 Reportes de ventas — KPIs por tipo de comprador / tipo de precio / ruta + CSV con rango | ✅ |
+| 💼 Saldos con agencias — libro mayor de pagos con asignación FIFO + tabs Pendientes/Historial | ✅ |
 | 🗓️ Calendario mensual con viajes por día | ✅ |
 | 🔒 Cierre de viaje gated — bloquea si hay pendientes O asientos sin pasajero asignado | ✅ |
 
@@ -117,7 +118,7 @@ npx prisma generate                # regenerar el cliente (después de cambiar s
 | `SUCURSAL_USER` | `sancristobal@system.com`      | `User1234!`   | San Cristóbal  |
 | `SUCURSAL_USER` | `santacruz@system.com`         | `User1234!`   | Santa Cruz     |
 
-El login es único: `/login` (sin slug). El rol y la sucursal se derivan del usuario logueado. El seed también crea las 2 rutas SC ↔ SZ con tarifas default ($30 / $25 / $5 / $15).
+El login es único: `/login` (sin slug). El rol y la sucursal se derivan del usuario logueado. El seed también crea las 2 rutas SC ↔ SZ. Las tarifas son globales y viven en `lib/pricing.ts`.
 
 ## Rutas del admin
 
@@ -136,13 +137,13 @@ Bajo `(admin)/`, protegidas por NextAuth + `requireActiveBranch()`. Todas son fl
 | `/manifiestos` | Ambos | Buscar manifiesto por código + descargar PDF |
 | `/pasajeros` | Ambos | Padrón global de pasajeros |
 | `/proveedores` | Ambos | Proveedores PERSONA / AGENCIA / INSTITUCION_PUBLICA |
-| `/proveedores/[id]/tarifas` | Ambos | Tarifas negociadas por proveedor (solo AGENCIA) |
 | `/tripulacion` | Ambos | Tripulantes (delete bloqueado si tiene viajes) |
-| `/rutas` | Ambos | Rutas por sucursal con tarifas |
+| `/rutas` | Ambos | Rutas por sucursal (sin tarifas — son globales) |
 | `/rutas/[id]/tramos` | Ambos | Tramos multi-segmento con operadores externos |
 | `/horarios` | Ambos | Horarios fijos por ruta |
-| `/ventas-externas` | Ambos | Intermediación — boletos que no usan nuestros asientos |
-| `/reportes` | Ambos | KPIs por tipo de comprador / agencia referida / ruta + CSV |
+| `/reportes` | Ambos | KPIs por tipo de comprador / tipo de precio / ruta + CSV |
+| `/agencias-balance` | Ambos | Libro mayor por agencia: cargos REFERIDOS + TRANSFERIDA vs pagos |
+| `/agencias-balance/[id]` | Ambos | Detalle con tabs Pendientes/Historial + registrar pago + editar notas |
 | `/sucursales` | **OWNER** | CRUD de sucursales |
 | `/usuarios` | **OWNER** | Crear OWNER o SUCURSAL_USER |
 | `/paises` | OWNER (CRUD) | Catálogo de países |
@@ -170,12 +171,15 @@ Todos los endpoints viven bajo `/api/v1/*`. La autenticación se resuelve autom�
 | `GET /api/v1/manifests/:code` · `GET /api/v1/manifests/:code/pdf` | Lookup JSON / PDF (con auth). |
 | `POST /api/v1/reservations/passengers/:id/passengers` | Vincular pasajero (crear+link o link existente). |
 | `PATCH /api/v1/reservations/passengers/:id/status` | Cambiar estado: PENDIENTE / CONFIRMADA / CANCELADA. |
+| `POST /api/v1/reservations/passengers/:id/transfer` | Transferir reserva a otra agencia (estado → TRANSFERIDA). |
+| `POST /api/v1/reservations/passengers/quick-transferred` | Crea reserva directamente en estado TRANSFERIDA en una sola operación. Body: `{scheduleId, date, branchId, proveedorId, transferredToAgencyId, seatCount, passengers[]}`. proveedorId debe ser PERSONA/INSTITUCION; transferredToAgencyId debe ser AGENCIA. Precio fijo $30. Pasajeros obligatorios (length === seatCount). |
 | `GET /api/v1/reservations/passengers/:id/receipt` | Recibo PDF (con auth). |
 | `GET /api/v1/reservations/passengers/export.csv?branchId=&from=&to=` | Export CSV con filtro por rango. |
-| `GET/POST /api/v1/proveedor-tariffs` · `PATCH/DELETE /:id` | Tarifas override por proveedor + ruta. |
 | `GET/POST /api/v1/route-segments` · `PATCH/DELETE /:id` | Tramos multi-segmento de una ruta. |
-| `GET/POST /api/v1/external-sales` · `GET/PATCH/DELETE /:id` | Ventas externas (intermediación). |
-| `GET /api/v1/reports/sales?branchId=&from=&to=` | Agregados de reservas: totales, por tipo de comprador, por agencia referida, por ruta. |
+| `GET /api/v1/reports/sales?branchId=&from=&to=` | Agregados de reservas: totales, por tipo de comprador, por tipo de precio, por ruta. |
+| `POST /api/v1/agency-payments` | Registra un pago hacia una agencia (parcial o total). Body: `{agencyId, branchId, amount, paymentDate, notes?}`. |
+| `PATCH /api/v1/agency-payments/:id` | Edita SOLO las notas de un pago. Monto/fecha no son editables — borrar y registrar de nuevo si hay error. |
+| `DELETE /api/v1/agency-payments/:id` | Borra un pago. El saldo recalcula vía FIFO. |
 | `GET /api/v1/calendar?year=&month=&branchId=` | Datos del calendario. |
 
 Todas las respuestas siguen el envelope `{ data }` (éxito) o `{ error: { code, message, details? } }` (fallo). Códigos de error: `BAD_REQUEST`, `UNAUTHORIZED`, `FORBIDDEN`, `NOT_FOUND`, `CONFLICT`, `INTERNAL`.
@@ -190,10 +194,9 @@ app/
     calendario/, dashboard/        # Default landing + resumen
     viajes/                        # CRUD + detalle /viajes/[id]
     reservas/, encomiendas/        # Operaciones diarias
-    proveedores/[id]/tarifas/      # Tarifas negociadas (solo AGENCIA)
     rutas/[id]/tramos/             # Tramos multi-segmento
-    ventas-externas/               # Intermediación (sin Trip asociado)
     reportes/                      # KPIs + agregados
+    agencias-balance/              # Libro mayor por agencia + tabs + edición de notas
     paises/, rutas/, ...           # Mantenimiento
   actions/
     auth.ts                        # signOutAction (única server action que sobrevive)
@@ -201,8 +204,7 @@ app/
     auth/[...nextauth]/            # Handler NextAuth (cookie web)
     v1/                            # REST API (mobile + web)
       auth/, branches/, trips/, reservations/, manifests/,
-      proveedor-tariffs/, route-segments/, external-sales/,
-      reports/sales/, ...
+      route-segments/, reports/sales/, agency-payments/, ...
 
 components/
   ui/                              # Primitivos shadcn/ui (Sheet base con ancho responsive)
@@ -216,6 +218,7 @@ lib/
   db.ts                            # Cliente Prisma singleton (PrismaPg adapter)
   branch-context.ts                # getActiveBranch / requireActiveBranch
   constants.ts                     # ROUTES (flat, sin slug)
+  pricing.ts                       # Constantes de precio + PriceType + helpers
   proveedor-types.ts               # Labels + styles de PERSONA/AGENCIA/INSTITUCION_PUBLICA
   serialize.ts                     # Decimals de Prisma → strings antes de cruzar al cliente
   api/
@@ -224,13 +227,13 @@ lib/
     schemas/                       # Zod por recurso (createX/updateX/xQuery)
   services/                        # Lógica de negocio por recurso
     trip.service.ts, reservation.service.ts, ...
-    tariff.service.ts              # resolveTariff + suggestedForProveedorType
     sales-report.service.ts        # Agregaciones del reporte
+    agency-balance.service.ts      # Libro mayor con asignación FIFO
   generated/prisma/                # Cliente generado por Prisma (no editar)
 
 prisma/
   schema.prisma                    # Modelos
-  seed.ts                          # Catálogos + 2 sucursales + 3 usuarios + 2 rutas con tarifas
+  seed.ts                          # Catálogos + 2 sucursales + 3 usuarios + 2 rutas
   migrations/                      # Una serie de migraciones evolutivas
 
 tests/
@@ -254,39 +257,40 @@ types/next-auth.d.ts               # Session.user.{role, branchId}
 
 ## Modelo de pricing
 
-El sistema maneja **tres tipos de venta** según quién es el comprador y dónde vuela el pasajero.
+Tarifas globales fijas — no hay precios por ruta. Las constantes viven en `lib/pricing.ts`:
 
-### Tarifas en `Route`
-
-Cada ruta tiene 4 montos default:
-
-| Campo | Significado | Default seed |
+| Constante | Valor | Significado |
 |---|---|---|
-| `directPriceAmount` | Precio para comprador PERSONA | $30.00 |
-| `incomingAgencyPriceAmount` | Precio para comprador AGENCIA / INSTITUCION_PUBLICA | $25.00 |
-| `outgoingCommissionAmount` | Referencia para comisión a referidos | $5.00 |
-| `minPrice` | Piso absoluto del precio cobrado | $15.00 |
+| `PRICE_NORMAL` | $30 | Venta directa al pasajero |
+| `PRICE_REFERIDOS` | $30 | Venta con agencia de por medio ($5/pax de comisión) |
+| `COMMISSION_PER_PAX` | $5 | Comisión a la agencia referidora por pasajero |
+| `PRICE_LIBRE_MIN` / `PRICE_LIBRE_MAX` | $20 / $30 | Rango editable para casos excepcionales |
 
-### Precio sugerido en reservas internas
+### Enum `PriceType`
 
-El precio sugerido sale del **tipo del comprador** (no de un dropdown):
+La reserva guarda el tipo de venta como `PassengerReservation.priceType`:
 
-- **PERSONA** → `directPriceAmount` ($30)
-- **AGENCIA / INSTITUCION_PUBLICA** → `incomingAgencyPriceAmount` ($25)
+| Tipo | Precio cobrado | Comisión | Editable |
+|---|---|---|---|
+| `NORMAL` | $30 fijo | — | No |
+| `REFERIDOS` | $30 fijo | $5 × seatCount → agencia | No |
+| `LIBRE` | $20–$30 | — | Sí (usuario decide) |
 
-El operador puede editar el precio cobrado, con piso en `minPrice`. El sugerido queda como snapshot histórico en la reserva (`suggestedAmount`).
+### Pre-selección por tipo de proveedor
 
-### Override por proveedor
+El selector de tipo de precio se pre-llena según el tipo del proveedor seleccionado:
 
-`ProveedorTariff` permite sobrescribir las 4 columnas por (proveedor, ruta). Útil para agencias frecuentes con precios negociados. Si una columna del override es `null`, se usa la default de la ruta. Resuelto en `lib/services/tariff.service.ts:resolveTariff()`.
+- **AGENCIA** → `REFERIDOS` **LOCKED** (no editable). La agencia ES el proveedor — la comisión se le paga a ese mismo proveedor.
+- **PERSONA / INSTITUCION_PUBLICA** → `NORMAL` default, puede cambiar a `LIBRE`. `REFERIDOS` no aplica porque no hay agencia referidora.
 
-### Referido por agencia (comisión opcional)
+Lógica en `lib/pricing.ts`:
+- `defaultPriceTypeForProveedor(proveedorTypeName)` — pre-selección.
+- `allowedPriceTypesForProveedor(proveedorTypeName)` — opciones disponibles.
+- `isPriceTypeLockedForProveedor(proveedorTypeName)` — si el select queda disabled.
 
-Cualquier reserva puede registrar:
-- `referredByAgencyId` — la agencia que trajo el cliente (debe ser tipo AGENCIA).
-- `commissionAmount` — lo que le pagamos a esa agencia por la referencia.
+### Snapshot de comisión
 
-Es independiente del tipo del comprador. Aparece en el sheet como un selector opcional.
+`PassengerReservation.commissionAmount` guarda el monto efectivamente pagado a la agencia ($5 × seatCount al momento de crear). Es nullable: solo se setea cuando `priceType = REFERIDOS`. Se persiste como snapshot para que cambios futuros de la constante no reescriban el histórico.
 
 ### Tramos multi-segmento (`RouteSegment`)
 
@@ -294,23 +298,77 @@ Una ruta puede tener N tramos en orden. Cada tramo es:
 - Propio (lo cubrimos nosotros), o
 - **Externo** (lo opera una agencia AGENCIA) — útil para destinos donde no llegamos pero vendemos boletos hasta ahí, ej. SC → Isabela con el tramo SZ → Isabela operado por agencia X.
 
-### Ventas externas (`ExternalSale`)
+### Transferir reserva a otra agencia (estado `TRANSFERIDA`)
 
-Cuando vendemos un boleto **operado completamente por otra agencia**, la venta NO ocupa asiento en ningún `Trip` nuestro. Vive en una entidad aparte con:
-- `operatorAgency` (obligatorio, tipo AGENCIA)
-- `branch` (sucursal donde se hizo la venta)
-- `origin` / `destination` (texto libre, la ruta puede no existir en nuestro catálogo)
-- `priceCharged` (lo que cobramos al cliente)
-- `costPaidToOperator` (lo que pagamos a la agencia)
-- Margen = `priceCharged - costPaidToOperator` (calculado en UI)
+Cuando no realizamos un viaje (típicamente por pocos pasajeros), cada reserva afectada se puede transferir a una agencia que sí vuela. La reserva original se preserva con sus datos historicos; cambian solo el estado y 3 campos snapshot:
+- `transferredToAgencyId` — la agencia destino (debe ser tipo AGENCIA).
+- `transferAmountToAgency` — lo que enviamos a la agencia (= `priceAmount × seatCount - $5 × seatCount`).
+- `transferCommissionAmount` — lo que retenemos (`$5 × seatCount` fijo, ver `lib/pricing.ts`).
+
+Cash flow concreto con `priceAmount = $30`, `seatCount = N`:
+- Cliente nos pagó $30 × N.
+- Enviamos a la agencia: $25 × N.
+- Comisión que nos quedamos: $5 × N.
+
+Reglas:
+- Sólo reservas en estado `PENDIENTE` o `CONFIRMADA` se pueden transferir.
+- El viaje origen debe estar `ABIERTO` (no `CERRADO`).
+- `TRANSFERIDA` es **terminal** — no se puede revertir. Si te equivocaste, cancelás la transferida y creás una nueva reserva.
+
+### Reserva transferida directa (atajo de un paso)
+
+Cuando nuestro viaje está lleno, mandamos los pasajeros a una agencia socia. Para no obligar a hacer el flujo "crear reserva → transferir" en dos pasos, hay un atajo en `/reservas/nueva` (botón "Pasajero transferido") que crea la reserva ya en estado `TRANSFERIDA`.
+
+**Restricciones específicas del atajo:**
+- El proveedor (comprador) debe ser **PERSONA o INSTITUCION_PUBLICA**. AGENCIA queda bloqueada — un comprador agencia generaría cruces de comisiones extraños.
+- Sólo se elige **una** agencia: el destino (`transferredToAgency`).
+- Precio fijo de **$30** (NORMAL), sin opción LIBRE en este flujo.
+- Los **pasajeros son obligatorios**: la cantidad de pasajeros define el `seatCount`. Se registran porque esos datos se comparten con la agencia destino (cruce de información entre agencias). La carga usa el mismo patrón que "gestionar reserva": un autocomplete que busca pasajeros existentes (`api.passengers.search`) y, si no existe, un botón "Crear nuevo pasajero" que abre un sheet (`QuickPassengerCreateSheet`) que lo crea en la BD vía `api.passengers.create` y lo agrega a la lista.
+
+**Cash flow** (con `priceAmount = $30`, `seatCount = N`):
+- Enviado al destino: $25 × N (= price − transfer commission).
+- Comisión que retenemos: $5 × N (`TRANSFER_COMMISSION_PER_PAX`).
+- El comprador no genera comisión REFERIDOS (no es agencia), así que `commissionAmount` queda en null.
+
+**Endpoint atómico**: `POST /api/v1/reservations/passengers/quick-transferred` combina la lógica de `/quick` (find-or-create trip) con la de `/transfer` (set TRANSFERIDA + transfer fields) + el upsert/link de pasajeros, todo en una transacción. Valida que el comprador NO sea AGENCIA, que el destino SÍ lo sea, y que `passengers.length === seatCount`.
+
+**Validación en el `/transfer` manual**: el endpoint `POST /reservations/passengers/:id/transfer` (botón "Transferir" en la tabla) también rechaza reservas con proveedor AGENCIA, y el botón se oculta en la UI cuando el comprador es agencia.
+
+**Reflejo en saldos**: el destino aparece con $25/pax adeudado (`transferAmount`) en `/agencias-balance`. El comprador no es agencia, así que no figura ahí.
+
+### Saldos con agencias (`AgencyPayment` + FIFO)
+
+Las agencias generan deuda hacia ellas en dos escenarios:
+- **REFERIDOS**: cada reserva donde el proveedor es la agencia genera un cargo de `commissionAmount` ($5 × seatCount).
+- **TRANSFERIDA**: cada reserva transferida a la agencia genera un cargo de `transferAmountToAgency` ($25 × seatCount con la constante actual).
+
+Los pagos se registran en la tabla `AgencyPayment` (libro mayor separado, no se modifica la reserva). Cada pago es agency-level con monto, fecha y nota opcional. Soporta **liquidaciones parciales** — podés registrar 3 pagos de $50 distintos hasta cubrir un cargo de $150, o un pago consolidado de $500 que cubre múltiples reservas.
+
+**Asignación FIFO**: el sistema no obliga a asignar cada pago a una reserva específica. Al calcular el estado de cada cargo, se ordenan cronológicamente del más viejo al más nuevo y se "consume" el pool total de pagos. Cada cargo termina con uno de tres estados:
+- **`PAID`** — totalmente cubierto.
+- **`PARTIAL`** — parcialmente cubierto (el resto va al siguiente).
+- **`PENDING`** — sin pagos aplicados.
+
+Implementado en `lib/services/agency-balance.service.ts:getAgencyBalanceDetail()`.
+
+**UI** (`/agencias-balance` + `/agencias-balance/[id]`):
+- Index lista todas las agencias con actividad + saldo neto.
+- Detail con tabs:
+  - **Pendientes** (default): sólo cargos `PARTIAL` + `PENDING`. Es lo que el operador necesita ver para pagar a fin de mes.
+  - **Historial**: todos los cargos con badges + tabla de pagos con editar notas / eliminar.
+- Click en row de cargo despliega lista de pasajeros vinculados.
+
+**Edición de pagos**: sólo las notas son editables (`PATCH /api/v1/agency-payments/:id`). Monto y fecha son inmutables — si te equivocaste, borrás y registrás de nuevo. Decisión deliberada: el monto y fecha son "datos del hecho real" que no deberían cambiar.
+
+**Saldo negativo**: si cancelás una reserva DESPUÉS de haberle pagado a la agencia, el saldo neto queda negativo y el card del header se marca en rojo. El operador lo corrige eliminando el pago original (FIFO recalcula). Solución experimental — esperamos uso real para validar.
 
 ## Reglas de negocio importantes
 
 ### Viajes
 
 - Un viaje arranca `ABIERTO`. Acepta reservas y modificaciones.
-- Cierra a `CERRADO` cuando: tripulación completa + no hay reservas `PENDIENTE` + todos los asientos reservados tienen un pasajero asignado.
-- Cerrar bloquea: PATCH/DELETE de reservas, agregar/quitar pasajeros, crear nuevas reservas.
+- Cierra a `CERRADO` cuando: capitán asignado + no hay reservas `PENDIENTE` + todos los asientos reservados tienen un pasajero asignado.
+- Cerrar bloquea: PATCH/DELETE de reservas, agregar/quitar pasajeros, crear nuevas reservas, modificar tripulación.
 - Un viaje cerrado puede reabrirse con `POST /trips/:id/open` (vuelve a `ABIERTO`).
 - El manifiesto se genera solo de viajes cerrados.
 
@@ -319,21 +377,27 @@ Cuando vendemos un boleto **operado completamente por otra agencia**, la venta N
 - Estado inicial: `PENDIENTE`.
 - Pasa a `CONFIRMADA` solo cuando todos los asientos reservados tienen pasajero vinculado.
 - `CANCELADA` es reversible (volver a PENDIENTE o CONFIRMADA).
+- `TRANSFERIDA` es **terminal** — se llega solo via `POST .../transfer` (ver "Transferir reserva a otra agencia").
 - El sheet inline solo crea comprador PERSONA. Para AGENCIA / INSTITUCION_PUBLICA, primero se crea el proveedor en `/proveedores` y se usa el flujo "Nueva reserva rápida" desde el calendario.
 - Si el comprador es PERSONA y `seatCount === 1`, el comprador se auto-vincula como pasajero al crear.
-- El precio cobrado tiene piso en `minPrice` (ya sea el de la ruta o el del override por proveedor).
+- El precio cobrado lo determina `priceType` (ver "Modelo de pricing"). El server valida que el tipo elegido sea válido para el tipo del proveedor.
 
 ### Reservas de encomiendas
 
 - Categoría obligatoria (DOCUMENTOS, ELECTRONICA, ALIMENTOS, ROPA, MEDICAMENTOS, OTROS).
 - Sin dimensiones (se eliminó por excesivo).
 - Soporta `cobrarEnDestino` para flujo "el destinatario paga cuando retira".
-- Estado doble: `reservationStatus` (PENDIENTE/CONFIRMADA/CANCELADA) + `cargoStatus` (EN TRANSITO/ENTREGADA/NO RECLAMADA/DEVUELTA).
+- Estado doble: `reservationStatus` (PENDIENTE/CONFIRMADA/CANCELADA/TRANSFERIDA) + `cargoStatus` (EN TRANSITO/ENTREGADA/NO RECLAMADA/DEVUELTA).
 
 ### Tripulantes
 
-- Hasta 3 roles por viaje: `CAPITAN`, `PRIMER_OFICIAL`, `MAQUINISTA`.
+- Tripulación variable por viaje. Dos roles en el catálogo: `CAPITAN` y `TRIPULANTE`.
+- **`CAPITAN`**: máximo 1 por viaje. Obligatorio para cerrar el viaje.
+- **`TRIPULANTE`**: 0 a 2 por viaje. Opcional.
+- Mínimo absoluto = 1 persona (el capitán). Configuraciones válidas: solo capitán; capitán + 1 tripulante; capitán + 2 tripulantes.
+- El mismo `CrewMember` no se puede asignar dos veces al mismo viaje (constraint de PK).
 - Un tripulante no se puede borrar si está asignado a algún viaje.
+- No se puede asignar a un tripulante a dos viajes que salen dentro de ±4 horas entre sí (regla anti-overlap).
 
 ### Sucursales
 
@@ -368,18 +432,15 @@ Next.js 16 rechaza objetos `Decimal` de Prisma cuando pasan de Server Component 
 
 ```ts
 import {
-  serializeRoute,
-  serializeTrip,
   serializePassengerReservation,
   serializeCargoReservation,
 } from "@/lib/serialize";
 
 // En cualquier page que pasa data al cliente
-const serializedTrips = trips.map(serializeTrip);
 const serializedReservations = reservations.map(serializePassengerReservation);
 ```
 
-Los helpers preservan el resto del shape y convierten los Decimals con `.toString()` → `string | null`.
+Los helpers preservan el resto del shape y convierten los Decimals (`priceAmount`, `commissionAmount`) con `.toString()` → `string | null`. `Route` ya no tiene Decimals propias — pasa plana sin helper.
 
 ### Auth — dual transport en una sola función
 
@@ -452,6 +513,11 @@ PRISMA_USER_CONSENT_FOR_DANGEROUS_AI_ACTION=YES npx prisma migrate deploy
 Ejemplos en `prisma/migrations/`:
 - `20260601232009_drop_empresa_provider_type` — reasignó EMPRESA → AGENCIA antes de borrar el tipo.
 - `20260602000000_reservation_referral_commission` — dropeó enum `SalesChannel` + agregó `referredByAgencyId` y `commissionAmount`.
+- `20260602100000_pricing_constants_v2` — dropeó tarifas por ruta + `ProveedorTariff` + agregó enum `PriceType` con backfill (`REFERIDOS` para reservas con `referredByAgencyId`, `NORMAL` para el resto).
+- `20260602110000_proveedor_email_required` — agregó `email` NOT NULL UNIQUE a `Proveedor` (wipe de proveedores existentes + cascada, porque no tenían email).
+- `20260602120000_transfer_to_agency` — dropeó `ExternalSale` (nunca se usó), agregó estado `TRANSFERIDA` + 3 campos snapshot en `PassengerReservation` para registrar transferencias a otra agencia.
+- `20260602130000_variable_crew` — pasó de 3 roles fijos (`CAPITAN`/`PRIMER_OFICIAL`/`MAQUINISTA`) a 2 roles variables (`CAPITAN` + `TRIPULANTE` 0-2). Dropeó el unique constraint `(tripId, crewRoleId)` y migró asignaciones legacy a `TRIPULANTE`.
+- `20260603100000_agency_payment_ledger` — creó tabla `AgencyPayment` para el libro mayor de pagos a agencias (saldos calculados al vuelo vía FIFO).
 
 ## Tests
 
@@ -474,5 +540,5 @@ Estado actual:
 - `getActiveBranch()` no reescribe el cookie cuando hace fallback a "primera sucursal" tras un id stale (impact: nil).
 - 17 warnings de ESLint informativos (React Compiler + TanStack Table upstream).
 - `CrewMember`, `Passenger`, `Proveedor` no tienen `branchId` en el schema → son globales. La spec original los pensó branch-scoped, pero la DB los trata como compartidos entre sucursales (decisión deliberada).
-- La edición de reservas existentes (`/reservas/[id]`) acepta `priceAmount` / `referredByAgencyId` / `commissionAmount` por API (PATCH), pero el formulario UI aún no expone esos campos — solo permite cambiar viaje, asientos y status.
-- Reportes y `ExternalSale` no tienen export CSV propio aún (las reservas regulares sí).
+- La edición de reservas existentes (`/reservas/[id]`) solo permite cambiar viaje, asientos y status. `priceType` / `priceAmount` quedan congelados al crear — si hace falta corregir, se cancela y se vuelve a crear.
+- Reportes no tiene export CSV propio aún (las reservas regulares sí — incluye columnas de transferencia).

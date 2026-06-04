@@ -39,6 +39,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { IconEdit, IconEye, IconTrash, IconAnchor, IconLock, IconLockOpen, IconFileCheck, IconFileText } from "@tabler/icons-react"
+import { formatDateTime } from "@/lib/format-date"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
@@ -145,16 +146,7 @@ export function TripsTable({
       id: "departureAt",
       header: "Fecha y hora",
       accessorFn: (row) => row.departureAt,
-      cell: ({ row }) => {
-        const date = new Date(row.original.departureAt)
-        return date.toLocaleString("es-AR", {
-          year: "numeric",
-          month: "short",
-          day: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
-        })
-      },
+      cell: ({ row }) => formatDateTime(row.original.departureAt),
       enableSorting: true,
     },
     {
@@ -466,15 +458,7 @@ export function TripsTable({
             <AlertDialogDescription>
               Estás a punto de eliminar el viaje del{" "}
               <strong>
-                {deletingTrip
-                  ? new Date(deletingTrip.departureAt).toLocaleString("es-AR", {
-                      year: "numeric",
-                      month: "short",
-                      day: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })
-                  : ""}
+                {deletingTrip ? formatDateTime(deletingTrip.departureAt) : ""}
               </strong>. Esta acción no se puede deshacer si no hay reservas asociadas.
             </AlertDialogDescription>
           </AlertDialogHeader>

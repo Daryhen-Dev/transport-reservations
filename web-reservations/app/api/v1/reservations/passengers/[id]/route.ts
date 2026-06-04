@@ -4,24 +4,12 @@ import { prisma } from "@/lib/db";
 import { requireAuth, requireBranchAccess } from "@/lib/api/auth";
 import { updatePassengerReservationSchema } from "@/lib/api/schemas/passenger-reservations";
 import { auditUpdate } from "@/lib/api/audit";
-import {
-  resolveTariff,
-  suggestedForProveedorType,
-} from "@/lib/services/tariff.service";
 
 const RESERVATION_DETAIL_INCLUDE = {
   trip: {
     include: {
       route: {
-        select: {
-          id: true,
-          origin: true,
-          destination: true,
-          directPriceAmount: true,
-          incomingAgencyPriceAmount: true,
-          outgoingCommissionAmount: true,
-          minPrice: true,
-        },
+        select: { id: true, origin: true, destination: true },
       },
       branch: { select: { id: true, name: true } },
       status: { select: { id: true, name: true } },
@@ -37,7 +25,7 @@ const RESERVATION_DETAIL_INCLUDE = {
       phone: true,
     },
   },
-  referredByAgency: {
+  transferredToAgency: {
     select: {
       id: true,
       firstName: true,
@@ -126,19 +114,7 @@ export async function PATCH(
     where: { id },
     include: {
       trip: {
-        select: {
-          branchId: true,
-          routeId: true,
-          status: { select: { name: true } },
-          route: {
-            select: {
-              directPriceAmount: true,
-              incomingAgencyPriceAmount: true,
-              outgoingCommissionAmount: true,
-              minPrice: true,
-            },
-          },
-        },
+        select: { branchId: true, status: { select: { name: true } } },
       },
     },
   });
@@ -164,33 +140,12 @@ export async function PATCH(
     );
   }
 
-  const {
-    seatCount,
-    tripId,
-    priceAmount,
-    referredByAgencyId: referredByAgencyIdInput,
-    commissionAmount: commissionAmountInput,
-  } = parsed.data;
+  const { seatCount, tripId } = parsed.data;
 
-  let targetRoute = existing.trip.route;
-  let targetRouteId = existing.trip.routeId;
-
-  // If switching the reservation to a different trip, validate access to the
-  // target trip's branch as well.
-  if (tripId && tripId !== existing.trip.branchId) {
+  if (tripId) {
     const targetTrip = await prisma.trip.findUnique({
       where: { id: tripId },
-      include: {
-        status: { select: { name: true } },
-        route: {
-          select: {
-            directPriceAmount: true,
-            incomingAgencyPriceAmount: true,
-            outgoingCommissionAmount: true,
-            minPrice: true,
-          },
-        },
-      },
+      select: { branchId: true, status: { select: { name: true } } },
     });
     if (!targetTrip) {
       return NextResponse.json(
@@ -211,62 +166,6 @@ export async function PATCH(
         { status: 409 }
       );
     }
-    targetRoute = targetTrip.route;
-    targetRouteId = targetTrip.routeId;
-  }
-
-  const existingReservation = await prisma.passengerReservation.findUnique({
-    where: { id },
-    select: {
-      proveedorId: true,
-      proveedor: { select: { proveedorType: { select: { name: true } } } },
-    },
-  });
-  const tariff = await resolveTariff(
-    existingReservation!.proveedorId,
-    targetRouteId,
-    targetRoute
-  );
-
-  if (priceAmount !== undefined && priceAmount < tariff.minPrice) {
-    return NextResponse.json(
-      {
-        error: {
-          code: "BAD_REQUEST",
-          message: `El precio no puede ser menor al mínimo ($${tariff.minPrice.toFixed(2)})`,
-        },
-      },
-      { status: 400 }
-    );
-  }
-
-  // Validar agencia referida cuando se manda.
-  if (referredByAgencyIdInput) {
-    const refAgency = await prisma.proveedor.findUnique({
-      where: { id: referredByAgencyIdInput },
-      include: { proveedorType: { select: { name: true } } },
-    });
-    if (!refAgency || refAgency.proveedorType.name !== "AGENCIA") {
-      return NextResponse.json(
-        {
-          error: {
-            code: "BAD_REQUEST",
-            message: "La agencia que refirió debe ser un proveedor tipo AGENCIA",
-          },
-        },
-        { status: 400 }
-      );
-    }
-  }
-
-  // Recalcular suggestedAmount si cambia el viaje (la ruta puede ser otra).
-  // Mantiene el snapshot histórico cuando no hay cambio de viaje.
-  let suggestedAmount: number | undefined;
-  if (tripId) {
-    suggestedAmount = suggestedForProveedorType(
-      existingReservation!.proveedor.proveedorType.name,
-      tariff
-    );
   }
 
   try {
@@ -275,10 +174,6 @@ export async function PATCH(
       data: {
         seatCount,
         tripId,
-        priceAmount,
-        referredByAgencyId: referredByAgencyIdInput,
-        commissionAmount: commissionAmountInput,
-        suggestedAmount,
         ...auditUpdate(authOrError.userId),
       },
       include: RESERVATION_DETAIL_INCLUDE,
@@ -348,7 +243,6 @@ export async function DELETE(
   }
 
   try {
-    // ReservationPassenger rows are deleted via onDelete: Cascade.
     await prisma.passengerReservation.delete({ where: { id } });
     return new Response(null, { status: 204 });
   } catch {

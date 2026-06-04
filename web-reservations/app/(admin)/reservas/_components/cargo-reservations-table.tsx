@@ -44,6 +44,7 @@ import { toast } from "sonner"
 import { api, ApiError } from "@/lib/api/client"
 import { CargoReservationSheet } from "./cargo-reservation-sheet"
 import { ExportCsvButton } from "@/components/export-csv-button"
+import { formatDateTime } from "@/lib/format-date"
 
 function StatusBadge({ status }: { status: string }) {
   const colors: Record<string, string> = {
@@ -136,13 +137,7 @@ export function CargoReservationsTable({
         return (
           <div className="flex flex-col">
             <span className="text-sm font-medium">
-              {new Date(trip.departureAt).toLocaleString("es-AR", {
-                year: "numeric",
-                month: "short",
-                day: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
+              {formatDateTime(trip.departureAt)}
             </span>
             <span className="text-xs text-muted-foreground">
               {trip.route.origin} → {trip.route.destination}

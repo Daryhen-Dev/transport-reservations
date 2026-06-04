@@ -27,12 +27,15 @@ import {
 } from "@/components/ui/select"
 import { formatProveedorTypeName, isPersonaType } from "@/lib/proveedor-types"
 
+const emailField = z.string().email("Email inválido")
+
 const personaSchema = z.object({
   proveedorTypeId: z.string().min(1, "Tipo de proveedor requerido"),
   firstName: z.string().min(1, "Nombre requerido"),
   lastName: z.string().min(1, "Apellido requerido"),
   documentTypeId: z.string().min(1, "Tipo de documento requerido"),
   documentNumber: z.string().min(1, "Número de documento requerido"),
+  email: emailField,
   companyName: z.string().optional(),
   phone: z.string().optional(),
 })
@@ -42,6 +45,7 @@ const empresaSchema = z.object({
   companyName: z.string().min(1, "Nombre de empresa requerido"),
   documentTypeId: z.string().min(1, "Tipo de documento requerido"),
   documentNumber: z.string().min(1, "Número de documento requerido"),
+  email: emailField,
   firstName: z.string().optional(),
   lastName: z.string().optional(),
   phone: z.string().optional(),
@@ -54,6 +58,7 @@ const baseSchema = z.object({
   companyName: z.string().optional(),
   documentTypeId: z.string().optional(),
   documentNumber: z.string().optional(),
+  email: emailField.optional(),
   phone: z.string().optional(),
 })
 
@@ -72,6 +77,7 @@ type Proveedor = {
   documentTypeId: string | null
   documentType: { id: string; name: string } | null
   documentNumber: string | null
+  email: string
   phone: string | null
 }
 
@@ -130,6 +136,7 @@ export function ProveedorSheet({
       companyName: proveedor?.companyName ?? "",
       documentTypeId: proveedor?.documentTypeId ?? "",
       documentNumber: proveedor?.documentNumber ?? "",
+      email: proveedor?.email ?? "",
       phone: proveedor?.phone ?? "",
     },
   })
@@ -147,6 +154,7 @@ export function ProveedorSheet({
         companyName: proveedor?.companyName ?? "",
         documentTypeId: proveedor?.documentTypeId ?? "",
         documentNumber: proveedor?.documentNumber ?? "",
+        email: proveedor?.email ?? "",
         phone: proveedor?.phone ?? "",
       })
     }
@@ -164,6 +172,7 @@ export function ProveedorSheet({
           companyName: data.companyName,
           documentTypeId: data.documentTypeId ?? "",
           documentNumber: data.documentNumber ?? "",
+          email: data.email ?? "",
           phone: data.phone,
         })
       }
@@ -296,6 +305,14 @@ export function ProveedorSheet({
                 <Input id="documentNumber" placeholder="V-12345678" {...register("documentNumber")} />
                 {errors.documentNumber && (
                   <p className="text-sm text-destructive">{errors.documentNumber.message}</p>
+                )}
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="email">Email</Label>
+                <Input id="email" type="email" placeholder="proveedor@ejemplo.com" {...register("email")} />
+                {errors.email && (
+                  <p className="text-sm text-destructive">{errors.email.message}</p>
                 )}
               </div>
 

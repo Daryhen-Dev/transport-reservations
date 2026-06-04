@@ -22,18 +22,10 @@ import {
   CommandSeparator,
 } from "@/components/ui/command"
 import { api, type GlobalSearchResults } from "@/lib/api/client"
+import { formatDateTimeShort } from "@/lib/format-date"
 
 type Props = {
   activeBranchId: string
-}
-
-function formatDate(d: string): string {
-  return new Date(d).toLocaleDateString("es-AR", {
-    month: "short",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  })
 }
 
 export function GlobalSearch({ activeBranchId }: Props) {
@@ -144,7 +136,7 @@ export function GlobalSearch({ activeBranchId }: Props) {
                       {r.code} · {r.proveedorName}
                     </span>
                     <span className="text-xs text-muted-foreground">
-                      {r.tripRoute} · {formatDate(r.tripDate)} · {r.seatCount} asiento(s) · {r.status}
+                      {r.tripRoute} · {formatDateTimeShort(r.tripDate)} · {r.seatCount} asiento(s) · {r.status}
                     </span>
                   </div>
                 </CommandItem>
@@ -217,7 +209,7 @@ export function GlobalSearch({ activeBranchId }: Props) {
                     <div className="flex flex-col">
                       <span className="font-medium font-mono">{m.code}</span>
                       <span className="text-xs text-muted-foreground">
-                        {m.tripRoute} · {formatDate(m.tripDate)} · {m.branchName}
+                        {m.tripRoute} · {formatDateTimeShort(m.tripDate)} · {m.branchName}
                       </span>
                     </div>
                   </CommandItem>
@@ -241,7 +233,7 @@ export function GlobalSearch({ activeBranchId }: Props) {
                     <div className="flex flex-col">
                       <span className="font-medium">{t.route}</span>
                       <span className="text-xs text-muted-foreground">
-                        {formatDate(t.departureAt)} · {t.branchName} · {t.status}
+                        {formatDateTimeShort(t.departureAt)} · {t.branchName} · {t.status}
                       </span>
                     </div>
                   </CommandItem>

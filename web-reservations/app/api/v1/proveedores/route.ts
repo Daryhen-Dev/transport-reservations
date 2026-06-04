@@ -85,6 +85,7 @@ export const POST = withAuth(async (req) => {
     contactName,
     documentTypeId,
     documentNumber,
+    email,
     phone,
   } = parsed.data;
 
@@ -118,6 +119,22 @@ export const POST = withAuth(async (req) => {
     );
   }
 
+  const emailTaken = await prisma.proveedor.findUnique({
+    where: { email },
+    select: { id: true },
+  });
+  if (emailTaken) {
+    return NextResponse.json(
+      {
+        error: {
+          code: "CONFLICT",
+          message: "Ya existe un proveedor con ese email",
+        },
+      },
+      { status: 409 }
+    );
+  }
+
   const created = await prisma.proveedor.create({
     data: {
       proveedorTypeId,
@@ -130,6 +147,7 @@ export const POST = withAuth(async (req) => {
       contactName: emptyToNull(contactName),
       documentTypeId,
       documentNumber,
+      email,
       phone: emptyToNull(phone),
     },
     include: {

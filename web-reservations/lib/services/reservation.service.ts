@@ -11,6 +11,7 @@ export async function getPassengerReservationsByBranch(branchId: string) {
         },
       },
       proveedor: { select: { id: true, firstName: true, lastName: true, companyName: true, proveedorTypeId: true } },
+      transferredToAgency: { select: { id: true, firstName: true, lastName: true, companyName: true } },
       reservationStatus: { select: { id: true, name: true } },
       _count: { select: { passengers: true } },
     },

@@ -35,8 +35,8 @@ import {
 import { IconEdit, IconTrash } from "@tabler/icons-react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { format } from "date-fns"
 import { api, ApiError } from "@/lib/api/client"
+import { formatDateNumeric } from "@/lib/format-date"
 import { CrewMemberSheet } from "./crew-member-sheet"
 import type { CrewMemberRow } from "@/lib/services/crew-member.service"
 
@@ -87,7 +87,7 @@ export function CrewMembersTable({
       header: "Nacimiento",
       cell: ({ row }) =>
         row.original.birthDate
-          ? format(new Date(row.original.birthDate), "dd/MM/yyyy")
+          ? formatDateNumeric(row.original.birthDate)
           : <span className="text-muted-foreground/60 text-xs italic">—</span>,
     },
     {

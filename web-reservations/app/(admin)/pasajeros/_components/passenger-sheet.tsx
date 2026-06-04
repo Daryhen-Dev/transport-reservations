@@ -6,8 +6,8 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { format } from "date-fns"
 import { api, ApiError } from "@/lib/api/client"
+import { formatDateForInput } from "@/lib/format-date"
 import {
   Sheet,
   SheetContent,
@@ -82,7 +82,7 @@ export function PassengerSheet({
         documentNumber: passenger.documentNumber,
         countryId: passenger.country.id,
         birthDate: passenger.birthDate
-          ? format(new Date(passenger.birthDate), "yyyy-MM-dd")
+          ? formatDateForInput(passenger.birthDate)
           : "",
         phone: passenger.phone ?? "",
       })

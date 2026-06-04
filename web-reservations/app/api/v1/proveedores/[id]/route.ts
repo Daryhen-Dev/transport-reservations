@@ -43,6 +43,7 @@ export const PATCH = withAuth<{ id: string }>(async (req, { params }) => {
     contactName,
     documentTypeId,
     documentNumber,
+    email,
     phone,
   } = parsed.data;
 
@@ -69,6 +70,24 @@ export const PATCH = withAuth<{ id: string }>(async (req, { params }) => {
     }
   }
 
+  if (email) {
+    const emailTaken = await prisma.proveedor.findFirst({
+      where: { email, NOT: { id: params.id } },
+      select: { id: true },
+    });
+    if (emailTaken) {
+      return NextResponse.json(
+        {
+          error: {
+            code: "CONFLICT",
+            message: "Ya existe un proveedor con ese email",
+          },
+        },
+        { status: 409 }
+      );
+    }
+  }
+
   try {
     const updated = await prisma.proveedor.update({
       where: { id: params.id },
@@ -84,6 +103,7 @@ export const PATCH = withAuth<{ id: string }>(async (req, { params }) => {
         contactName: emptyToNullable(contactName),
         documentTypeId,
         documentNumber,
+        email,
         phone: emptyToNullable(phone),
       },
       include: {

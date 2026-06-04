@@ -9,6 +9,7 @@ import { toast } from "sonner"
 import { IconPlus } from "@tabler/icons-react"
 import { api, ApiError } from "@/lib/api/client"
 import type { CreateCargoReservationInput } from "@/lib/api/schemas/cargo-reservations"
+import { formatDateTime } from "@/lib/format-date"
 import {
   Sheet,
   SheetContent,
@@ -35,6 +36,7 @@ const schema = z.object({
   lastName: z.string().optional(),
   documentTypeId: z.string().optional(),
   documentNumber: z.string().optional(),
+  email: z.string().email("Email inválido"),
   countryId: z.string().optional(),
   birthDate: z.string().optional(),
   // Categoría (obligatoria)
@@ -130,7 +132,7 @@ export function CargoReservationSheet({
       return
     }
 
-    if (!data.firstName || !data.lastName || !data.documentTypeId || !data.documentNumber || !data.countryId) {
+    if (!data.firstName || !data.lastName || !data.documentTypeId || !data.documentNumber || !data.countryId || !data.email) {
       toast.error("Complete todos los campos del remitente")
       return
     }
@@ -141,6 +143,7 @@ export function CargoReservationSheet({
       lastName: data.lastName,
       documentTypeId: data.documentTypeId,
       documentNumber: data.documentNumber,
+      email: data.email,
       countryId: data.countryId,
       birthDate: data.birthDate,
     }
@@ -200,14 +203,7 @@ export function CargoReservationSheet({
               <SelectContent>
                 {trips.map((trip) => (
                   <SelectItem key={trip.id} value={trip.id}>
-                    {new Date(trip.departureAt).toLocaleString("es-AR", {
-                      year: "numeric",
-                      month: "short",
-                      day: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}{" "}
-                    — {trip.route.origin} → {trip.route.destination} ({trip.branch.name})
+                    {formatDateTime(trip.departureAt)} — {trip.route.origin} → {trip.route.destination} ({trip.branch.name})
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -248,6 +244,13 @@ export function CargoReservationSheet({
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="documentNumber">Número de documento</Label>
                 <Input id="documentNumber" placeholder="V-12345678" {...register("documentNumber")} />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="email">Email</Label>
+                <Input id="email" type="email" placeholder="remitente@ejemplo.com" {...register("email")} />
+                {errors.email && (
+                  <p className="text-sm text-destructive">{errors.email.message}</p>
+                )}
               </div>
               <div className="flex flex-col gap-1.5">
                 <Label htmlFor="countryId">País</Label>

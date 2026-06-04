@@ -204,6 +204,7 @@ describe("Reservations API", () => {
           countryId,
           documentTypeId,
           documentNumber: uniqueDoc,
+          email: `prov-${Date.now()}@test.local`,
         }),
       }
     );
@@ -236,9 +237,10 @@ describe("Reservations API", () => {
             lastName: "Test",
             documentTypeId,
             documentNumber: uniqueDoc,
+            email: `buyer-${Date.now()}@test.local`,
             countryId,
           },
-          priceAmount: 30,
+          priceType: "NORMAL",
         }),
       }
     );

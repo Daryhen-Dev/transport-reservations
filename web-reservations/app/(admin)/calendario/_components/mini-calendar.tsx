@@ -3,11 +3,12 @@
 import { Calendar } from "@/components/ui/calendar";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
-import { format, startOfDay, parseISO } from "date-fns";
+import { startOfDay, parseISO } from "date-fns";
 import { es } from "date-fns/locale";
 import { IconCircleCheck, IconAlertTriangle, IconCircleX, IconUserPlus, IconPackage } from "@tabler/icons-react";
 import Link from "next/link";
 import type { CalendarDay, CalendarReservation, CalendarTrip, CalendarCargoReservation } from "@/lib/services/calendar.service";
+import { formatDateForInput, formatDateWithWeekday } from "@/lib/format-date";
 
 const STATUS_CLASSES: Record<string, string> = {
   green: "bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300",
@@ -218,13 +219,11 @@ export function MiniCalendar({
   const selectedDay = selectedDate ? dataByDate.get(selectedDate) : undefined;
   const selectedTrips = selectedDay?.trips ?? [];
 
-  const formattedDate = selectedDate
-    ? format(parseISO(selectedDate), "EEEE d 'de' MMMM yyyy", { locale: es })
-    : null;
+  const formattedDate = selectedDate ? formatDateWithWeekday(selectedDate) : null;
 
   function handleSelect(date: Date | undefined) {
     if (!date) return;
-    onDateSelect(format(date, "yyyy-MM-dd"));
+    onDateSelect(formatDateForInput(date));
   }
 
   function handleMonthChange(date: Date) {

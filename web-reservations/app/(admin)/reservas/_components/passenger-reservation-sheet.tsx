@@ -10,6 +10,13 @@ import { IconPlus, IconTrash } from "@tabler/icons-react"
 import { api, ApiError } from "@/lib/api/client"
 import type { CreatePassengerReservationInput } from "@/lib/api/schemas/passenger-reservations"
 import {
+  PRICE_LIBRE_MAX,
+  PRICE_LIBRE_MIN,
+  PRICE_NORMAL,
+  type PriceType,
+} from "@/lib/pricing"
+import { formatDateTime } from "@/lib/format-date"
+import {
   Sheet,
   SheetContent,
   SheetHeader,
@@ -36,23 +43,23 @@ const clienteSchema = z.object({
   birthDate: z.string().optional(),
 })
 
+// Solo PERSONA en este sheet → NORMAL o LIBRE (REFERIDOS requiere proveedor
+// tipo AGENCIA, que se crea en /reservas/nueva con el selector completo).
+const sheetPriceTypeSchema = z.enum(["NORMAL", "LIBRE"])
+
 const schema = z.object({
   tripId: z.string().min(1, "Debe seleccionar un viaje"),
-  // Comprador PERSONA (inline)
   firstName: z.string().optional(),
   lastName: z.string().optional(),
   documentTypeId: z.string().optional(),
   documentNumber: z.string().optional(),
+  email: z.string().email("Email inválido"),
   countryId: z.string().optional(),
   birthDate: z.string().optional(),
-  // Reservation
   seatCount: z.number().int().min(1, "Mínimo 1 asiento"),
   passengers: z.array(clienteSchema).optional(),
-  // Pricing
+  priceType: sheetPriceTypeSchema,
   priceAmount: z.number().positive("El precio debe ser mayor a 0"),
-  // Referido por agencia (opcional)
-  referredByAgencyId: z.string().optional(),
-  commissionAmount: z.number().nonnegative().optional(),
 })
 
 type FormValues = z.infer<typeof schema>
@@ -60,14 +67,7 @@ type FormValues = z.infer<typeof schema>
 type Trip = {
   id: string
   departureAt: Date
-  route: {
-    origin: string
-    destination: string
-    directPriceAmount?: unknown
-    incomingAgencyPriceAmount?: unknown
-    outgoingCommissionAmount?: unknown
-    minPrice?: unknown
-  }
+  route: { origin: string; destination: string }
   branch: { name: string }
 }
 
@@ -75,12 +75,6 @@ type DocumentType = { id: string; name: string }
 type Country = { id: string; name: string }
 type ReservationStatus = { id: string; name: string }
 type ProveedorType = { id: string; name: string }
-type Agency = {
-  id: string
-  firstName: string | null
-  lastName: string | null
-  companyName: string | null
-}
 
 type Props = {
   trips: Trip[]
@@ -88,17 +82,6 @@ type Props = {
   countries: Country[]
   reservationStatuses: ReservationStatus[]
   proveedorTypes: ProveedorType[]
-  agencies: Agency[]
-}
-
-function agencyLabel(a: Agency) {
-  return a.companyName ?? `${a.firstName ?? ""} ${a.lastName ?? ""}`.trim() ?? a.id
-}
-
-function asNumber(v: unknown): number | null {
-  if (v === null || v === undefined) return null
-  const n = typeof v === "number" ? v : Number(v)
-  return Number.isFinite(n) ? n : null
 }
 
 export function PassengerReservationSheet({
@@ -107,7 +90,6 @@ export function PassengerReservationSheet({
   countries,
   reservationStatuses,
   proveedorTypes,
-  agencies,
 }: Props) {
   const [open, setOpen] = useState(false)
   const router = useRouter()
@@ -128,22 +110,19 @@ export function PassengerReservationSheet({
     defaultValues: {
       seatCount: 1,
       passengers: [],
-      priceAmount: 0,
-      referredByAgencyId: "",
+      priceType: "NORMAL",
+      priceAmount: PRICE_NORMAL,
+      email: "",
     },
   })
 
-  const tripIdValue = watch("tripId")
-  const selectedTrip = trips.find((t) => t.id === tripIdValue)
-  // Inline siempre crea comprador PERSONA → suggested = tarifa directa.
-  const suggested = asNumber(selectedTrip?.route.directPriceAmount)
-  const minPrice = asNumber(selectedTrip?.route.minPrice)
+  const priceType = watch("priceType")
 
   useEffect(() => {
-    if (suggested !== null) {
-      setValue("priceAmount", suggested)
+    if (priceType === "NORMAL") {
+      setValue("priceAmount", PRICE_NORMAL)
     }
-  }, [suggested, setValue])
+  }, [priceType, setValue])
 
   const { fields, append, remove } = useFieldArray({
     control,
@@ -155,8 +134,9 @@ export function PassengerReservationSheet({
       reset({
         seatCount: 1,
         passengers: [],
-        priceAmount: 0,
-        referredByAgencyId: "",
+        priceType: "NORMAL",
+        priceAmount: PRICE_NORMAL,
+        email: "",
       })
     }
   }, [open, reset])
@@ -168,7 +148,7 @@ export function PassengerReservationSheet({
       return
     }
 
-    if (!data.firstName || !data.lastName || !data.documentTypeId || !data.documentNumber || !data.countryId) {
+    if (!data.firstName || !data.lastName || !data.documentTypeId || !data.documentNumber || !data.countryId || !data.email) {
       toast.error("Complete todos los campos del comprador")
       return
     }
@@ -179,13 +159,16 @@ export function PassengerReservationSheet({
       lastName: data.lastName,
       documentTypeId: data.documentTypeId,
       documentNumber: data.documentNumber,
+      email: data.email,
       countryId: data.countryId,
       birthDate: data.birthDate,
     }
 
-    if (minPrice !== null && data.priceAmount < minPrice) {
-      toast.error(`El precio no puede ser menor al mínimo ($${minPrice.toFixed(2)})`)
-      return
+    if (data.priceType === "LIBRE") {
+      if (data.priceAmount < PRICE_LIBRE_MIN || data.priceAmount > PRICE_LIBRE_MAX) {
+        toast.error(`El precio LIBRE debe estar entre $${PRICE_LIBRE_MIN} y $${PRICE_LIBRE_MAX}`)
+        return
+      }
     }
 
     try {
@@ -196,16 +179,16 @@ export function PassengerReservationSheet({
         passengers: data.passengers ?? [],
         proveedorTypeId,
         reservationStatusId: confirmadaStatus?.id,
-        priceAmount: data.priceAmount,
-        referredByAgencyId: data.referredByAgencyId || null,
-        commissionAmount: data.commissionAmount ?? null,
+        priceType: data.priceType as PriceType,
+        priceAmount: data.priceType === "LIBRE" ? data.priceAmount : undefined,
       })
       toast.success("Reserva creada exitosamente")
       reset({
         seatCount: 1,
         passengers: [],
-        priceAmount: 0,
-        referredByAgencyId: "",
+        priceType: "NORMAL",
+        priceAmount: PRICE_NORMAL,
+        email: "",
       })
       setOpen(false)
       router.refresh()
@@ -228,7 +211,6 @@ export function PassengerReservationSheet({
           <SheetTitle>Nueva reserva de pasajeros</SheetTitle>
         </SheetHeader>
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col gap-4 px-4 pb-8">
-          {/* Trip selection */}
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="tripId">Viaje</Label>
             <Select onValueChange={(val) => setValue("tripId", val)}>
@@ -238,14 +220,7 @@ export function PassengerReservationSheet({
               <SelectContent>
                 {trips.map((trip) => (
                   <SelectItem key={trip.id} value={trip.id}>
-                    {new Date(trip.departureAt).toLocaleString("es-AR", {
-                      year: "numeric",
-                      month: "short",
-                      day: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}{" "}
-                    — {trip.route.origin} → {trip.route.destination} ({trip.branch.name})
+                    {formatDateTime(trip.departureAt)} — {trip.route.origin} → {trip.route.destination} ({trip.branch.name})
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -255,9 +230,6 @@ export function PassengerReservationSheet({
             )}
           </div>
 
-          {/* Comprador (PERSONA inline). Para AGENCIA / INSTITUCION_PUBLICA
-              creá primero el proveedor en /proveedores y usá el flujo
-              rápido desde calendario. */}
           <div className="flex gap-2">
             <div className="flex flex-col gap-1.5 flex-1">
               <Label htmlFor="firstName">Nombre</Label>
@@ -287,6 +259,14 @@ export function PassengerReservationSheet({
               <Label htmlFor="documentNumber">Número de documento</Label>
               <Input id="documentNumber" placeholder="V-12345678" {...register("documentNumber")} />
             </div>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="email">Email</Label>
+            <Input id="email" type="email" placeholder="comprador@ejemplo.com" {...register("email")} />
+            {errors.email && (
+              <p className="text-sm text-destructive">{errors.email.message}</p>
+            )}
           </div>
 
           <div className="flex gap-2">
@@ -415,68 +395,45 @@ export function PassengerReservationSheet({
             ))}
           </div>
 
-          {/* Precio cobrado */}
+          {/* Tipo de precio */}
           <div className="flex flex-col gap-1.5 border-t pt-4">
+            <Label htmlFor="priceType">Tipo de precio</Label>
+            <Select
+              value={priceType}
+              onValueChange={(val) => setValue("priceType", val as "NORMAL" | "LIBRE")}
+            >
+              <SelectTrigger id="priceType" className="w-full">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="NORMAL">Normal — ${PRICE_NORMAL} fijo</SelectItem>
+                <SelectItem value="LIBRE">Libre — ${PRICE_LIBRE_MIN} a ${PRICE_LIBRE_MAX}</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="flex flex-col gap-1.5">
             <Label htmlFor="priceAmount">Precio cobrado (USD)</Label>
             <Input
               id="priceAmount"
               type="number"
               step="0.01"
-              min={0}
+              min={priceType === "LIBRE" ? PRICE_LIBRE_MIN : undefined}
+              max={priceType === "LIBRE" ? PRICE_LIBRE_MAX : undefined}
+              disabled={priceType === "NORMAL"}
               {...register("priceAmount", { valueAsNumber: true })}
             />
-            <div className="flex flex-col gap-0.5 text-xs text-muted-foreground">
-              {suggested !== null && (
-                <span>Precio sugerido: ${suggested.toFixed(2)}</span>
-              )}
-              {minPrice !== null && (
-                <span>Precio mínimo permitido: ${minPrice.toFixed(2)}</span>
-              )}
-            </div>
+            {priceType === "LIBRE" && (
+              <p className="text-xs text-muted-foreground">
+                Rango permitido: ${PRICE_LIBRE_MIN} a ${PRICE_LIBRE_MAX}.
+              </p>
+            )}
             {errors.priceAmount && (
               <p className="text-sm text-destructive">
                 {errors.priceAmount.message}
               </p>
             )}
           </div>
-
-          {/* Referida por agencia (opcional, si una agencia trajo al cliente) */}
-          <div className="flex flex-col gap-1.5 border-t pt-4">
-            <Label htmlFor="referredByAgencyId">
-              ¿Referido por agencia? (opcional)
-            </Label>
-            <Select
-              value={watch("referredByAgencyId") ?? ""}
-              onValueChange={(val) =>
-                setValue("referredByAgencyId", val === "__none__" ? "" : val)
-              }
-            >
-              <SelectTrigger id="referredByAgencyId" className="w-full">
-                <SelectValue placeholder="Sin referido" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="__none__">Sin referido</SelectItem>
-                {agencies.map((a) => (
-                  <SelectItem key={a.id} value={a.id}>
-                    {agencyLabel(a)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {watch("referredByAgencyId") && (
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="commissionAmount">Comisión a pagar (USD)</Label>
-              <Input
-                id="commissionAmount"
-                type="number"
-                step="0.01"
-                min={0}
-                {...register("commissionAmount", { valueAsNumber: true })}
-              />
-            </div>
-          )}
 
           <Button type="submit" disabled={isSubmitting}>
             {isSubmitting ? "Creando..." : "Crear reserva"}

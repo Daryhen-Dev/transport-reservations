@@ -1,7 +1,6 @@
 import { getTripSchedules } from "@/lib/services/trip-schedule.service";
 import { getRoutes } from "@/lib/services/route.service";
 import { getBranches } from "@/lib/services/branch.service";
-import { serializeRoute } from "@/lib/serialize";
 import { SchedulesTable } from "./_components/schedules-table";
 
 export default async function HorariosPage() {
@@ -15,7 +14,7 @@ export default async function HorariosPage() {
     <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
       <SchedulesTable
         data={schedules}
-        routes={routes.map(serializeRoute)}
+        routes={routes}
         branches={branches}
       />
     </div>

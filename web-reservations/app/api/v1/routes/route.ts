@@ -46,15 +46,7 @@ export const POST = withAuth(
       );
     }
 
-    const {
-      origin,
-      destination,
-      branchId,
-      directPriceAmount,
-      incomingAgencyPriceAmount,
-      outgoingCommissionAmount,
-      minPrice,
-    } = parsed.data;
+    const { origin, destination, branchId } = parsed.data;
 
     const branch = await prisma.branch.findUnique({ where: { id: branchId } });
     if (!branch) {
@@ -70,10 +62,6 @@ export const POST = withAuth(
           origin,
           destination,
           branchId,
-          directPriceAmount,
-          incomingAgencyPriceAmount,
-          outgoingCommissionAmount,
-          minPrice,
           ...auditCreate(auth.userId),
         },
         include: {

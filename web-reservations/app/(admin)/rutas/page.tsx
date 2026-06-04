@@ -1,6 +1,5 @@
 import { getRoutes } from "@/lib/services/route.service";
 import { getBranches } from "@/lib/services/branch.service";
-import { serializeRoute } from "@/lib/serialize";
 import { RoutesTable } from "./_components/routes-table";
 
 export default async function RutasPage() {
@@ -11,7 +10,7 @@ export default async function RutasPage() {
 
   return (
     <div className="flex flex-col gap-4 py-4 md:gap-6 md:py-6">
-      <RoutesTable data={routes.map(serializeRoute)} branches={branches} />
+      <RoutesTable data={routes} branches={branches} />
     </div>
   );
 }

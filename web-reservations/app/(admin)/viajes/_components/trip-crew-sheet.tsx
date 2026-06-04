@@ -3,9 +3,8 @@
 import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { format } from "date-fns"
-import { es } from "date-fns/locale"
-import { IconX, IconUserCheck } from "@tabler/icons-react"
+import { IconX, IconUserCheck, IconPlus } from "@tabler/icons-react"
+import { formatDateTimeShort } from "@/lib/format-date"
 import { Autocomplete } from "@/components/ui/autocomplete"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -27,6 +26,8 @@ import {
 } from "@/components/ui/alert-dialog"
 import { api, ApiError } from "@/lib/api/client"
 import { QuickCrewMemberSheet } from "./quick-crew-member-sheet"
+
+const MAX_TRIPULANTES = 2
 
 type CrewMemberResult = {
   id: string
@@ -78,11 +79,7 @@ function getDisplayName(m: CrewMemberResult): string {
   return `${m.firstName} ${m.lastName} — ${m.documentType.name} ${m.documentNumber}`
 }
 
-const ROLE_LABEL: Record<string, string> = {
-  CAPITAN: "Capitán",
-  PRIMER_OFICIAL: "Primer Oficial",
-  MAQUINISTA: "Maquinista",
-}
+type SlotKey = "captain" | "tripulante-new"
 
 export function TripCrewSheet({
   trip,
@@ -93,43 +90,55 @@ export function TripCrewSheet({
 }: Props) {
   const router = useRouter()
 
-  // Per-role state: selected candidate before confirming
-  const [pending, setPending] = useState<Record<string, CrewMemberResult | null>>({})
-  const [pendingDisplay, setPendingDisplay] = useState<Record<string, string>>({})
-  const [assigning, setAssigning] = useState<Record<string, boolean>>({})
+  const [pending, setPending] = useState<Record<SlotKey, CrewMemberResult | null>>({
+    captain: null,
+    "tripulante-new": null,
+  })
+  const [pendingDisplay, setPendingDisplay] = useState<Record<SlotKey, string>>({
+    captain: "",
+    "tripulante-new": "",
+  })
+  const [assigning, setAssigning] = useState<Record<SlotKey, boolean>>({
+    captain: false,
+    "tripulante-new": false,
+  })
   const [removing, setRemoving] = useState<Record<string, boolean>>({})
-  const [quickOpen, setQuickOpen] = useState<string | null>(null) // roleId for which quick sheet is open
+  const [quickOpen, setQuickOpen] = useState<SlotKey | null>(null)
   const [closeDialogOpen, setCloseDialogOpen] = useState(false)
   const [isClosing, setIsClosing] = useState(false)
 
-  if (!trip) return null
+  const captainRole = crewRoles.find((r) => r.name === "CAPITAN")
+  const tripulanteRole = crewRoles.find((r) => r.name === "TRIPULANTE")
 
-  // Build a map roleId → current assignment
-  const assignmentByRole = new Map(trip.crew.map((c) => [c.crewRoleId, c]))
+  if (!trip || !captainRole || !tripulanteRole) return null
 
-  async function handleAssign(roleId: string) {
-    const candidate = pending[roleId]
+  const captainAssignment = trip.crew.find((c) => c.crewRole.name === "CAPITAN")
+  const tripulanteAssignments = trip.crew.filter((c) => c.crewRole.name === "TRIPULANTE")
+  const canAddTripulante = tripulanteAssignments.length < MAX_TRIPULANTES
+
+  async function handleAssign(slot: SlotKey) {
+    const candidate = pending[slot]
     if (!candidate) return
+    const roleId = slot === "captain" ? captainRole!.id : tripulanteRole!.id
 
-    setAssigning((prev) => ({ ...prev, [roleId]: true }))
+    setAssigning((prev) => ({ ...prev, [slot]: true }))
     try {
       const result = await api.trips.assignCrew(trip!.id, candidate.id, {
         crewRoleId: roleId,
       })
       toast.success("Tripulante asignado")
-      setPending((prev) => ({ ...prev, [roleId]: null }))
-      setPendingDisplay((prev) => ({ ...prev, [roleId]: "" }))
+      setPending((prev) => ({ ...prev, [slot]: null }))
+      setPendingDisplay((prev) => ({ ...prev, [slot]: "" }))
       router.refresh()
 
-      // Only offer to close the trip if BOTH crew is complete AND every
-      // reserved seat already has a passenger linked.
-      if (result.allCrewAssigned && allPassengersAssigned(trip!)) {
+      // Capitán asignado + asientos completos → ofrecer cerrar.
+      if (result.hasMinimumCrew && allPassengersAssigned(trip!)) {
         setCloseDialogOpen(true)
       }
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : "Error al asignar tripulante")
     } finally {
-      setAssigning((prev) => ({ ...prev, [roleId]: false }))
+      setAssigning((prev) => ({ ...prev, [slot]: false }))
     }
   }
 
@@ -148,8 +157,8 @@ export function TripCrewSheet({
     }
   }
 
-  async function handleRemove(roleId: string, crewMemberId: string) {
-    setRemoving((prev) => ({ ...prev, [roleId]: true }))
+  async function handleRemove(crewMemberId: string) {
+    setRemoving((prev) => ({ ...prev, [crewMemberId]: true }))
     try {
       await api.trips.removeCrew(trip!.id, crewMemberId)
       toast.success("Tripulante removido")
@@ -157,17 +166,17 @@ export function TripCrewSheet({
     } catch (err) {
       toast.error(err instanceof ApiError ? err.message : "Error al quitar tripulante")
     } finally {
-      setRemoving((prev) => ({ ...prev, [roleId]: false }))
+      setRemoving((prev) => ({ ...prev, [crewMemberId]: false }))
     }
   }
 
-  function handleCreated(roleId: string, member: CrewMemberResult) {
-    setPending((prev) => ({ ...prev, [roleId]: member }))
-    setPendingDisplay((prev) => ({ ...prev, [roleId]: getDisplayName(member) }))
+  function handleCreated(slot: SlotKey, member: CrewMemberResult) {
+    setPending((prev) => ({ ...prev, [slot]: member }))
+    setPendingDisplay((prev) => ({ ...prev, [slot]: getDisplayName(member) }))
     setQuickOpen(null)
   }
 
-  const tripLabel = `${format(new Date(trip.departureAt), "d 'de' MMMM · HH:mm", { locale: es })} — ${trip.route.origin} → ${trip.route.destination}`
+  const tripLabel = `${formatDateTimeShort(trip.departureAt)} — ${trip.route.origin} → ${trip.route.destination}`
 
   return (
     <>
@@ -179,98 +188,154 @@ export function TripCrewSheet({
           </SheetHeader>
 
           <div className="flex flex-col gap-5 px-4 pt-2">
-            {crewRoles.map((role) => {
-              const assigned = assignmentByRole.get(role.id)
-              const label = ROLE_LABEL[role.name] ?? role.name
-              const hasPending = !!pending[role.id]
+            {/* Capitán — obligatorio, máximo 1 */}
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium">Capitán</span>
+                <span className="text-xs text-muted-foreground">(obligatorio)</span>
+                {captainAssignment && (
+                  <Badge variant="secondary" className="text-xs">
+                    <IconUserCheck className="mr-1 size-3" />
+                    Asignado
+                  </Badge>
+                )}
+              </div>
 
-              return (
-                <div key={role.id} className="flex flex-col gap-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium">{label}</span>
-                    {assigned && (
-                      <Badge variant="secondary" className="text-xs">
-                        <IconUserCheck className="mr-1 size-3" />
-                        Asignado
-                      </Badge>
-                    )}
-                  </div>
-
-                  {assigned ? (
-                    /* Current assignment row */
-                    <div className="flex items-center justify-between rounded-md border bg-muted/40 px-3 py-2">
-                      <span className="text-sm font-medium">
-                        {assigned.crewMember.firstName} {assigned.crewMember.lastName}
-                      </span>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="size-7 text-destructive hover:text-destructive"
-                        disabled={removing[role.id]}
-                        onClick={() => handleRemove(role.id, assigned.crewMemberId)}
-                      >
-                        <IconX className="size-3.5" />
-                      </Button>
-                    </div>
-                  ) : (
-                    /* Search + assign row */
-                    <div className="flex flex-col gap-2">
-                      <Autocomplete<CrewMemberResult>
-                        searchFn={(query) => api.crewMembers.search(query)}
-                        displayFn={getDisplayName}
-                        value={pendingDisplay[role.id] ?? ""}
-                        onSelect={(m) => {
-                          setPending((prev) => ({ ...prev, [role.id]: m }))
-                          setPendingDisplay((prev) => ({
-                            ...prev,
-                            [role.id]: m ? getDisplayName(m) : "",
-                          }))
-                        }}
-                        placeholder="Buscar tripulante..."
-                        onAddNew={() => setQuickOpen(role.id)}
-                        addNewLabel="Crear nuevo tripulante"
-                      />
-                      {hasPending && (
-                        <Button
-                          type="button"
-                          size="sm"
-                          disabled={assigning[role.id]}
-                          onClick={() => handleAssign(role.id)}
-                        >
-                          {assigning[role.id] ? "Asignando..." : "Confirmar asignación"}
-                        </Button>
-                      )}
-                    </div>
+              {captainAssignment ? (
+                <div className="flex items-center justify-between rounded-md border bg-muted/40 px-3 py-2">
+                  <span className="text-sm font-medium">
+                    {captainAssignment.crewMember.firstName} {captainAssignment.crewMember.lastName}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="size-7 text-destructive hover:text-destructive"
+                    disabled={removing[captainAssignment.crewMemberId]}
+                    onClick={() => handleRemove(captainAssignment.crewMemberId)}
+                  >
+                    <IconX className="size-3.5" />
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex flex-col gap-2">
+                  <Autocomplete<CrewMemberResult>
+                    searchFn={(query) => api.crewMembers.search(query)}
+                    displayFn={getDisplayName}
+                    value={pendingDisplay.captain}
+                    onSelect={(m) => {
+                      setPending((prev) => ({ ...prev, captain: m }))
+                      setPendingDisplay((prev) => ({
+                        ...prev,
+                        captain: m ? getDisplayName(m) : "",
+                      }))
+                    }}
+                    placeholder="Buscar tripulante..."
+                    onAddNew={() => setQuickOpen("captain")}
+                    addNewLabel="Crear nuevo tripulante"
+                  />
+                  {pending.captain && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={assigning.captain}
+                      onClick={() => handleAssign("captain")}
+                    >
+                      {assigning.captain ? "Asignando..." : "Confirmar asignación"}
+                    </Button>
                   )}
                 </div>
-              )
-            })}
+              )}
+            </div>
+
+            {/* Tripulantes — variable 0 a 2 */}
+            <div className="flex flex-col gap-2">
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium">Tripulantes</span>
+                <span className="text-xs text-muted-foreground">
+                  ({tripulanteAssignments.length}/{MAX_TRIPULANTES})
+                </span>
+              </div>
+
+              {tripulanteAssignments.map((a) => (
+                <div
+                  key={a.crewMemberId}
+                  className="flex items-center justify-between rounded-md border bg-muted/40 px-3 py-2"
+                >
+                  <span className="text-sm font-medium">
+                    {a.crewMember.firstName} {a.crewMember.lastName}
+                  </span>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="size-7 text-destructive hover:text-destructive"
+                    disabled={removing[a.crewMemberId]}
+                    onClick={() => handleRemove(a.crewMemberId)}
+                  >
+                    <IconX className="size-3.5" />
+                  </Button>
+                </div>
+              ))}
+
+              {canAddTripulante && (
+                <div className="flex flex-col gap-2">
+                  <Autocomplete<CrewMemberResult>
+                    searchFn={(query) => api.crewMembers.search(query)}
+                    displayFn={getDisplayName}
+                    value={pendingDisplay["tripulante-new"]}
+                    onSelect={(m) => {
+                      setPending((prev) => ({ ...prev, "tripulante-new": m }))
+                      setPendingDisplay((prev) => ({
+                        ...prev,
+                        "tripulante-new": m ? getDisplayName(m) : "",
+                      }))
+                    }}
+                    placeholder={
+                      tripulanteAssignments.length === 0
+                        ? "Buscar tripulante (opcional)..."
+                        : "Agregar otro tripulante..."
+                    }
+                    onAddNew={() => setQuickOpen("tripulante-new")}
+                    addNewLabel="Crear nuevo tripulante"
+                  />
+                  {pending["tripulante-new"] && (
+                    <Button
+                      type="button"
+                      size="sm"
+                      disabled={assigning["tripulante-new"]}
+                      onClick={() => handleAssign("tripulante-new")}
+                    >
+                      <IconPlus className="size-3.5" />
+                      {assigning["tripulante-new"] ? "Asignando..." : "Agregar tripulante"}
+                    </Button>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         </SheetContent>
       </Sheet>
 
-      {/* Auto-close dialog — triggered when all crew roles are filled */}
       <AlertDialog open={closeDialogOpen} onOpenChange={setCloseDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Listo para cerrar</AlertDialogTitle>
             <AlertDialogDescription>
-              Los 3 roles han sido asignados y todos los asientos
-              reservados ya tienen pasajero. ¿Deseas cerrar el viaje
-              para no aceptar más reservas?
+              Hay capitán asignado y todos los asientos reservados tienen
+              pasajero. Podés cerrar el viaje ahora o seguir agregando
+              tripulantes y cerrarlo después.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isClosing}>No, mantener abierto</AlertDialogCancel>
+            <AlertDialogCancel disabled={isClosing}>Seguir editando</AlertDialogCancel>
             <AlertDialogAction onClick={handleClose} disabled={isClosing}>
-              {isClosing ? "Cerrando..." : "Sí, cerrar viaje"}
+              {isClosing ? "Cerrando..." : "Cerrar viaje"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Quick crew creation — one sheet per role, reuses same component */}
       <QuickCrewMemberSheet
         open={!!quickOpen}
         onOpenChange={(o) => { if (!o) setQuickOpen(null) }}

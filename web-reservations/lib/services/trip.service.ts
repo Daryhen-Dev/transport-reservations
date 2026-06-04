@@ -6,15 +6,7 @@ export async function getTrips(branchId?: string) {
     where: branchId ? { branchId } : undefined,
     include: {
       route: {
-        select: {
-          id: true,
-          origin: true,
-          destination: true,
-          directPriceAmount: true,
-          incomingAgencyPriceAmount: true,
-          outgoingCommissionAmount: true,
-          minPrice: true,
-        },
+        select: { id: true, origin: true, destination: true },
       },
       branch: { select: { id: true, name: true } },
       status: { select: { id: true, name: true } },

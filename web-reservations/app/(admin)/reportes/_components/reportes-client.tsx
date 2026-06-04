@@ -76,7 +76,7 @@ export function ReportesClient({
       <div className="px-4 lg:px-6 flex flex-col gap-1">
         <h1 className="text-2xl font-semibold">Reportes de ventas</h1>
         <p className="text-sm text-muted-foreground">
-          Resumen de reservas de pasajeros por canal, agencia y ruta.
+          Resumen de reservas de pasajeros por tipo de comprador, tipo de precio y ruta.
         </p>
       </div>
 
@@ -113,17 +113,12 @@ export function ReportesClient({
       </div>
 
       {/* KPIs */}
-      <div className="px-4 lg:px-6 grid grid-cols-2 lg:grid-cols-6 gap-3">
+      <div className="px-4 lg:px-6 grid grid-cols-2 lg:grid-cols-5 gap-3">
         <Card label="Reservas" value={String(report.totals.reservationCount)} />
         <Card label="Asientos" value={String(report.totals.seatCount)} />
         <Card label="Ingresos" value={money(report.totals.revenueAmount)} />
-        <Card label="Sugerido" value={money(report.totals.suggestedAmount)} />
-        <Card
-          label="Diferencia"
-          value={money(report.totals.delta)}
-          tone={report.totals.delta < 0 ? "negative" : undefined}
-        />
         <Card label="Comisiones" value={money(report.totals.commissionAmount)} />
+        <Card label="Comisión transferencias" value={money(report.totals.transferCommissionAmount)} />
       </div>
 
       {/* Por tipo de proveedor */}
@@ -168,11 +163,53 @@ export function ReportesClient({
         </div>
       </section>
 
-      {/* Agencias que refirieron + comisión */}
+      {/* Por tipo de precio */}
       <section className="px-4 lg:px-6">
-        <h2 className="text-lg font-semibold mb-3">
-          Reservas referidas por agencia
-        </h2>
+        <h2 className="text-lg font-semibold mb-3">Por tipo de precio</h2>
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Tipo</TableHead>
+                <TableHead className="text-right">Reservas</TableHead>
+                <TableHead className="text-right">Asientos</TableHead>
+                <TableHead className="text-right">Ingresos</TableHead>
+                <TableHead className="text-right">Comisiones</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {report.byPriceType.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={5}
+                    className="text-center text-muted-foreground py-6"
+                  >
+                    Sin reservas en el rango.
+                  </TableCell>
+                </TableRow>
+              ) : (
+                report.byPriceType.map((p) => (
+                  <TableRow key={p.priceType}>
+                    <TableCell>{p.priceType}</TableCell>
+                    <TableCell className="text-right">{p.reservationCount}</TableCell>
+                    <TableCell className="text-right">{p.seatCount}</TableCell>
+                    <TableCell className="text-right">
+                      {money(p.revenueAmount)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {money(p.commissionAmount)}
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </section>
+
+      {/* Por agencia de transferencia */}
+      <section className="px-4 lg:px-6">
+        <h2 className="text-lg font-semibold mb-3">Transferidas a agencia</h2>
         <div className="rounded-md border">
           <Table>
             <TableHeader>
@@ -180,32 +217,28 @@ export function ReportesClient({
                 <TableHead>Agencia</TableHead>
                 <TableHead className="text-right">Reservas</TableHead>
                 <TableHead className="text-right">Asientos</TableHead>
-                <TableHead className="text-right">Ingresos</TableHead>
-                <TableHead className="text-right">Comisión pagada</TableHead>
+                <TableHead className="text-right">Enviado a agencia</TableHead>
+                <TableHead className="text-right">Comisión retenida</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {report.byReferralAgency.length === 0 ? (
+              {report.byTransferAgency.length === 0 ? (
                 <TableRow>
                   <TableCell
                     colSpan={5}
                     className="text-center text-muted-foreground py-6"
                   >
-                    No hubo reservas referidas en el rango.
+                    No hubo transferencias en el rango.
                   </TableCell>
                 </TableRow>
               ) : (
-                report.byReferralAgency.map((a) => (
+                report.byTransferAgency.map((a) => (
                   <TableRow key={a.agencyId}>
                     <TableCell>{a.agencyName}</TableCell>
                     <TableCell className="text-right">{a.reservationCount}</TableCell>
                     <TableCell className="text-right">{a.seatCount}</TableCell>
-                    <TableCell className="text-right">
-                      {money(a.revenueAmount)}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {money(a.commissionAmount)}
-                    </TableCell>
+                    <TableCell className="text-right">{money(a.amountSentToAgency)}</TableCell>
+                    <TableCell className="text-right">{money(a.commissionEarned)}</TableCell>
                   </TableRow>
                 ))
               )}

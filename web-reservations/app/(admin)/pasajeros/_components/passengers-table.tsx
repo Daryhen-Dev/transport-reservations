@@ -34,9 +34,8 @@ import {
 import { IconPencil, IconPlus, IconTrash } from "@tabler/icons-react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { format } from "date-fns"
-import { es } from "date-fns/locale"
 import { api, ApiError } from "@/lib/api/client"
+import { formatDateNumeric } from "@/lib/format-date"
 import { PassengerSheet } from "./passenger-sheet"
 import { ExportCsvButton } from "@/components/export-csv-button"
 
@@ -118,7 +117,7 @@ export function PassengersTable({ data, documentTypes, countries }: Props) {
       header: "Nacimiento",
       cell: ({ row }) =>
         row.original.birthDate ? (
-          format(new Date(row.original.birthDate), "dd/MM/yyyy", { locale: es })
+          formatDateNumeric(row.original.birthDate)
         ) : (
           <span className="text-muted-foreground/60 italic">—</span>
         ),

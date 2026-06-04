@@ -1,7 +1,6 @@
 import { prisma } from "@/lib/db"
 import { requireActiveBranch } from "@/lib/branch-context"
 import { getTripSchedulesByBranch } from "@/lib/services/trip-schedule.service"
-import { serializeRoute } from "@/lib/serialize"
 import { getProveedorTypes, getDocumentTypes } from "@/lib/services/proveedor.service"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
@@ -16,23 +15,14 @@ export default async function NuevaReservaPasajeroPage({
   const { fecha } = await searchParams
   const branch = await requireActiveBranch()
 
-  const [proveedorTypes, documentTypes, schedules, categorias, branches, agencies] =
+  const [proveedorTypes, documentTypes, schedules, categorias, branches, countries] =
     await Promise.all([
       getProveedorTypes(),
       getDocumentTypes(),
       getTripSchedulesByBranch(branch.id),
       prisma.cargaCategoria.findMany({ orderBy: { name: "asc" } }),
       prisma.branch.findMany({ orderBy: { name: "asc" } }),
-      prisma.proveedor.findMany({
-        where: { proveedorType: { name: "AGENCIA" } },
-        select: {
-          id: true,
-          firstName: true,
-          lastName: true,
-          companyName: true,
-        },
-        orderBy: [{ companyName: "asc" }, { firstName: "asc" }],
-      }),
+      prisma.country.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
     ])
 
   return (
@@ -48,19 +38,13 @@ export default async function NuevaReservaPasajeroPage({
       </div>
       <NuevaReservaSelector
         fecha={fecha ?? null}
-        schedules={schedules.map((s) => ({
-          id: s.id,
-          routeId: s.routeId,
-          time: s.time,
-          isActive: s.isActive,
-          route: serializeRoute(s.route),
-        }))}
+        schedules={schedules}
         proveedorTypes={proveedorTypes}
         documentTypes={documentTypes}
         branchId={branch.id}
         categorias={categorias}
         branches={branches}
-        agencies={agencies}
+        countries={countries}
       />
     </div>
   )

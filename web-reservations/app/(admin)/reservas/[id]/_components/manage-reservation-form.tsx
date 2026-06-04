@@ -1,9 +1,8 @@
 "use client"
 
 import { useState, useTransition } from "react"
-import { format } from "date-fns"
-import { es } from "date-fns/locale"
 import { toast } from "sonner"
+import { formatDate, formatDateTimeShort } from "@/lib/format-date"
 import { useRouter } from "next/navigation"
 import { IconTrash, IconLoader, IconCheck, IconX, IconRefresh } from "@tabler/icons-react"
 import { Button } from "@/components/ui/button"
@@ -347,7 +346,7 @@ export function ManageReservationForm({
                 <SelectContent>
                   {trips.map((trip) => (
                     <SelectItem key={trip.id} value={trip.id}>
-                      {format(new Date(trip.departureAt), "dd MMM yyyy HH:mm", { locale: es })} —{" "}
+                      {formatDateTimeShort(trip.departureAt)} —{" "}
                       {trip.route.origin} → {trip.route.destination}
                     </SelectItem>
                   ))}
@@ -459,21 +458,11 @@ export function ManageReservationForm({
       {/* Audit footer */}
       <div className="mt-4 flex flex-wrap items-center justify-between gap-2 border-t pt-3 text-xs text-muted-foreground">
         <span>
-          Creado el{" "}
-          {new Date(reservation.createdAt).toLocaleDateString("es-AR", {
-            year: "numeric",
-            month: "short",
-            day: "2-digit",
-          })}
+          Creado el {formatDate(reservation.createdAt)}
           {reservation.createdBy ? ` por ${reservation.createdBy.name}` : ""}
         </span>
         <span>
-          Última modificación:{" "}
-          {new Date(reservation.updatedAt).toLocaleDateString("es-AR", {
-            year: "numeric",
-            month: "short",
-            day: "2-digit",
-          })}
+          Última modificación: {formatDate(reservation.updatedAt)}
           {reservation.updatedBy ? ` por ${reservation.updatedBy.name}` : ""}
         </span>
       </div>

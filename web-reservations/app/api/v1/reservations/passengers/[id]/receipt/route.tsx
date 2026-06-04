@@ -1,6 +1,7 @@
 import { renderToBuffer, Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
 import { prisma } from "@/lib/db";
 import { withAuth } from "@/lib/api/with-auth";
+import { formatDateTime } from "@/lib/format-date";
 
 const styles = StyleSheet.create({
   page: {
@@ -96,24 +97,8 @@ const styles = StyleSheet.create({
   },
 });
 
-function formatDateTime(d: Date): string {
-  return new Date(d).toLocaleString("es-AR", {
-    year: "numeric",
-    month: "short",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
 function formatGenDate(): string {
-  return new Date().toLocaleString("es-AR", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
+  return formatDateTime(new Date());
 }
 
 function proveedorDisplay(p: {
@@ -150,13 +135,6 @@ export const GET = withAuth<{ id: string }>(async (_req, { params, auth }) => {
           documentType: { select: { name: true } },
         },
       },
-      referredByAgency: {
-        select: {
-          firstName: true,
-          lastName: true,
-          companyName: true,
-        },
-      },
       reservationStatus: { select: { name: true } },
       passengers: {
         include: {
@@ -183,8 +161,7 @@ export const GET = withAuth<{ id: string }>(async (_req, { params, auth }) => {
     return new Response("Acceso denegado", { status: 403 });
   }
 
-  const { trip, proveedor, reservationStatus, passengers, referredByAgency } =
-    reservation;
+  const { trip, proveedor, reservationStatus, passengers } = reservation;
   const priceFmt = (v: { toString(): string }) =>
     `$${Number(v.toString()).toFixed(2)}`;
   const shortCode = `PR-${reservation.id.slice(-8).toUpperCase()}`;
@@ -280,25 +257,13 @@ export const GET = withAuth<{ id: string }>(async (_req, { params, auth }) => {
             </Text>
           </View>
           <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Tipo precio:</Text>
+            <Text style={styles.infoValue}>{reservation.priceType}</Text>
+          </View>
+          <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Precio cobrado:</Text>
             <Text style={styles.infoValue}>{priceFmt(reservation.priceAmount)}</Text>
           </View>
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Precio sugerido:</Text>
-            <Text style={styles.infoValue}>{priceFmt(reservation.suggestedAmount)}</Text>
-          </View>
-          {referredByAgency && (
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Referido por:</Text>
-              <Text style={styles.infoValue}>{proveedorDisplay(referredByAgency)}</Text>
-            </View>
-          )}
-          {reservation.commissionAmount && (
-            <View style={styles.infoRow}>
-              <Text style={styles.infoLabel}>Comisión:</Text>
-              <Text style={styles.infoValue}>{priceFmt(reservation.commissionAmount)}</Text>
-            </View>
-          )}
         </View>
 
         {/* Pasajeros */}

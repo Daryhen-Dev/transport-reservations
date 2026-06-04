@@ -3,8 +3,8 @@
 import { useState, useTransition } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
-import { parseISO, format, startOfDay, isToday, isBefore } from "date-fns"
-import { es } from "date-fns/locale"
+import { parseISO, startOfDay, isToday, isBefore } from "date-fns"
+import { formatDateWithWeekday } from "@/lib/format-date"
 import { z } from "zod"
 import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -187,9 +187,7 @@ export function NuevaEncomiendaForm({
           <Label>Fecha</Label>
           <p className="text-sm font-medium">
             {fecha
-              ? capitalizeFirst(
-                  format(parseISO(fecha), "EEEE, d 'de' MMMM 'de' yyyy", { locale: es })
-                )
+              ? capitalizeFirst(formatDateWithWeekday(fecha))
               : "Sin fecha seleccionada"}
           </p>
           {isFechaInPast && (

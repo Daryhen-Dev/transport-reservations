@@ -12,6 +12,12 @@
 
 # testing
 /coverage
+/test-results
+/playwright-report
+
+# tooling / agent artifacts
+/.atl
+/.agents
 
 # next.js
 /.next/

@@ -23,6 +23,14 @@ const RESERVATION_INCLUDE = {
       phone: true,
     },
   },
+  transferredToAgency: {
+    select: {
+      id: true,
+      firstName: true,
+      lastName: true,
+      companyName: true,
+    },
+  },
   reservationStatus: { select: { id: true, name: true } },
   _count: { select: { passengers: true } },
 } as const;

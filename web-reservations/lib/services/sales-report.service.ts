@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import type { PriceType } from "@/lib/pricing";
 
 export type SalesReportFilters = {
   branchId?: string;
@@ -11,9 +12,8 @@ export type SalesReport = {
     reservationCount: number;
     seatCount: number;
     revenueAmount: number;
-    suggestedAmount: number;
-    delta: number; // sum(price - suggested) × seatCount
     commissionAmount: number;
+    transferCommissionAmount: number;
   };
   byProveedorType: Array<{
     proveedorTypeName: string;
@@ -21,13 +21,20 @@ export type SalesReport = {
     seatCount: number;
     revenueAmount: number;
   }>;
-  byReferralAgency: Array<{
-    agencyId: string;
-    agencyName: string;
+  byPriceType: Array<{
+    priceType: PriceType;
     reservationCount: number;
     seatCount: number;
     revenueAmount: number;
     commissionAmount: number;
+  }>;
+  byTransferAgency: Array<{
+    agencyId: string;
+    agencyName: string;
+    reservationCount: number;
+    seatCount: number;
+    amountSentToAgency: number;
+    commissionEarned: number;
   }>;
   byRoute: Array<{
     routeId: string;
@@ -37,16 +44,6 @@ export type SalesReport = {
     revenueAmount: number;
   }>;
 };
-
-function agencyDisplay(p: {
-  firstName: string | null;
-  lastName: string | null;
-  companyName: string | null;
-}): string {
-  const name =
-    p.companyName ?? `${p.firstName ?? ""} ${p.lastName ?? ""}`.trim();
-  return name === "" ? "—" : name;
-}
 
 export async function getSalesReport(
   filters: SalesReportFilters
@@ -72,11 +69,11 @@ export async function getSalesReport(
     select: {
       id: true,
       seatCount: true,
+      priceType: true,
       priceAmount: true,
-      suggestedAmount: true,
       commissionAmount: true,
-      referredByAgencyId: true,
-      referredByAgency: {
+      transferredToAgencyId: true,
+      transferredToAgency: {
         select: {
           id: true,
           firstName: true,
@@ -84,6 +81,9 @@ export async function getSalesReport(
           companyName: true,
         },
       },
+      transferAmountToAgency: true,
+      transferCommissionAmount: true,
+      reservationStatus: { select: { name: true } },
       proveedor: {
         select: { proveedorType: { select: { name: true } } },
       },
@@ -99,20 +99,18 @@ export async function getSalesReport(
     reservationCount: rows.length,
     seatCount: 0,
     revenueAmount: 0,
-    suggestedAmount: 0,
-    delta: 0,
     commissionAmount: 0,
+    transferCommissionAmount: 0,
   };
 
   const typeMap = new Map<
     string,
     { reservationCount: number; seatCount: number; revenueAmount: number }
   >();
-  const agencyMap = new Map<
-    string,
+  const priceTypeMap = new Map<
+    PriceType,
     {
-      agencyId: string;
-      agencyName: string;
+      priceType: PriceType;
       reservationCount: number;
       seatCount: number;
       revenueAmount: number;
@@ -129,18 +127,52 @@ export async function getSalesReport(
       revenueAmount: number;
     }
   >();
+  const transferAgencyMap = new Map<
+    string,
+    {
+      agencyId: string;
+      agencyName: string;
+      reservationCount: number;
+      seatCount: number;
+      amountSentToAgency: number;
+      commissionEarned: number;
+    }
+  >();
 
   for (const r of rows) {
     const price = Number(r.priceAmount.toString());
-    const suggested = Number(r.suggestedAmount.toString());
     const commission = r.commissionAmount
       ? Number(r.commissionAmount.toString())
       : 0;
+    const transferCommission = r.transferCommissionAmount
+      ? Number(r.transferCommissionAmount.toString())
+      : 0;
+    const transferToAgency = r.transferAmountToAgency
+      ? Number(r.transferAmountToAgency.toString())
+      : 0;
     totals.seatCount += r.seatCount;
     totals.revenueAmount += price * r.seatCount;
-    totals.suggestedAmount += suggested * r.seatCount;
-    totals.delta += (price - suggested) * r.seatCount;
     totals.commissionAmount += commission;
+    totals.transferCommissionAmount += transferCommission;
+
+    if (r.transferredToAgencyId && r.transferredToAgency) {
+      const a = r.transferredToAgency;
+      const name =
+        a.companyName ?? `${a.firstName ?? ""} ${a.lastName ?? ""}`.trim() ?? "—";
+      const bucket = transferAgencyMap.get(r.transferredToAgencyId) ?? {
+        agencyId: r.transferredToAgencyId,
+        agencyName: name === "" ? "—" : name,
+        reservationCount: 0,
+        seatCount: 0,
+        amountSentToAgency: 0,
+        commissionEarned: 0,
+      };
+      bucket.reservationCount += 1;
+      bucket.seatCount += r.seatCount;
+      bucket.amountSentToAgency += transferToAgency;
+      bucket.commissionEarned += transferCommission;
+      transferAgencyMap.set(r.transferredToAgencyId, bucket);
+    }
 
     const typeName = r.proveedor.proveedorType.name;
     const t = typeMap.get(typeName) ?? {
@@ -153,21 +185,19 @@ export async function getSalesReport(
     t.revenueAmount += price * r.seatCount;
     typeMap.set(typeName, t);
 
-    if (r.referredByAgencyId && r.referredByAgency) {
-      const a = agencyMap.get(r.referredByAgencyId) ?? {
-        agencyId: r.referredByAgencyId,
-        agencyName: agencyDisplay(r.referredByAgency),
-        reservationCount: 0,
-        seatCount: 0,
-        revenueAmount: 0,
-        commissionAmount: 0,
-      };
-      a.reservationCount += 1;
-      a.seatCount += r.seatCount;
-      a.revenueAmount += price * r.seatCount;
-      a.commissionAmount += commission;
-      agencyMap.set(r.referredByAgencyId, a);
-    }
+    const pt = r.priceType as PriceType;
+    const ptBucket = priceTypeMap.get(pt) ?? {
+      priceType: pt,
+      reservationCount: 0,
+      seatCount: 0,
+      revenueAmount: 0,
+      commissionAmount: 0,
+    };
+    ptBucket.reservationCount += 1;
+    ptBucket.seatCount += r.seatCount;
+    ptBucket.revenueAmount += price * r.seatCount;
+    ptBucket.commissionAmount += commission;
+    priceTypeMap.set(pt, ptBucket);
 
     const route = r.trip.route;
     const rk = routeMap.get(route.id) ?? {
@@ -188,8 +218,11 @@ export async function getSalesReport(
     byProveedorType: Array.from(typeMap.entries())
       .map(([proveedorTypeName, v]) => ({ proveedorTypeName, ...v }))
       .sort((a, b) => b.revenueAmount - a.revenueAmount),
-    byReferralAgency: Array.from(agencyMap.values()).sort(
+    byPriceType: Array.from(priceTypeMap.values()).sort(
       (a, b) => b.revenueAmount - a.revenueAmount
+    ),
+    byTransferAgency: Array.from(transferAgencyMap.values()).sort(
+      (a, b) => b.commissionEarned - a.commissionEarned
     ),
     byRoute: Array.from(routeMap.values()).sort(
       (a, b) => b.revenueAmount - a.revenueAmount

@@ -37,7 +37,6 @@ model ReservationStatus {
   name                  String                 @unique
   passengerReservations PassengerReservation[]
   cargoReservations     CargoReservation[]
-  externalSales         ExternalSale[]
   createdAt             DateTime               @default(now())
   updatedAt             DateTime               @updatedAt
 
@@ -65,7 +64,7 @@ model Branch {
   trips     Trip[]
   cargoReservationsAsDestination CargoReservation[] @relation("DestinationBranch")
   receivedManifests              TripManifest[]
-  externalSales                  ExternalSale[]
+  agencyPayments                 AgencyPayment[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   // Audit
@@ -116,12 +115,10 @@ model User {
   passengerReservationsUpdated PassengerReservation[] @relation("PassengerReservationUpdatedBy")
   cargoReservationsCreated     CargoReservation[]     @relation("CargoReservationCreatedBy")
   cargoReservationsUpdated     CargoReservation[]     @relation("CargoReservationUpdatedBy")
-  proveedorTariffsCreated      ProveedorTariff[]      @relation("ProveedorTariffCreatedBy")
-  proveedorTariffsUpdated      ProveedorTariff[]      @relation("ProveedorTariffUpdatedBy")
   routeSegmentsCreated         RouteSegment[]         @relation("RouteSegmentCreatedBy")
   routeSegmentsUpdated         RouteSegment[]         @relation("RouteSegmentUpdatedBy")
-  externalSalesCreated         ExternalSale[]         @relation("ExternalSaleCreatedBy")
-  externalSalesUpdated         ExternalSale[]         @relation("ExternalSaleUpdatedBy")
+  agencyPaymentsCreated        AgencyPayment[]        @relation("AgencyPaymentCreatedBy")
+  agencyPaymentsUpdated        AgencyPayment[]        @relation("AgencyPaymentUpdatedBy")
 
   @@map("usuario")
 }
@@ -147,16 +144,9 @@ model Route {
   branch      Branch        @relation(fields: [branchId], references: [id])
   trips       Trip[]
   schedules   TripSchedule[]
-  tariffs     ProveedorTariff[]
   segments    RouteSegment[]
-  // Tarifas
-  directPriceAmount         Decimal       @db.Decimal(10, 2)
-  incomingAgencyPriceAmount Decimal       @db.Decimal(10, 2)
-  outgoingCommissionAmount  Decimal       @db.Decimal(10, 2)
-  minPrice                  Decimal       @db.Decimal(10, 2)
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
-  // Audit
   createdById String?
   createdBy   User?         @relation("RouteCreatedBy", fields: [createdById], references: [id])
   updatedById String?
@@ -242,6 +232,9 @@ model Proveedor {
   proveedorTypeId  String
   proveedorType    ProveedorType @relation(fields: [proveedorTypeId], references: [id])
 
+  // Obligatorio para los 3 tipos — canal de notificaciones.
+  email String @unique
+
   // PERSONA
   firstName      String?
   lastName       String?
@@ -259,11 +252,10 @@ model Proveedor {
   phone       String?
 
   passengerReservations             PassengerReservation[] @relation("PassengerReservationProveedor")
-  referredReservations              PassengerReservation[] @relation("PassengerReservationReferral")
-  cargoReservations     CargoReservation[]
-  tariffs               ProveedorTariff[]
-  operatedSegments      RouteSegment[]         @relation("RouteSegmentOperator")
-  externalSalesAsOperator           ExternalSale[]         @relation("ExternalSaleOperator")
+  cargoReservations                 CargoReservation[]
+  operatedSegments                  RouteSegment[]         @relation("RouteSegmentOperator")
+  passengerReservationsTransferred  PassengerReservation[] @relation("PassengerReservationTransfer")
+  agencyPayments                    AgencyPayment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -294,29 +286,10 @@ model RouteSegment {
   @@map("ruta_tramo")
 }
 
-model ProveedorTariff {
-  id                        String     @id @default(cuid())
-  proveedorId               String
-  proveedor                 Proveedor  @relation(fields: [proveedorId], references: [id], onDelete: Cascade)
-  routeId                   String
-  route                     Route      @relation(fields: [routeId], references: [id], onDelete: Cascade)
-  // Overrides — null means "use the Route default".
-  directPriceAmount         Decimal?   @db.Decimal(10, 2)
-  incomingAgencyPriceAmount Decimal?   @db.Decimal(10, 2)
-  outgoingCommissionAmount  Decimal?   @db.Decimal(10, 2)
-  minPrice                  Decimal?   @db.Decimal(10, 2)
-  notes                     String?
-  isActive                  Boolean    @default(true)
-  createdAt                 DateTime   @default(now())
-  updatedAt                 DateTime   @updatedAt
-  // Audit
-  createdById               String?
-  createdBy                 User?      @relation("ProveedorTariffCreatedBy", fields: [createdById], references: [id])
-  updatedById               String?
-  updatedBy                 User?      @relation("ProveedorTariffUpdatedBy", fields: [updatedById], references: [id])
-
-  @@unique([proveedorId, routeId])
-  @@map("proveedor_tarifa")
+enum PriceType {
+  NORMAL
+  REFERIDOS
+  LIBRE
 }
 
 model PassengerReservation {
@@ -329,20 +302,24 @@ model PassengerReservation {
   reservationStatusId String
   reservationStatus   ReservationStatus      @relation(fields: [reservationStatusId], references: [id])
   passengers          ReservationPassenger[]
-  // Precio: priceAmount es lo cobrado; suggestedAmount es el snapshot del
-  // sugerido al momento de crear (se deriva del tipo de proveedor del
-  // comprador: PERSONA → tarifa directa, AGENCIA/INSTITUCION_PUBLICA →
-  // tarifa de agencia).
+  // Tarifa global fija segun tipo. NORMAL=30, REFERIDOS=30 (con comision
+  // a la agencia que es el proveedor mismo), LIBRE=20-30 editable.
+  // Ver lib/pricing.ts.
+  priceType           PriceType
   priceAmount         Decimal                @db.Decimal(10, 2)
-  suggestedAmount     Decimal                @db.Decimal(10, 2)
-  // Comisión opcional: si la venta vino referida por una agencia, registramos
-  // quién y cuánto le pagamos. Independiente del tipo del comprador.
-  referredByAgencyId  String?
-  referredByAgency    Proveedor?             @relation("PassengerReservationReferral", fields: [referredByAgencyId], references: [id])
+  // Snapshot de la comision pagada al proveedor-agencia. Solo se setea
+  // cuando priceType=REFERIDOS (deterministico: $5/pax al momento actual).
   commissionAmount    Decimal?               @db.Decimal(10, 2)
+  // Transferencia a agencia (estado TRANSFERIDA). Cuando el viaje no se
+  // realiza por pocos pasajeros, mandamos cada reserva a una agencia que
+  // si vuela. Cobramos $5/pax de comision; el resto (priceAmount × seatCount
+  // - comision) va a la agencia. Ver lib/pricing.ts.
+  transferredToAgencyId    String?
+  transferredToAgency      Proveedor?         @relation("PassengerReservationTransfer", fields: [transferredToAgencyId], references: [id])
+  transferAmountToAgency   Decimal?           @db.Decimal(10, 2)
+  transferCommissionAmount Decimal?           @db.Decimal(10, 2)
   createdAt           DateTime               @default(now())
   updatedAt           DateTime               @updatedAt
-  // Audit
   createdById         String?
   createdBy           User?                  @relation("PassengerReservationCreatedBy", fields: [createdById], references: [id])
   updatedById         String?
@@ -487,8 +464,9 @@ model TripCrew {
   crewRole     CrewRole   @relation(fields: [crewRoleId], references: [id])
   assignedAt   DateTime   @default(now())
 
+  // Sin unique en crewRoleId — CAPITAN se rige por logica de app (max 1 por
+  // viaje) y TRIPULANTE permite multiples por viaje (max 2 por logica de app).
   @@id([tripId, crewMemberId])
-  @@unique([tripId, crewRoleId])
   @@map("viaje_tripulante")
 }
 
@@ -503,45 +481,28 @@ model RefreshToken {
   @@map("refresh_token")
 }
 
-/// Ventas que NO ocupan asiento de nuestros viajes — somos intermediarios
-/// que vendemos el boleto de un viaje operado por otra agencia. El cliente
-/// vuela con `operatorAgency`, no con nosotros. priceCharged es lo que le
-/// cobramos al cliente; costPaidToOperator es lo que le pagamos al operador.
-model ExternalSale {
-  id                  String     @id @default(cuid())
-  branchId            String
-  branch              Branch     @relation(fields: [branchId], references: [id])
-  operatorAgencyId    String
-  operatorAgency      Proveedor  @relation("ExternalSaleOperator", fields: [operatorAgencyId], references: [id])
+/// Libro mayor de pagos a agencias. Cada fila representa un evento de
+/// liquidacion (parcial o total) hacia una agencia AGENCIA. El saldo se
+/// calcula al vuelo en agency-balance.service.ts: sum(cargos de reservas
+/// REFERIDOS y TRANSFERIDA) - sum(amount de pagos).
+model AgencyPayment {
+  id          String    @id @default(cuid())
+  agencyId    String
+  agency      Proveedor @relation(fields: [agencyId], references: [id])
+  amount      Decimal   @db.Decimal(10, 2)
+  paymentDate DateTime
+  notes       String?
+  branchId    String
+  branch      Branch    @relation(fields: [branchId], references: [id])
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  createdById String?
+  createdBy   User?     @relation("AgencyPaymentCreatedBy", fields: [createdById], references: [id])
+  updatedById String?
+  updatedBy   User?     @relation("AgencyPaymentUpdatedBy", fields: [updatedById], references: [id])
 
-  // Comprador final (datos sueltos, no FK — la agencia operadora ya tiene
-  // los datos completos del pasajero).
-  buyerName           String?
-  buyerDocument       String?
-  buyerPhone          String?
-
-  // Viaje (texto libre — la ruta puede no existir en nuestro catalogo).
-  departureAt         DateTime
-  origin              String
-  destination         String
-  passengerCount      Int        @default(1)
-
-  // Pricing
-  priceCharged        Decimal    @db.Decimal(10, 2)
-  costPaidToOperator  Decimal    @db.Decimal(10, 2)
-
-  reservationStatusId String
-  reservationStatus   ReservationStatus @relation(fields: [reservationStatusId], references: [id])
-
-  notes               String?
-  createdAt           DateTime   @default(now())
-  updatedAt           DateTime   @updatedAt
-  createdById         String?
-  createdBy           User?      @relation("ExternalSaleCreatedBy", fields: [createdById], references: [id])
-  updatedById         String?
-  updatedBy           User?      @relation("ExternalSaleUpdatedBy", fields: [updatedById], references: [id])
-
-  @@index([branchId, departureAt])
-  @@index([operatorAgencyId])
-  @@map("venta_externa")
+  @@index([agencyId, paymentDate])
+  @@index([branchId, paymentDate])
+  @@map("agencia_pago")
 }
+

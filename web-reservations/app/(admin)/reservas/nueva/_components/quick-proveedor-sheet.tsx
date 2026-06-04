@@ -57,6 +57,7 @@ export function QuickProveedorSheet({
   const [companyName, setCompanyName] = useState("")
   const [documentTypeId, setDocumentTypeId] = useState("")
   const [documentNumber, setDocumentNumber] = useState("")
+  const [email, setEmail] = useState("")
   const [phone, setPhone] = useState("")
 
   function resetFields() {
@@ -65,6 +66,7 @@ export function QuickProveedorSheet({
     setCompanyName("")
     setDocumentTypeId("")
     setDocumentNumber("")
+    setEmail("")
     setPhone("")
   }
 
@@ -80,8 +82,8 @@ export function QuickProveedorSheet({
     startTransition(async () => {
       try {
         const payload = isPersona
-          ? { proveedorTypeId, firstName, lastName, documentTypeId, documentNumber, phone }
-          : { proveedorTypeId, companyName, documentTypeId, documentNumber, phone }
+          ? { proveedorTypeId, firstName, lastName, documentTypeId, documentNumber, email, phone }
+          : { proveedorTypeId, companyName, documentTypeId, documentNumber, email, phone }
 
         const created = await api.proveedores.create(payload)
         toast.success("Proveedor creado exitosamente")
@@ -161,6 +163,18 @@ export function QuickProveedorSheet({
               placeholder="V-12345678"
               value={documentNumber}
               onChange={(e) => setDocumentNumber(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="qs-email">Email</Label>
+            <Input
+              id="qs-email"
+              type="email"
+              placeholder="proveedor@ejemplo.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               required
             />
           </div>

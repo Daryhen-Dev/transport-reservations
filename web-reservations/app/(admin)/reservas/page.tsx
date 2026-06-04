@@ -9,7 +9,6 @@ import { CargoReservationsTable } from "./_components/cargo-reservations-table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { prisma } from "@/lib/db";
 import {
-  serializeTrip,
   serializePassengerReservation,
   serializeCargoReservation,
 } from "@/lib/serialize";
@@ -28,7 +27,6 @@ export default async function ReservasPage() {
     proveedorTypes,
     categorias,
     branches,
-    agencies,
   ] = await Promise.all([
     getPassengerReservationsByBranch(branchId),
     getCargoReservationsByBranch(branchId),
@@ -39,20 +37,8 @@ export default async function ReservasPage() {
     prisma.proveedorType.findMany({ orderBy: { name: "asc" } }),
     prisma.cargaCategoria.findMany({ orderBy: { name: "asc" } }),
     prisma.branch.findMany({ orderBy: { name: "asc" } }),
-    prisma.proveedor.findMany({
-      where: { proveedorType: { name: "AGENCIA" } },
-      select: {
-        id: true,
-        firstName: true,
-        lastName: true,
-        companyName: true,
-      },
-      orderBy: [{ companyName: "asc" }, { firstName: "asc" }],
-    }),
   ]);
 
-  // Decimals must be serialized before they cross to client components.
-  const serializedTrips = trips.map(serializeTrip)
   const serializedPassengerReservations = passengerReservations.map(
     serializePassengerReservation
   )
@@ -92,18 +78,17 @@ export default async function ReservasPage() {
         <TabsContent value="pasajeros" className="mt-4">
           <PassengerReservationsTable
             data={serializedPassengerReservations}
-            trips={serializedTrips}
+            trips={trips}
             reservationStatuses={reservationStatuses}
             documentTypes={documentTypes}
             countries={countries}
             proveedorTypes={proveedorTypes}
-            agencies={agencies}
           />
         </TabsContent>
         <TabsContent value="encomiendas" className="mt-4">
           <CargoReservationsTable
             data={serializedCargoReservations}
-            trips={serializedTrips}
+            trips={trips}
             reservationStatuses={reservationStatuses}
             documentTypes={documentTypes}
             countries={countries}

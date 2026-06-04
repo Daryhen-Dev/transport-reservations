@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { IconSearch, IconFileText, IconDownload } from "@tabler/icons-react"
+import { formatDateTime } from "@/lib/format-date"
 
 export function ManifestLookup() {
   const [code, setCode] = useState("")
@@ -26,16 +27,6 @@ export function ManifestLookup() {
     } finally {
       setLoading(false)
     }
-  }
-
-  function formatDate(d: Date | string) {
-    return new Date(d).toLocaleString("es-AR", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-    })
   }
 
   return (
@@ -69,7 +60,7 @@ export function ManifestLookup() {
                 <Badge variant="secondary">{result.trip.status.name}</Badge>
               </div>
               <p className="text-sm text-muted-foreground mt-1">
-                {result.trip.route.origin} → {result.trip.route.destination} · {formatDate(result.trip.departureAt)}
+                {result.trip.route.origin} → {result.trip.route.destination} · {formatDateTime(result.trip.departureAt)}
               </p>
               <p className="text-xs text-muted-foreground">Sucursal: {result.trip.branch.name}</p>
             </div>

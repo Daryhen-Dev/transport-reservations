@@ -5,9 +5,16 @@ import { toCsv, csvResponse, dateStamp, type CsvColumn } from "@/lib/api/csv";
 type Row = {
   id: string;
   seatCount: number;
+  priceType: string;
   priceAmount: { toString(): string };
-  suggestedAmount: { toString(): string };
   commissionAmount: { toString(): string } | null;
+  transferredToAgency: {
+    firstName: string | null;
+    lastName: string | null;
+    companyName: string | null;
+  } | null;
+  transferAmountToAgency: { toString(): string } | null;
+  transferCommissionAmount: { toString(): string } | null;
   trip: {
     departureAt: Date;
     route: { origin: string; destination: string };
@@ -23,17 +30,12 @@ type Row = {
     documentType: { name: string } | null;
     proveedorType: { name: string };
   };
-  referredByAgency: {
-    firstName: string | null;
-    lastName: string | null;
-    companyName: string | null;
-  } | null;
   reservationStatus: { name: string };
   _count: { passengers: number };
   createdAt: Date;
 };
 
-function agencyName(a: Row["referredByAgency"]): string {
+function agencyName(a: Row["transferredToAgency"]): string {
   if (!a) return "";
   return a.companyName ?? `${a.firstName ?? ""} ${a.lastName ?? ""}`.trim();
 }
@@ -65,15 +67,11 @@ const columns: CsvColumn<Row>[] = [
   { header: "Teléfono", accessor: (r) => r.proveedor.phone ?? "" },
   { header: "Asientos", accessor: (r) => r.seatCount },
   { header: "Pasajeros asignados", accessor: (r) => r._count.passengers },
-  {
-    header: "Precio sugerido",
-    accessor: (r) => Number(r.suggestedAmount.toString()).toFixed(2),
-  },
+  { header: "Tipo precio", accessor: (r) => r.priceType },
   {
     header: "Precio cobrado",
     accessor: (r) => Number(r.priceAmount.toString()).toFixed(2),
   },
-  { header: "Referido por", accessor: (r) => agencyName(r.referredByAgency) },
   {
     header: "Comisión",
     accessor: (r) =>
@@ -82,6 +80,21 @@ const columns: CsvColumn<Row>[] = [
         : "",
   },
   { header: "Estado reserva", accessor: (r) => r.reservationStatus.name },
+  { header: "Transferida a agencia", accessor: (r) => agencyName(r.transferredToAgency) },
+  {
+    header: "Enviado a agencia",
+    accessor: (r) =>
+      r.transferAmountToAgency
+        ? Number(r.transferAmountToAgency.toString()).toFixed(2)
+        : "",
+  },
+  {
+    header: "Comisión transferencia",
+    accessor: (r) =>
+      r.transferCommissionAmount
+        ? Number(r.transferCommissionAmount.toString()).toFixed(2)
+        : "",
+  },
   {
     header: "Creado",
     accessor: (r) => r.createdAt.toISOString().slice(0, 10),
@@ -112,9 +125,18 @@ export const GET = withAuth(async (req, { auth }) => {
     select: {
       id: true,
       seatCount: true,
+      priceType: true,
       priceAmount: true,
-      suggestedAmount: true,
       commissionAmount: true,
+      transferAmountToAgency: true,
+      transferCommissionAmount: true,
+      transferredToAgency: {
+        select: {
+          firstName: true,
+          lastName: true,
+          companyName: true,
+        },
+      },
       trip: {
         select: {
           departureAt: true,
@@ -132,13 +154,6 @@ export const GET = withAuth(async (req, { auth }) => {
           documentNumber: true,
           documentType: { select: { name: true } },
           proveedorType: { select: { name: true } },
-        },
-      },
-      referredByAgency: {
-        select: {
-          firstName: true,
-          lastName: true,
-          companyName: true,
         },
       },
       reservationStatus: { select: { name: true } },
